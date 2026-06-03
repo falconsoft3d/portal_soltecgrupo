@@ -3,17 +3,38 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiLogin } from '@/lib/api';
-import { getToken, setToken } from '@/lib/auth';
+import {
+  clearRememberedCredentials,
+  getRememberedCredentials,
+  getToken,
+  saveRememberedCredentials,
+  setToken,
+} from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberPassword, setRememberPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (getToken()) router.replace('/dashboard');
+    if (getToken()) {
+      router.replace('/dashboard');
+      return;
+    }
+
+    getRememberedCredentials()
+      .then((remembered) => {
+        if (!remembered) return;
+        setLogin(remembered.login);
+        setPassword(remembered.password);
+        setRememberPassword(true);
+      })
+      .catch(() => {
+        setRememberPassword(false);
+      });
   }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -24,6 +45,12 @@ export default function LoginPage() {
     try {
       const res = await apiLogin(login.trim(), password);
       if (res.success && res.token) {
+        if (rememberPassword) {
+          await saveRememberedCredentials(login.trim(), password);
+        } else {
+          clearRememberedCredentials();
+        }
+
         setToken(res.token);
         router.push('/dashboard');
       } else {
@@ -81,6 +108,16 @@ export default function LoginPage() {
               placeholder="••••••••"
             />
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700 select-none">
+            <input
+              type="checkbox"
+              checked={rememberPassword}
+              onChange={(e) => setRememberPassword(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            Recordar contraseña (guardada cifrada en este navegador)
+          </label>
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

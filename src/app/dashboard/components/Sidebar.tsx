@@ -15,6 +15,25 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/analisis-albaran',
+    label: 'Analisis albaran',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6M8 6h8a2 2 0 012 2v8a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/estados-pago',
+    label: 'Estados de pago',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h16v16H4z" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/perfil',
     label: 'Perfil',
     icon: (

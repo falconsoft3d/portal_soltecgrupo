@@ -1,67 +1,1525 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { apiMe, PartnerInfo } from '@/lib/api';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AttendanceItem,
+  AttendanceSummaryItem,
+  apiAttendances,
+  apiInvoiced,
+  apiMaterials,
+  apiOtherExpenses,
+  apiPickingAnalyses,
+  apiPartnerAttendances,
+  apiProjects,
+  apiShipments,
+  MaterialLineItem,
+  OtherExpenseLineItem,
+  PartnerAttendanceItem,
+  PartnerAttendanceSummaryItem,
+  PickingAnalysisItem,
+  PortalProject,
+  ShipmentItem,
+  InvoicedInvoiceItem,
+} from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
+type Kpi = {
+  title: string;
+  value: string;
+  subtitle: string;
+  valueColor: string;
+  tone: string;
+};
+
+type CostCenter = {
+  name: string;
+  amount: string;
+  cte: string;
+  fact: string;
+  color: string;
+};
+
+const kpis: Kpi[] = [
+  {
+    title: 'FACTURADO',
+    value: '€2.53M',
+    subtitle: 'A origen',
+    valueColor: 'text-sky-500',
+    tone: 'bg-slate-100',
+  },
+  {
+    title: 'COSTE TOTAL CC',
+    value: '€1.81M',
+    subtitle: 'Suma todos CC',
+    valueColor: 'text-zinc-800',
+    tone: 'bg-white',
+  },
+  {
+    title: 'AAPP',
+    value: '€0.0k',
+    subtitle: 'Analisis albaran',
+    valueColor: 'text-violet-700',
+    tone: 'bg-violet-50',
+  },
+  {
+    title: 'RESULTADO',
+    value: '€722.2k',
+    subtitle: 'Fact - Coste',
+    valueColor: 'text-emerald-600',
+    tone: 'bg-lime-100',
+  },
+  {
+    title: 'MN %',
+    value: '18.5%',
+    subtitle: 'MB%− 10% ind. - umbral 10%',
+    valueColor: 'text-teal-600',
+    tone: 'bg-teal-100',
+  },
+];
+
+const costCenters: CostCenter[] = [
+  { name: 'MATERIALES', amount: '€865.0k', cte: '47.8%', fact: '34.2%', color: 'bg-sky-500' },
+  { name: 'ASISTENCIAS', amount: '€473.0k', cte: '26.2%', fact: '18.7%', color: 'bg-emerald-500' },
+  { name: 'ASIST. PARTNER', amount: '€305.0k', cte: '16.9%', fact: '12.1%', color: 'bg-rose-500' },
+  { name: 'VIAJES', amount: '€43.0k', cte: '2.4%', fact: '1.7%', color: 'bg-amber-500' },
+  { name: 'OTROS GASTOS', amount: '€121.8k', cte: '6.7%', fact: '4.8%', color: 'bg-zinc-400' },
+];
+
+const projectBarsFallback = [
+  { name: 'Nuevo H. Belen', values: [180, 120, 80] },
+  { name: 'Nuevo AZ Inver', values: [90, 65, 38] },
+  { name: 'Comercial HCCCM', values: [260, 210, 115] },
+  { name: 'Hotel Los Vientos', values: [130, 100, 70] },
+  { name: 'Centro Sol Arraya', values: [50, 35, 22] },
+  { name: 'IES San Miguel Ac...', values: [75, 60, 35] },
+  { name: 'Anillo Sol Vientos', values: [18, 12, 6] },
+];
+
+const detailRows = [
+  { name: 'Materiales', records: '16 líneas', amount: '€865.0k', color: 'text-sky-500', icon: '📦' },
+  { name: 'Asistencias', records: '11 fichajes', amount: '€473.0k', color: 'text-emerald-500', icon: '👷' },
+  { name: 'Asist. partner', records: '9 registros', amount: '€305.0k', color: 'text-rose-500', icon: '🤝' },
+  { name: 'Viajes', records: '13 desplazamientos', amount: '€43.0k', color: 'text-amber-500', icon: '🚗' },
+  { name: 'Otros gastos', records: '11 registros', amount: '€121.8k', color: 'text-zinc-500', icon: '📎' },
+];
+
+const monthOptions = [
+  'Ene',
+  'Feb',
+  'Mar',
+  'Abr',
+  'May',
+  'Jun',
+  'Jul',
+  'Ago',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dic',
+];
+
+const projectOptionsFallback = [
+  'Naves Merlin Betera - Clasica Urbana',
+  'Comercial HCCCM - Rehabilitacion',
+  'Hotel Los Vientos - Reforma',
+  'Centro Sol Arraya - Obra nueva',
+];
+
+type AttendanceData = {
+  rows: AttendanceItem[];
+  summary: AttendanceSummaryItem[];
+  totalRecords: number;
+  totalHours: number;
+  totalAmount: number;
+};
+
+type PartnerAttendanceData = {
+  rows: PartnerAttendanceItem[];
+  summary: PartnerAttendanceSummaryItem[];
+  totalRecords: number;
+  totalHours: number;
+  totalAmount: number;
+};
+
+type ShipmentData = {
+  rows: ShipmentItem[];
+  totalRecords: number;
+  totalAmount: number;
+};
+
+type OtherExpenseData = {
+  rows: OtherExpenseLineItem[];
+  totalRecords: number;
+  totalAmount: number;
+};
+
+type MaterialData = {
+  rows: MaterialLineItem[];
+  totalRecords: number;
+  totalAmount: number;
+};
+
+type InvoicedData = {
+  rows: InvoicedInvoiceItem[];
+  totalRecords: number;
+  totalAmount: number;
+};
+
+type AappData = {
+  rows: PickingAnalysisItem[];
+  totalRecords: number;
+  totalAmount: number;
+};
+
+function formatK(value: number): string {
+  return `€${(value / 1000).toFixed(1)}k`;
+}
+
+function formatCompactAmount(value: number): string {
+  if (Math.abs(value) >= 1000) return formatK(value);
+  return `€${value.toFixed(2)}`;
+}
+
+function formatCurrency(value: number): string {
+  return `${value.toFixed(2)} €`;
+}
+
+function formatAxisAmount(value: number): string {
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  return `${Math.round(value)}`;
+}
+
+function formatHours(value: number): string {
+  return `${value.toFixed(0)} h`;
+}
+
+function formatDateTime(value: string | false): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+function formatDate(value: string | false): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function extractProjectCode(nameRaw: string): string {
+  const name = (nameRaw || '').trim();
+  const bracketMatch = name.match(/\[([^\]]+)\]/);
+  if (bracketMatch?.[1]) {
+    return bracketMatch[1].trim();
+  }
+  const dashParts = name.split(' - ');
+  if (dashParts[0]) {
+    return dashParts[0].trim();
+  }
+  return name || 'S/N';
+}
+
 export default function DashboardPage() {
-  const [partner, setPartner] = useState<PartnerInfo | null>(null);
+  const currentYear = new Date().getFullYear();
+  const [filterMode, setFilterMode] = useState<'origin' | 'month'>('origin');
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(6);
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
+  const [projects, setProjects] = useState<PortalProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | 'all'>('all');
+  const [materialsExpanded, setMaterialsExpanded] = useState(false);
+  const [selectedMaterialCategory, setSelectedMaterialCategory] = useState('Todas');
+  const [materialsViewMode, setMaterialsViewMode] = useState<'individual' | 'grouped'>('individual');
+  const [expandedMaterialGroups, setExpandedMaterialGroups] = useState<string[]>([]);
+  const [attendanceExpanded, setAttendanceExpanded] = useState(false);
+  const [attendanceData, setAttendanceData] = useState<AttendanceData>({
+    rows: [],
+    summary: [],
+    totalRecords: 0,
+    totalHours: 0,
+    totalAmount: 0,
+  });
+  const [partnerAttendanceExpanded, setPartnerAttendanceExpanded] = useState(false);
+  const [partnerAttendanceData, setPartnerAttendanceData] = useState<PartnerAttendanceData>({
+    rows: [],
+    summary: [],
+    totalRecords: 0,
+    totalHours: 0,
+    totalAmount: 0,
+  });
+  const [shipmentExpanded, setShipmentExpanded] = useState(false);
+  const [shipmentData, setShipmentData] = useState<ShipmentData>({ rows: [], totalRecords: 0, totalAmount: 0 });
+  const [otherExpenseExpanded, setOtherExpenseExpanded] = useState(false);
+  const [otherExpenseData, setOtherExpenseData] = useState<OtherExpenseData>({ rows: [], totalRecords: 0, totalAmount: 0 });
+  const [materialData, setMaterialData] = useState<MaterialData>({ rows: [], totalRecords: 0, totalAmount: 0 });
+  const [invoicedExpanded, setInvoicedExpanded] = useState(false);
+  const [invoicedData, setInvoicedData] = useState<InvoicedData>({ rows: [], totalRecords: 0, totalAmount: 0 });
+  const [aappExpanded, setAappExpanded] = useState(false);
+  const [aappData, setAappData] = useState<AappData>({ rows: [], totalRecords: 0, totalAmount: 0 });
+  const [isRefreshingIndicators, setIsRefreshingIndicators] = useState(true);
+  const refreshRequestRef = useRef(0);
+
+  const selectedMonth = useMemo(() => monthOptions[selectedMonthIndex], [selectedMonthIndex]);
+  const selectedMonthNumber = useMemo(() => selectedMonthIndex + 1, [selectedMonthIndex]);
+  const selectedMonthsKey = useMemo(() => selectedMonths.slice().sort((a, b) => a - b).join(','), [selectedMonths]);
+  const selectedMonthLabels = useMemo(
+    () => selectedMonths.slice().sort((a, b) => a - b).map((month) => monthOptions[month - 1]),
+    [selectedMonths],
+  );
+  const requestMonth = useMemo(() => {
+    if (filterMode === 'origin') return selectedMonthNumber;
+    if (selectedMonths.length === 0) return selectedMonthNumber;
+    return undefined;
+  }, [filterMode, selectedMonthNumber, selectedMonths]);
+  const requestMonths = useMemo(() => {
+    if (filterMode !== 'month' || selectedMonths.length === 0) return undefined;
+    return selectedMonths;
+  }, [filterMode, selectedMonths]);
+  const selectedMonthsButtonLabel = useMemo(() => {
+    if (selectedMonths.length === 0) return selectedMonth;
+    if (selectedMonths.length === 1) return selectedMonthLabels[0];
+    return `${selectedMonthLabels[0]} +${selectedMonths.length - 1}`;
+  }, [selectedMonth, selectedMonths.length, selectedMonthLabels]);
+  const yearOptions = useMemo(
+    () => [currentYear - 2, currentYear - 1, currentYear, currentYear + 1],
+    [currentYear],
+  );
+  const totalCostAmount = useMemo(
+    () =>
+      materialData.totalAmount +
+      attendanceData.totalAmount +
+      partnerAttendanceData.totalAmount +
+      shipmentData.totalAmount +
+      otherExpenseData.totalAmount,
+    [
+      materialData.totalAmount,
+      attendanceData.totalAmount,
+      partnerAttendanceData.totalAmount,
+      shipmentData.totalAmount,
+      otherExpenseData.totalAmount,
+    ],
+  );
+
+  const resultAmount = useMemo(
+    () => invoicedData.totalAmount - totalCostAmount + aappData.totalAmount,
+    [invoicedData.totalAmount, totalCostAmount, aappData.totalAmount],
+  );
+
+  const marginPercent = useMemo(() => {
+    if (!invoicedData.totalAmount) return 0;
+    return (resultAmount / invoicedData.totalAmount) * 100;
+  }, [invoicedData.totalAmount, resultAmount]);
+
+  const kpisView = useMemo(
+    () =>
+      kpis.map((kpi) =>
+        kpi.title === 'FACTURADO'
+          ? {
+              ...kpi,
+              value: formatCompactAmount(invoicedData.totalAmount),
+              subtitle: filterMode === 'origin' ? 'A origen' : 'Mes/año seleccionado',
+            }
+          : kpi.title === 'COSTE TOTAL CC'
+            ? {
+                ...kpi,
+                value: formatCompactAmount(totalCostAmount),
+                subtitle: 'Suma 5 centros de coste',
+              }
+          : kpi.title === 'AAPP'
+            ? {
+                ...kpi,
+                value: formatCompactAmount(aappData.totalAmount),
+                subtitle: filterMode === 'origin' ? 'Acumulado mes' : 'Seleccion mes',
+              }
+          : kpi.title === 'RESULTADO'
+            ? {
+                ...kpi,
+                value: formatCompactAmount(resultAmount),
+                subtitle: 'Fact - Coste',
+                valueColor: resultAmount >= 0 ? 'text-emerald-600' : 'text-rose-600',
+              }
+          : kpi.title === 'MN %'
+            ? {
+                ...kpi,
+                value: `${marginPercent.toFixed(1)}%`,
+                subtitle: 'Margen sobre facturado',
+                valueColor: marginPercent >= 0 ? 'text-teal-600' : 'text-rose-600',
+              }
+          : kpi,
+      ),
+    [filterMode, invoicedData.totalAmount, totalCostAmount, aappData.totalAmount, resultAmount, marginPercent],
+  );
+
+  const costCentersView = useMemo(
+    () =>
+      costCenters.map((center) =>
+        center.name === 'MATERIALES'
+          ? {
+              ...center,
+              amount: formatCompactAmount(materialData.totalAmount),
+            }
+          : center.name === 'ASISTENCIAS'
+          ? {
+              ...center,
+              amount: formatCompactAmount(attendanceData.totalAmount),
+            }
+          : center.name === 'ASIST. PARTNER'
+            ? {
+                ...center,
+                amount: formatCompactAmount(partnerAttendanceData.totalAmount),
+              }
+          : center.name === 'VIAJES'
+            ? {
+                ...center,
+                amount: formatCompactAmount(shipmentData.totalAmount),
+              }
+          : center.name === 'OTROS GASTOS'
+            ? {
+                ...center,
+                amount: formatCompactAmount(otherExpenseData.totalAmount),
+              }
+          : center,
+      ),
+    [
+      attendanceData.totalAmount,
+      partnerAttendanceData.totalAmount,
+      shipmentData.totalAmount,
+      otherExpenseData.totalAmount,
+      materialData.totalAmount,
+    ],
+  );
+
+  const donutData = useMemo(
+    () => [
+      { label: 'Materiales', value: materialData.totalAmount, color: '#38bdf8' },
+      { label: 'Asistencias', value: attendanceData.totalAmount, color: '#10b981' },
+      { label: 'Asist. partner', value: partnerAttendanceData.totalAmount, color: '#f43f5e' },
+      { label: 'Viajes', value: shipmentData.totalAmount, color: '#f59e0b' },
+      { label: 'Otros gastos', value: otherExpenseData.totalAmount, color: '#9ca3af' },
+    ],
+    [
+      materialData.totalAmount,
+      attendanceData.totalAmount,
+      partnerAttendanceData.totalAmount,
+      shipmentData.totalAmount,
+      otherExpenseData.totalAmount,
+    ],
+  );
+
+  const projectBars = useMemo(() => {
+    const buckets = new Map<string, { name: string; attendance: number; partner: number; shipment: number; other: number }>();
+
+    const addBucket = (nameRaw: string, key: 'attendance' | 'partner' | 'shipment' | 'other', amount: number) => {
+      const name = nameRaw || 'Sin proyecto';
+      const current = buckets.get(name) || { name, attendance: 0, partner: 0, shipment: 0, other: 0 };
+      current[key] += amount;
+      buckets.set(name, current);
+    };
+
+    attendanceData.rows.forEach((row) => addBucket(row.project_name, 'attendance', row.total));
+    partnerAttendanceData.rows.forEach((row) => addBucket(row.project_name, 'partner', row.total));
+    shipmentData.rows.forEach((row) => addBucket(row.destination_project || row.origin_project, 'shipment', row.total));
+    otherExpenseData.rows.forEach((row) => addBucket(row.project_name, 'other', row.total));
+
+    const dynamicBars = Array.from(buckets.values())
+      .map((item) => ({ ...item, total: item.attendance + item.partner + item.shipment + item.other }))
+      .sort((a, b) => b.total - a.total);
+
+    if (dynamicBars.length > 0) return dynamicBars;
+
+    return projectBarsFallback.map((item) => ({
+      name: item.name,
+      attendance: item.values[0],
+      partner: item.values[1],
+      shipment: item.values[2],
+      other: 0,
+      total: item.values[0] + item.values[1] + item.values[2],
+    }));
+  }, [attendanceData.rows, partnerAttendanceData.rows, shipmentData.rows, otherExpenseData.rows]);
+
+  const maxProjectTotal = useMemo(() => {
+    if (projectBars.length === 0) return 1;
+    return Math.max(...projectBars.map((item) => item.total), 1);
+  }, [projectBars]);
+
+  const materialCategories = useMemo(() => {
+    const summary = new Map<string, { category: string; total: number; count: number }>();
+    materialData.rows.forEach((line) => {
+      const category = line.category_name || 'Sin categoría';
+      const current = summary.get(category) || { category, total: 0, count: 0 };
+      current.total += line.subtotal;
+      current.count += 1;
+      summary.set(category, current);
+    });
+    return Array.from(summary.values()).sort((a, b) => b.total - a.total);
+  }, [materialData.rows]);
+
+  const materialRowsView = useMemo(() => {
+    if (selectedMaterialCategory === 'Todas') return materialData.rows;
+    return materialData.rows.filter((line) => (line.category_name || 'Sin categoría') === selectedMaterialCategory);
+  }, [materialData.rows, selectedMaterialCategory]);
+
+  const materialTotalView = useMemo(() => {
+    if (selectedMaterialCategory === 'Todas') return materialData.totalAmount;
+    return materialRowsView.reduce((sum, line) => sum + line.subtotal, 0);
+  }, [selectedMaterialCategory, materialData.totalAmount, materialRowsView]);
+
+  const materialCountView = useMemo(() => {
+    if (selectedMaterialCategory === 'Todas') return materialData.totalRecords;
+    return materialRowsView.length;
+  }, [selectedMaterialCategory, materialData.totalRecords, materialRowsView]);
+
+  const groupedMaterialRows = useMemo(() => {
+    const grouped = new Map<string, {
+      key: string;
+      category: string;
+      product: string;
+      qty: number;
+      subtotal: number;
+      lines: MaterialLineItem[];
+    }>();
+
+    materialRowsView.forEach((line) => {
+      const category = line.category_name || 'Sin categoría';
+      const product = line.product_name || 'Sin producto';
+      const key = `${category}||${product}`;
+      const current = grouped.get(key) || {
+        key,
+        category,
+        product,
+        qty: 0,
+        subtotal: 0,
+        lines: [],
+      };
+      current.qty += line.qty || 0;
+      current.subtotal += line.subtotal || 0;
+      current.lines.push(line);
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped.values()).sort((a, b) => b.subtotal - a.subtotal);
+  }, [materialRowsView]);
+
+  const groupedMaterialCountView = useMemo(() => groupedMaterialRows.length, [groupedMaterialRows]);
 
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    apiMe(token).then((res) => {
-      if (res.success && res.partner) setPartner(res.partner);
+
+    apiProjects(token).then((res) => {
+      if (!res.success || !res.projects?.length) return;
+      setProjects(res.projects);
     });
   }, []);
 
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    const requestId = refreshRequestRef.current + 1;
+    refreshRequestRef.current = requestId;
+
+    Promise.all([
+      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiPickingAnalyses(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiMaterials(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiAttendances(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiShipments(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+    ])
+      .then(([invoicedRes, aappRes, materialsRes, attendanceRes, partnerAttendanceRes, shipmentsRes, otherExpensesRes]) => {
+        if (refreshRequestRef.current !== requestId) return;
+
+        setInvoicedData({
+          rows: invoicedRes.success ? invoicedRes.invoices ?? [] : [],
+          totalRecords: invoicedRes.success ? invoicedRes.total_records ?? 0 : 0,
+          totalAmount: invoicedRes.success ? invoicedRes.total_amount ?? 0 : 0,
+        });
+
+        setAappData({
+          rows: aappRes.success ? aappRes.analyses ?? [] : [],
+          totalRecords: aappRes.success ? aappRes.total_records ?? 0 : 0,
+          totalAmount: aappRes.success ? aappRes.total_amount ?? 0 : 0,
+        });
+
+        setMaterialData({
+          rows: materialsRes.success ? materialsRes.lines ?? [] : [],
+          totalRecords: materialsRes.success ? materialsRes.total_records ?? 0 : 0,
+          totalAmount: materialsRes.success ? materialsRes.total_amount ?? 0 : 0,
+        });
+
+        setAttendanceData({
+          rows: attendanceRes.success ? attendanceRes.attendances ?? [] : [],
+          summary: attendanceRes.success ? attendanceRes.employee_summary ?? [] : [],
+          totalRecords: attendanceRes.success ? attendanceRes.total_records ?? 0 : 0,
+          totalHours: attendanceRes.success ? attendanceRes.total_hours ?? 0 : 0,
+          totalAmount: attendanceRes.success ? attendanceRes.total_amount ?? 0 : 0,
+        });
+
+        setPartnerAttendanceData({
+          rows: partnerAttendanceRes.success ? partnerAttendanceRes.partner_attendances ?? [] : [],
+          summary: partnerAttendanceRes.success ? partnerAttendanceRes.partner_summary ?? [] : [],
+          totalRecords: partnerAttendanceRes.success ? partnerAttendanceRes.total_records ?? 0 : 0,
+          totalHours: partnerAttendanceRes.success ? partnerAttendanceRes.total_hours ?? 0 : 0,
+          totalAmount: partnerAttendanceRes.success ? partnerAttendanceRes.total_amount ?? 0 : 0,
+        });
+
+        setShipmentData({
+          rows: shipmentsRes.success ? shipmentsRes.shipments ?? [] : [],
+          totalRecords: shipmentsRes.success ? shipmentsRes.total_records ?? 0 : 0,
+          totalAmount: shipmentsRes.success ? shipmentsRes.total_amount ?? 0 : 0,
+        });
+
+        setOtherExpenseData({
+          rows: otherExpensesRes.success ? otherExpensesRes.lines ?? [] : [],
+          totalRecords: otherExpensesRes.success ? otherExpensesRes.total_records ?? 0 : 0,
+          totalAmount: otherExpensesRes.success ? otherExpensesRes.total_amount ?? 0 : 0,
+        });
+      })
+      .catch(() => {
+        if (refreshRequestRef.current !== requestId) return;
+        setInvoicedData({ rows: [], totalRecords: 0, totalAmount: 0 });
+        setAappData({ rows: [], totalRecords: 0, totalAmount: 0 });
+        setMaterialData({ rows: [], totalRecords: 0, totalAmount: 0 });
+        setAttendanceData({ rows: [], summary: [], totalRecords: 0, totalHours: 0, totalAmount: 0 });
+        setPartnerAttendanceData({ rows: [], summary: [], totalRecords: 0, totalHours: 0, totalAmount: 0 });
+        setShipmentData({ rows: [], totalRecords: 0, totalAmount: 0 });
+        setOtherExpenseData({ rows: [], totalRecords: 0, totalAmount: 0 });
+      })
+      .finally(() => {
+        if (refreshRequestRef.current !== requestId) return;
+        setIsRefreshingIndicators(false);
+      });
+  }, [selectedProjectId, requestMonth, requestMonths, selectedMonthsKey, filterMode]);
+
   return (
-    <div className="space-y-5">
-      {/* Bienvenida */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-800">
-          Bienvenido{partner ? `, ${partner.name}` : ''}
-        </h2>
-        {partner && (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600">
-            <div className="bg-gray-50 rounded-xl px-4 py-3">
-              <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
-                Usuario
-              </span>
-              {partner.login}
-            </div>
-            <div className="bg-gray-50 rounded-xl px-4 py-3">
-              <span className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
-                Correo
-              </span>
-              {partner.email || '—'}
+    <section className="mx-auto max-w-[1360px] space-y-4 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 text-slate-900 shadow-lg shadow-slate-200/70 md:p-5">
+      <article className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2 text-lg font-bold text-blue-700">
+            <span className="inline-flex h-4 w-4 rounded-sm bg-slate-900" />
+            <span>ObraControl</span>
+          </div>
+
+          <div className="lg:w-auto lg:min-w-[220px]">
+            <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+              <span className="mr-2 font-semibold text-slate-600">Mes:</span>
+              <input
+                type="range"
+                min={0}
+                max={11}
+                step={1}
+                value={selectedMonthIndex}
+                onChange={(event) => {
+                  setIsRefreshingIndicators(true);
+                  setSelectedMonthIndex(Number(event.target.value));
+                }}
+                className="mx-2 h-1 w-28 accent-slate-700 align-middle"
+              />
+              <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">{selectedMonth}</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+          <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            <span className="sr-only">Obra</span>
+            <select
+              value={String(selectedProjectId)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setIsRefreshingIndicators(true);
+                setSelectedProjectId(value === 'all' ? 'all' : Number(value));
+              }}
+              disabled={isRefreshingIndicators}
+              className="w-full bg-transparent font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="all">Todas las obras</option>
+              {(projects.length ? projects : []).map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.display_name}
+                </option>
+              ))}
+              {projects.length === 0 && (
+                projectOptionsFallback.map((project) => (
+                  <option key={project} value="">
+                    {project}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => {
+              setIsRefreshingIndicators(true);
+              setFilterMode('origin');
+            }}
+            className={`rounded-lg border px-4 py-2 text-sm font-bold ${
+              filterMode === 'origin'
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-slate-300 bg-white text-slate-700'
+            }`}
+          >
+            A origen
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsRefreshingIndicators(true);
+              setFilterMode('month');
+              setSelectedMonths((current) => {
+                if (current.includes(selectedMonthNumber)) {
+                  return current.filter((month) => month !== selectedMonthNumber);
+                }
+                return [...current, selectedMonthNumber].sort((a, b) => a - b);
+              });
+            }}
+            className={`rounded-lg border px-4 py-2 text-sm font-bold ${
+              filterMode === 'month'
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-slate-300 bg-white text-slate-700'
+            }`}
+            title={selectedMonthLabels.length ? `Meses seleccionados: ${selectedMonthLabels.join(', ')}` : undefined}
+          >
+            {selectedMonthsButtonLabel}
+          </button>
+          <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
+            <span className="sr-only">Año</span>
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(Number(event.target.value))}
+              className="bg-transparent px-2 py-1 outline-none"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+      </article>
+
+      <div className="relative">
+        {isRefreshingIndicators && (
+          <div className="absolute inset-0 z-30 flex items-start justify-center rounded-xl bg-white/70 pt-8 backdrop-blur-[1px]">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" />
+              Actualizando indicadores...
             </div>
           </div>
         )}
-      </div>
 
-      {/* Acceso rápido */}
-      <div className="bg-white rounded-2xl shadow p-6">
-        <h3 className="text-base font-semibold text-gray-700 mb-4">Acceso rápido</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Link
-            href="/dashboard/perfil"
-            className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 transition group"
-          >
-            <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+        <div className={`space-y-4 ${isRefreshingIndicators ? 'pointer-events-none' : ''}`}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {kpisView.map((kpi) =>
+              kpi.title === 'FACTURADO' ? (
+                <article key={kpi.title} className={`rounded-xl border border-slate-200 p-0 shadow-sm ${kpi.tone}`}>
+                  <button
+                    type="button"
+                    onClick={() => setInvoicedExpanded((current) => !current)}
+                    className="flex w-full items-center justify-between p-4 text-left"
+                  >
+                    <div>
+                      <p className="text-xs font-bold tracking-wide text-slate-500">{kpi.title}</p>
+                      <p className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
+                      <p className="text-sm font-medium text-slate-500">{kpi.subtitle}</p>
+                    </div>
+                    <span className="text-lg text-slate-400">{invoicedExpanded ? '⌄' : '›'}</span>
+                  </button>
+                </article>
+              ) : kpi.title === 'AAPP' ? (
+                <article key={kpi.title} className={`rounded-xl border border-slate-200 p-0 shadow-sm ${kpi.tone}`}>
+                  <button
+                    type="button"
+                    onClick={() => setAappExpanded((current) => !current)}
+                    className="flex w-full items-center justify-between p-4 text-left"
+                  >
+                    <div>
+                      <p className="text-xs font-bold tracking-wide text-slate-500">{kpi.title}</p>
+                      <p className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
+                      <p className="text-sm font-medium text-slate-500">{kpi.subtitle}</p>
+                    </div>
+                    <span className="text-lg text-slate-400">{aappExpanded ? '⌄' : '›'}</span>
+                  </button>
+                </article>
+              ) : (
+                <article key={kpi.title} className={`rounded-xl border border-slate-200 p-4 shadow-sm ${kpi.tone}`}>
+                  <p className="text-xs font-bold tracking-wide text-slate-500">{kpi.title}</p>
+                  <p className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
+                  <p className="text-sm font-medium text-slate-500">{kpi.subtitle}</p>
+                </article>
+              ),
+            )}
+          </div>
+
+          {invoicedExpanded && (
+            <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">Facturas de venta</h3>
+                <p className="text-xs font-semibold text-slate-500">
+                  {invoicedData.totalRecords} registros · {formatCurrency(invoicedData.totalAmount)}
+                </p>
+              </div>
+
+              <div className="max-h-72 overflow-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2">Factura</th>
+                      <th className="px-3 py-2">Fecha</th>
+                      <th className="px-3 py-2">Cliente</th>
+                      <th className="px-3 py-2">Proyecto</th>
+                      <th className="px-3 py-2 text-right whitespace-nowrap">Importe</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoicedData.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-3 py-4 text-center text-sm text-slate-500">
+                          No hay facturas para el filtro actual.
+                        </td>
+                      </tr>
+                    ) : (
+                      invoicedData.rows.map((invoice) => (
+                        <tr key={invoice.id} className="border-t border-slate-100 text-slate-700">
+                          <td className="px-3 py-2 font-semibold text-slate-700">{invoice.name || `INV-${invoice.id}`}</td>
+                          <td className="px-3 py-2">{formatDate(invoice.date)}</td>
+                          <td className="px-3 py-2">{invoice.customer_name || '—'}</td>
+                          <td className="px-3 py-2">{invoice.project_name || '—'}</td>
+                          <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(invoice.total)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          )}
+
+          {aappExpanded && (
+            <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">Analisis de albaran (AAPP)</h3>
+                <p className="text-xs font-semibold text-slate-500">
+                  {aappData.totalRecords} registros · {formatCurrency(aappData.totalAmount)}
+                </p>
+              </div>
+
+              <div className="max-h-72 overflow-auto rounded-lg border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
+                    <tr>
+                      <th className="px-3 py-2">Código</th>
+                      <th className="px-3 py-2">Proyecto</th>
+                      <th className="px-3 py-2">Fecha fin</th>
+                      <th className="px-3 py-2">Creado</th>
+                      <th className="px-3 py-2">Fecha creación</th>
+                      <th className="px-3 py-2">Nota</th>
+                      <th className="px-3 py-2 text-right">Costo</th>
+                      <th className="px-3 py-2 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aappData.rows.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-3 py-4 text-center text-sm text-slate-500">
+                          No hay análisis para el filtro actual.
+                        </td>
+                      </tr>
+                    ) : (
+                      aappData.rows.map((analysis) => (
+                        <tr key={analysis.id} className="border-t border-slate-100 text-slate-700">
+                          <td className="px-3 py-2 font-semibold">{analysis.name}</td>
+                          <td className="px-3 py-2">{analysis.project_name || '—'}</td>
+                          <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
+                          <td className="px-3 py-2">{analysis.created_by || '—'}</td>
+                          <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
+                          <td className="px-3 py-2">{analysis.line_note || '—'}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.line_cost || 0)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.line_subtotal || analysis.subtotal || 0)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          )}
+
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-600">
+              Centros de coste - {filterMode === 'origin' ? 'a origen' : 'mes seleccionado'} - clic para ver registros
+            </p>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+              {costCentersView.map((center) => (
+                <article key={center.name} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+                  <p className="text-xs font-bold text-slate-600">{center.name}</p>
+                  <p className={`mt-0.5 text-3xl font-extrabold ${center.color.replace('bg-', 'text-')}`}>{center.amount}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">{center.cte} cte • {center.fact} fact.</p>
+                  <div className="mt-1.5 h-0.5 overflow-hidden rounded bg-slate-200">
+                    <div className={`h-full ${center.color}`} style={{ width: center.cte }} />
+                  </div>
+                </article>
+              ))}
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-800">Mi Perfil</p>
-              <p className="text-xs text-gray-400">Cambiar contraseña</p>
-            </div>
-          </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-1">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">Distribución CC</h3>
+              <div className="mt-4 flex justify-center pb-2">
+                <div className="relative h-52 w-52">
+                  <svg viewBox="0 0 200 200" className="h-52 w-52 -rotate-90">
+                    {(() => {
+                      const radius = 56;
+                      const circumference = 2 * Math.PI * radius;
+                      const total = Math.max(donutData.reduce((sum, item) => sum + item.value, 0), 1);
+                      let offset = 0;
+
+                      return donutData.map((item) => {
+                        const segment = (item.value / total) * circumference;
+                        const circle = (
+                          <circle
+                            key={item.label}
+                            cx="100"
+                            cy="100"
+                            r={radius}
+                            fill="none"
+                            stroke={item.color}
+                            strokeWidth="30"
+                            strokeDasharray={`${segment} ${circumference}`}
+                            strokeDashoffset={-offset}
+                            style={{ transition: 'stroke-dasharray 700ms ease' }}
+                          />
+                        );
+                        offset += segment;
+                        return circle;
+                      });
+                    })()}
+                  </svg>
+                  <div className="absolute inset-[34%] rounded-full border border-slate-200 bg-white" />
+                </div>
+              </div>
+            </article>
+
+            <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">CC origen por obra</h3>
+              <div className="mt-4 flex h-56 gap-2">
+                <div className="flex w-10 flex-col justify-between py-2 text-right text-[10px] font-semibold text-slate-500">
+                  <span>{formatAxisAmount(maxProjectTotal)}</span>
+                  <span>{formatAxisAmount(maxProjectTotal * 0.75)}</span>
+                  <span>{formatAxisAmount(maxProjectTotal * 0.5)}</span>
+                  <span>{formatAxisAmount(maxProjectTotal * 0.25)}</span>
+                  <span>0</span>
+                </div>
+
+                <div className="flex-1 overflow-x-auto rounded-lg border border-slate-200">
+                  <div
+                    className="h-full bg-[linear-gradient(to_right,rgba(148,163,184,0.25)_1px,transparent_1px),linear-gradient(to_top,rgba(148,163,184,0.25)_1px,transparent_1px)] bg-[size:40px_100%,100%_44px] p-3"
+                    style={{ width: `${Math.max(projectBars.length * 92, 720)}px` }}
+                  >
+                  <div className="flex h-full items-end gap-2">
+                    {projectBars.map((project, index) => (
+                      <div key={project.name} className="flex h-full w-[84px] shrink-0 flex-col items-center justify-end gap-2">
+                        <div className="flex h-full w-8 flex-col justify-end overflow-hidden rounded border border-slate-300/80 bg-white/50">
+                          <div
+                            className="bg-zinc-400"
+                            style={{
+                              height: `${(project.other / maxProjectTotal) * 100}%`,
+                              transition: `height 600ms ease ${index * 45}ms`,
+                            }}
+                          />
+                          <div
+                            className="bg-amber-500"
+                            style={{
+                              height: `${(project.shipment / maxProjectTotal) * 100}%`,
+                              transition: `height 600ms ease ${index * 45 + 40}ms`,
+                            }}
+                          />
+                          <div
+                            className="bg-rose-500"
+                            style={{
+                              height: `${(project.partner / maxProjectTotal) * 100}%`,
+                              transition: `height 600ms ease ${index * 45 + 80}ms`,
+                            }}
+                          />
+                          <div
+                            className="bg-sky-500"
+                            style={{
+                              height: `${(project.attendance / maxProjectTotal) * 100}%`,
+                              transition: `height 600ms ease ${index * 45 + 120}ms`,
+                            }}
+                          />
+                        </div>
+                        <p className="w-full truncate text-center text-[10px] font-medium text-slate-500" title={project.name}>
+                          {extractProjectCode(project.name)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div className="space-y-2 pt-1">
+        {detailRows.map((row) => {
+          if (row.name === 'Materiales') {
+            return (
+              <article key={row.name} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setMaterialsExpanded((current) => !current)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
+                    <div>
+                      <p className="text-xl font-extrabold tracking-tight text-sky-500">Materiales</p>
+                      <p className="text-sm text-slate-500">{materialData.totalRecords} líneas</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <p className="text-3xl font-extrabold text-sky-500">{formatCompactAmount(materialData.totalAmount)}</p>
+                    <span className="text-slate-400">{materialsExpanded ? '⌄' : '›'}</span>
+                  </div>
+                </button>
+
+                {materialsExpanded && (
+                  <div className="border-t border-slate-200 px-4 pb-3 pt-2">
+                    <p className="pb-2 text-sm font-semibold text-slate-600">
+                      Resumen · {materialsViewMode === 'individual' ? `${materialCountView} líneas` : `${groupedMaterialCountView} grupos`} · {formatCurrency(materialTotalView)}
+                    </p>
+
+                    <div className="mb-2 overflow-x-auto">
+                      <div className="inline-flex min-w-full gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMaterialCategory('Todas')}
+                          className={`rounded px-2 py-1 text-xs font-semibold ${
+                            selectedMaterialCategory === 'Todas'
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          Todas {formatCurrency(materialData.totalAmount)}
+                        </button>
+                        {materialCategories.map((item) => (
+                          <button
+                            key={item.category}
+                            type="button"
+                            onClick={() => setSelectedMaterialCategory(item.category)}
+                            className={`whitespace-nowrap rounded px-2 py-1 text-xs font-semibold ${
+                              selectedMaterialCategory === item.category
+                                ? 'bg-sky-100 text-sky-700'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {item.category} {formatCurrency(item.total)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mb-2 flex items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
+                      <div className="inline-flex items-center gap-1">
+                        <span className="text-xs font-semibold text-slate-500">Vista:</span>
+                        <button
+                          type="button"
+                          onClick={() => setMaterialsViewMode('individual')}
+                          className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                            materialsViewMode === 'individual' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          Individual
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMaterialsViewMode('grouped')}
+                          className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                            materialsViewMode === 'grouped' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          Agrupado
+                        </button>
+                      </div>
+                      <p className="text-xs font-semibold text-slate-500">
+                        {materialsViewMode === 'individual' ? `${materialCountView} líneas` : `${groupedMaterialCountView} grupos`} · {formatCurrency(materialTotalView)} total
+                      </p>
+                    </div>
+
+                    <div className="overflow-x-auto rounded border border-slate-200">
+                      {materialsViewMode === 'individual' ? (
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-slate-100 text-slate-600">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left">Categoría</th>
+                              <th className="px-2 py-1.5 text-left">Fecha</th>
+                              <th className="px-2 py-1.5 text-left">Albarán</th>
+                              <th className="px-2 py-1.5 text-left">Referencia</th>
+                              <th className="px-2 py-1.5 text-left">Producto</th>
+                              <th className="px-2 py-1.5 text-left">Descripción</th>
+                              <th className="px-2 py-1.5 text-right">Cantidad</th>
+                              <th className="px-2 py-1.5 text-right">Coste</th>
+                              <th className="px-2 py-1.5 text-right">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {materialRowsView.map((line) => (
+                              <tr key={line.id} className="border-t border-slate-200">
+                                <td className="px-2 py-1.5 text-slate-600">{line.category_name || 'Sin categoría'}</td>
+                                <td className="px-2 py-1.5 text-slate-600">{formatDateTime(line.date)}</td>
+                                <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{line.picking_name || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{line.reference || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-700">{line.product_name || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-600">{line.description || '—'}</td>
+                                <td className="px-2 py-1.5 text-right text-slate-700">{line.qty.toFixed(2)} {line.uom_name || ''}</td>
+                                <td className="px-2 py-1.5 text-right text-slate-700 whitespace-nowrap">{formatCurrency(line.unit_price)}</td>
+                                <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${line.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                                  {formatCurrency(line.subtotal)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="border-t border-slate-300 bg-slate-100">
+                            <tr>
+                              <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                              <td className="px-2 py-1.5" colSpan={7} />
+                              <td className="px-2 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">{formatCurrency(materialTotalView)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      ) : (
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-slate-100 text-slate-600">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left">Categoría</th>
+                              <th className="px-2 py-1.5 text-left">Producto</th>
+                              <th className="px-2 py-1.5 text-right">Cantidad</th>
+                              <th className="px-2 py-1.5 text-right">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {groupedMaterialRows.map((group) => {
+                              const expanded = expandedMaterialGroups.includes(group.key);
+                              return (
+                                <Fragment key={group.key}>
+                                  <tr
+                                    className="cursor-pointer border-t border-slate-200 hover:bg-slate-50"
+                                    onClick={() => {
+                                      setExpandedMaterialGroups((current) =>
+                                        current.includes(group.key)
+                                          ? current.filter((key) => key !== group.key)
+                                          : [...current, group.key],
+                                      );
+                                    }}
+                                  >
+                                    <td className="px-2 py-1.5 text-slate-600">{group.category}</td>
+                                    <td className="px-2 py-1.5 font-semibold text-slate-700">{expanded ? '⌄' : '›'} {group.product}</td>
+                                    <td className="px-2 py-1.5 text-right text-slate-700">{group.qty.toFixed(2)}</td>
+                                    <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${group.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                                      {formatCurrency(group.subtotal)}
+                                    </td>
+                                  </tr>
+                                  {expanded && (
+                                    <tr className="border-t border-slate-100 bg-slate-50/80">
+                                      <td colSpan={4} className="px-2 py-2">
+                                        <div className="overflow-x-auto rounded border border-slate-200 bg-white">
+                                          <table className="min-w-full text-xs">
+                                            <thead className="bg-slate-100 text-slate-600">
+                                              <tr>
+                                                <th className="px-2 py-1 text-left">Fecha</th>
+                                                <th className="px-2 py-1 text-left">Albarán</th>
+                                                <th className="px-2 py-1 text-left">Referencia</th>
+                                                <th className="px-2 py-1 text-left">Descripción</th>
+                                                <th className="px-2 py-1 text-right">Cantidad</th>
+                                                <th className="px-2 py-1 text-right">Coste</th>
+                                                <th className="px-2 py-1 text-right">Subtotal</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {group.lines.map((line) => (
+                                                <tr key={line.id} className="border-t border-slate-100">
+                                                  <td className="px-2 py-1 text-slate-600">{formatDateTime(line.date)}</td>
+                                                  <td className="px-2 py-1 text-slate-600 whitespace-nowrap">{line.picking_name || '—'}</td>
+                                                  <td className="px-2 py-1 text-slate-600 whitespace-nowrap">{line.reference || '—'}</td>
+                                                  <td className="px-2 py-1 text-slate-600">{line.description || '—'}</td>
+                                                  <td className="px-2 py-1 text-right text-slate-700">{line.qty.toFixed(2)} {line.uom_name || ''}</td>
+                                                  <td className="px-2 py-1 text-right text-slate-700 whitespace-nowrap">{formatCurrency(line.unit_price)}</td>
+                                                  <td className={`px-2 py-1 text-right font-semibold whitespace-nowrap ${line.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                                                    {formatCurrency(line.subtotal)}
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </Fragment>
+                              );
+                            })}
+                          </tbody>
+                          <tfoot className="border-t border-slate-300 bg-slate-100">
+                            <tr>
+                              <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                              <td className="px-2 py-1.5" />
+                              <td className="px-2 py-1.5 text-right font-bold text-slate-800">{groupedMaterialRows.reduce((sum, item) => sum + item.qty, 0).toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">{formatCurrency(materialTotalView)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          }
+
+          if (row.name === 'Otros gastos') {
+            return (
+              <article key={row.name} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setOtherExpenseExpanded((current) => !current)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
+                    <div>
+                      <p className="text-xl font-extrabold tracking-tight text-zinc-500">Otros gastos</p>
+                      <p className="text-sm text-slate-500">{otherExpenseData.totalRecords} registros</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <p className="text-3xl font-extrabold text-zinc-500">{formatCompactAmount(otherExpenseData.totalAmount)}</p>
+                    <span className="text-slate-400">{otherExpenseExpanded ? '⌄' : '›'}</span>
+                  </div>
+                </button>
+
+                {otherExpenseExpanded && (
+                  <div className="border-t border-slate-200 px-4 pb-3 pt-2">
+                    <p className="pb-2 text-sm font-semibold text-slate-600">
+                      Resumen · {otherExpenseData.totalRecords} registros · {formatCurrency(otherExpenseData.totalAmount)}
+                    </p>
+
+                    <div className="overflow-x-auto rounded border border-slate-200">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-100 text-slate-600">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Gasto</th>
+                            <th className="px-2 py-1.5 text-left">Fecha</th>
+                            <th className="px-2 py-1.5 text-left">Proyecto</th>
+                            <th className="px-2 py-1.5 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {otherExpenseData.rows.map((line) => (
+                            <tr key={line.id} className="border-t border-slate-200">
+                              <td className="px-2 py-1.5 text-slate-700">{line.expense_name || `OE-${line.expense_id}`}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{line.date || '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{line.project_name || '—'}</td>
+                              <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(line.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="border-t border-slate-300 bg-slate-100">
+                          <tr>
+                            <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                            <td className="px-2 py-1.5" colSpan={2} />
+                            <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(otherExpenseData.totalAmount)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          }
+
+          if (row.name === 'Viajes') {
+            return (
+              <article key={row.name} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setShipmentExpanded((current) => !current)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
+                    <div>
+                      <p className="text-xl font-extrabold tracking-tight text-amber-500">Viajes</p>
+                      <p className="text-sm text-slate-500">{shipmentData.totalRecords} desplazamientos</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                      <p className="text-3xl font-extrabold text-amber-500">{formatCompactAmount(shipmentData.totalAmount)}</p>
+                    <span className="text-slate-400">{shipmentExpanded ? '⌄' : '›'}</span>
+                  </div>
+                </button>
+
+                {shipmentExpanded && (
+                  <div className="border-t border-slate-200 px-4 pb-3 pt-2">
+                    <p className="pb-2 text-sm font-semibold text-slate-600">
+                      Resumen · {shipmentData.totalRecords} desplazamientos · {formatCurrency(shipmentData.totalAmount)}
+                    </p>
+
+                    <div className="overflow-x-auto rounded border border-slate-200">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-100 text-slate-600">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Código</th>
+                            <th className="px-2 py-1.5 text-left">Fecha</th>
+                            <th className="px-2 py-1.5 text-left">Origen</th>
+                            <th className="px-2 py-1.5 text-left">Destino</th>
+                            <th className="px-2 py-1.5 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shipmentData.rows.map((shipment) => (
+                            <tr key={shipment.id} className="border-t border-slate-200">
+                              <td className="px-2 py-1.5 text-slate-700">{shipment.name}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(shipment.date)}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{shipment.origin_project || '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{shipment.destination_project || '—'}</td>
+                              <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(shipment.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="border-t border-slate-300 bg-slate-100">
+                          <tr>
+                            <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                            <td className="px-2 py-1.5" colSpan={3} />
+                            <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(shipmentData.totalAmount)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          }
+
+          if (row.name !== 'Asistencias' && row.name !== 'Asist. partner') {
+            const isShipmentRow = row.name === 'Viajes';
+            const isOtherExpenseRow = row.name === 'Otros gastos';
+            const isMaterialRow = row.name === 'Materiales';
+            const rowRecords = isShipmentRow
+              ? `${shipmentData.totalRecords} desplazamientos`
+              : isOtherExpenseRow
+                ? `${otherExpenseData.totalRecords} registros`
+                : isMaterialRow
+                  ? `${materialData.totalRecords} líneas`
+                : row.records;
+            const rowAmount = isShipmentRow
+              ? formatCompactAmount(shipmentData.totalAmount)
+              : isOtherExpenseRow
+                ? formatCompactAmount(otherExpenseData.totalAmount)
+                : isMaterialRow
+                  ? formatCompactAmount(materialData.totalAmount)
+                : row.amount;
+
+            return (
+              <button
+                key={row.name}
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
+                  <div>
+                    <p className={`text-xl font-extrabold tracking-tight ${row.color}`}>{row.name}</p>
+                    <p className="text-sm text-slate-500">{rowRecords}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <p className={`text-3xl font-extrabold ${row.color}`}>{rowAmount}</p>
+                  <span className="text-slate-400">›</span>
+                </div>
+              </button>
+            );
+          }
+
+          if (row.name === 'Asist. partner') {
+            return (
+              <article key={row.name} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setPartnerAttendanceExpanded((current) => !current)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
+                    <div>
+                      <p className="text-xl font-extrabold tracking-tight text-rose-500">Asist. partner</p>
+                      <p className="text-sm text-slate-500">{partnerAttendanceData.totalRecords} registros</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                      <p className="text-3xl font-extrabold text-rose-500">{formatCompactAmount(partnerAttendanceData.totalAmount)}</p>
+                    <span className="text-slate-400">{partnerAttendanceExpanded ? '⌄' : '›'}</span>
+                  </div>
+                </button>
+
+                {partnerAttendanceExpanded && (
+                  <div className="border-t border-slate-200 px-4 pb-3 pt-2">
+                    <p className="pb-2 text-sm font-semibold text-slate-600">
+                      Resumen · {partnerAttendanceData.totalRecords} registros · {formatCurrency(partnerAttendanceData.totalAmount)}
+                    </p>
+
+                    <div className="space-y-1 pb-2">
+                      {partnerAttendanceData.summary.slice(0, 5).map((item) => (
+                        <div key={item.partner_name} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm">
+                          <span className="font-semibold text-slate-700">{item.partner_name}</span>
+                          <span className="text-slate-600">{formatHours(item.hours)} · {formatCurrency(item.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="overflow-x-auto rounded border border-slate-200">
+                      <table className="min-w-full text-xs">
+                        <thead className="bg-slate-100 text-slate-600">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left">Partner</th>
+                            <th className="px-2 py-1.5 text-left">Entrada</th>
+                            <th className="px-2 py-1.5 text-left">Salida</th>
+                            <th className="px-2 py-1.5 text-right">Horas</th>
+                            <th className="px-2 py-1.5 text-right">€/H</th>
+                            <th className="px-2 py-1.5 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {partnerAttendanceData.rows.map((attendance) => (
+                            <tr key={attendance.id} className="border-t border-slate-200">
+                              <td className="px-2 py-1.5 text-slate-700">{attendance.partner_name}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
+                              <td className="px-2 py-1.5 text-right text-slate-700">{attendance.hours.toFixed(1)} h</td>
+                              <td className="px-2 py-1.5 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
+                              <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="border-t border-slate-300 bg-slate-100">
+                          <tr>
+                            <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                            <td className="px-2 py-1.5" colSpan={2} />
+                            <td className="px-2 py-1.5 text-right font-bold text-slate-700">{partnerAttendanceData.totalHours.toFixed(1)} h</td>
+                            <td className="px-2 py-1.5" />
+                            <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(partnerAttendanceData.totalAmount)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </article>
+            );
+          }
+
+          return (
+            <article key={row.name} className="rounded-xl border border-slate-200 bg-white shadow-sm">
+              <button
+                type="button"
+                onClick={() => setAttendanceExpanded((current) => !current)}
+                className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
+                  <div>
+                    <p className="text-xl font-extrabold tracking-tight text-emerald-500">Asistencias</p>
+                    <p className="text-sm text-slate-500">{attendanceData.totalRecords} fichajes</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <p className="text-3xl font-extrabold text-emerald-500">{formatCompactAmount(attendanceData.totalAmount)}</p>
+                  <span className="text-slate-400">{attendanceExpanded ? '⌄' : '›'}</span>
+                </div>
+              </button>
+
+              {attendanceExpanded && (
+                <div className="border-t border-slate-200 px-4 pb-3 pt-2">
+                  <p className="pb-2 text-sm font-semibold text-slate-600">
+                    Resumen · {attendanceData.totalRecords} fichajes · {formatCurrency(attendanceData.totalAmount)}
+                  </p>
+
+                  <div className="space-y-1 pb-2">
+                    {attendanceData.summary.slice(0, 5).map((item) => (
+                      <div key={item.employee_name} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm">
+                        <span className="font-semibold text-slate-700">{item.employee_name}</span>
+                        <span className="text-slate-600">{formatHours(item.hours)} · {formatCurrency(item.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="overflow-x-auto rounded border border-slate-200">
+                    <table className="min-w-full text-xs">
+                      <thead className="bg-slate-100 text-slate-600">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left">Empleado</th>
+                          <th className="px-2 py-1.5 text-left">Entrada</th>
+                          <th className="px-2 py-1.5 text-left">Salida</th>
+                          <th className="px-2 py-1.5 text-right">Horas</th>
+                          <th className="px-2 py-1.5 text-right">€/H</th>
+                          <th className="px-2 py-1.5 text-right">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attendanceData.rows.map((attendance) => (
+                          <tr key={attendance.id} className="border-t border-slate-200">
+                            <td className="px-2 py-1.5 text-slate-700">{attendance.employee_name}</td>
+                            <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
+                            <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
+                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.hours.toFixed(1)} h</td>
+                            <td className="px-2 py-1.5 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="border-t border-slate-300 bg-slate-100">
+                        <tr>
+                          <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                          <td className="px-2 py-1.5" colSpan={2} />
+                          <td className="px-2 py-1.5 text-right font-bold text-slate-700">{attendanceData.totalHours.toFixed(1)} h</td>
+                          <td className="px-2 py-1.5" />
+                          <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(attendanceData.totalAmount)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })}
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
