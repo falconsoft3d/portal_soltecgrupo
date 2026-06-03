@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { utils, writeFileXLSX } from 'xlsx';
 import {
   AttendanceItem,
   AttendanceSummaryItem,
@@ -266,6 +267,7 @@ export default function DashboardPage() {
   const [aappExpanded, setAappExpanded] = useState(false);
   const [aappData, setAappData] = useState<AappData>({ rows: [], totalRecords: 0, totalAmount: 0 });
   const [isRefreshingIndicators, setIsRefreshingIndicators] = useState(true);
+  const [isExportingCenters, setIsExportingCenters] = useState(false);
   const refreshRequestRef = useRef(0);
 
   const selectedMonth = useMemo(() => monthOptions[selectedMonthIndex], [selectedMonthIndex]);
@@ -602,6 +604,102 @@ export default function DashboardPage() {
       });
   }, [selectedProjectId, requestMonth, requestMonths, selectedMonthsKey, filterMode]);
 
+  async function handleExportCostCentersXlsx() {
+    const hasData =
+      materialData.rows.length > 0 ||
+      attendanceData.rows.length > 0 ||
+      partnerAttendanceData.rows.length > 0 ||
+      shipmentData.rows.length > 0 ||
+      otherExpenseData.rows.length > 0;
+
+    if (!hasData) return;
+
+    setIsExportingCenters(true);
+    try {
+      const workbook = utils.book_new();
+
+      const materialsRows = materialData.rows.map((line) => ({
+        ID: line.id,
+        Categoria: line.category_name || 'Sin categoría',
+        Fecha: formatDateTime(line.date),
+        Albaran: line.picking_name || '—',
+        Referencia: line.reference || '—',
+        Proyecto: line.project_name || '—',
+        Producto: line.product_name || '—',
+        Descripcion: line.description || '—',
+        Cantidad: line.qty,
+        Unidad: line.uom_name || '',
+        Coste: line.unit_price,
+        Subtotal: line.subtotal,
+      }));
+
+      const attendancesRows = attendanceData.rows.map((row) => ({
+        ID: row.id,
+        Empleado: row.employee_name || '—',
+        Proyecto: row.project_name || '—',
+        Entrada: formatDateTime(row.check_in),
+        Salida: formatDateTime(row.check_out),
+        Horas: row.hours,
+        'EUR por hora': row.hour_cost,
+        Total: row.total,
+      }));
+
+      const partnerAttendancesRows = partnerAttendanceData.rows.map((row) => ({
+        ID: row.id,
+        Partner: row.partner_name || '—',
+        Proyecto: row.project_name || '—',
+        Entrada: formatDateTime(row.check_in),
+        Salida: formatDateTime(row.check_out),
+        Horas: row.hours,
+        'EUR por hora': row.hour_cost,
+        Total: row.total,
+      }));
+
+      const shipmentsRows = shipmentData.rows.map((row) => ({
+        ID: row.id,
+        Codigo: row.name || `SHIP-${row.id}`,
+        Fecha: formatDateTime(row.date),
+        Origen: row.origin_project || '—',
+        Destino: row.destination_project || '—',
+        Total: row.total,
+      }));
+
+      const otherExpensesRows = otherExpenseData.rows.map((row) => ({
+        ID: row.id,
+        Gasto: row.expense_name || `OE-${row.expense_id}`,
+        Fecha: formatDate(row.date),
+        Proyecto: row.project_name || '—',
+        Total: row.total,
+      }));
+
+      const summaryRows = [
+        { Centro: 'Materiales', Registros: materialData.totalRecords, Importe: materialData.totalAmount },
+        { Centro: 'Asistencias', Registros: attendanceData.totalRecords, Importe: attendanceData.totalAmount },
+        { Centro: 'Asist. partner', Registros: partnerAttendanceData.totalRecords, Importe: partnerAttendanceData.totalAmount },
+        { Centro: 'Viajes', Registros: shipmentData.totalRecords, Importe: shipmentData.totalAmount },
+        { Centro: 'Otros gastos', Registros: otherExpenseData.totalRecords, Importe: otherExpenseData.totalAmount },
+      ];
+
+      utils.book_append_sheet(workbook, utils.json_to_sheet(summaryRows), 'Resumen');
+      utils.book_append_sheet(workbook, utils.json_to_sheet(materialsRows), 'Materiales');
+      utils.book_append_sheet(workbook, utils.json_to_sheet(attendancesRows), 'Asistencias');
+      utils.book_append_sheet(workbook, utils.json_to_sheet(partnerAttendancesRows), 'Asist_partner');
+      utils.book_append_sheet(workbook, utils.json_to_sheet(shipmentsRows), 'Viajes');
+      utils.book_append_sheet(workbook, utils.json_to_sheet(otherExpensesRows), 'Otros_gastos');
+
+      const projectName =
+        selectedProjectId === 'all'
+          ? 'todas-obras'
+          : projects.find((project) => project.id === selectedProjectId)?.code || String(selectedProjectId);
+      const periodLabel = filterMode === 'origin' ? `origen-m${selectedMonthNumber}` : `meses-${(requestMonths || [selectedMonthNumber]).join('-')}`;
+      const filename = `centros-coste_${projectName}_${periodLabel}.xlsx`;
+
+      writeFileXLSX(workbook, filename);
+    } finally {
+      setIsExportingCenters(false);
+    }
+  }
+
   return (
     <section className="mx-auto max-w-[1360px] space-y-4 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 text-slate-900 shadow-lg shadow-slate-200/70 md:p-5">
       <article className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
@@ -861,9 +959,20 @@ export default function DashboardPage() {
           )}
 
           <div>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-600">
-              Centros de coste - {filterMode === 'origin' ? 'a origen' : 'mes seleccionado'} - clic para ver registros
-            </p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                Centros de coste - {filterMode === 'origin' ? 'a origen' : 'mes seleccionado'} - clic para ver registros
+              </p>
+              <button
+                type="button"
+                onClick={handleExportCostCentersXlsx}
+                disabled={isExportingCenters}
+                className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Exportar todas las líneas individuales de cada centro de coste"
+              >
+                <span>Exportar XLSX</span>
+              </button>
+            </div>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
               {costCentersView.map((center) => (
                 <article key={center.name} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">

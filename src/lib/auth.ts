@@ -24,18 +24,24 @@ function base64ToBytes(base64: string): Uint8Array {
   return bytes;
 }
 
-function getOrCreateRememberSecret(): Uint8Array | null {
+function toStrictArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
+function getOrCreateRememberSecret(): ArrayBuffer | null {
   if (typeof window === 'undefined') return null;
 
   const existing = localStorage.getItem(REMEMBERED_SECRET_KEY);
   if (existing) {
-    return base64ToBytes(existing);
+    return toStrictArrayBuffer(base64ToBytes(existing));
   }
 
   const raw = new Uint8Array(32);
   window.crypto.getRandomValues(raw);
   localStorage.setItem(REMEMBERED_SECRET_KEY, bytesToBase64(raw));
-  return raw;
+  return toStrictArrayBuffer(raw);
 }
 
 async function getRememberCryptoKey(): Promise<CryptoKey | null> {
@@ -55,7 +61,11 @@ export async function saveRememberedCredentials(login: string, password: string)
   window.crypto.getRandomValues(iv);
   const encoder = new TextEncoder();
   const plain = encoder.encode(JSON.stringify({ login, password }));
-  const cipherBuffer = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain);
+  const cipherBuffer = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: toStrictArrayBuffer(iv) },
+    key,
+    toStrictArrayBuffer(plain),
+  );
   const cipher = new Uint8Array(cipherBuffer);
 
   localStorage.setItem(REMEMBERED_CREDENTIALS_KEY, JSON.stringify({
@@ -79,7 +89,11 @@ export async function getRememberedCredentials(): Promise<RememberedCredentials 
 
     const iv = base64ToBytes(payload.iv);
     const cipher = base64ToBytes(payload.data);
-    const plainBuffer = await window.crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipher);
+    const plainBuffer = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: toStrictArrayBuffer(iv) },
+      key,
+      toStrictArrayBuffer(cipher),
+    );
     const decoder = new TextDecoder();
     const data = JSON.parse(decoder.decode(plainBuffer)) as RememberedCredentials;
 
