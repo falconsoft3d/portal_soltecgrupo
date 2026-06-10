@@ -694,6 +694,7 @@ export default function DashboardPage() {
             <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
               <span className="sr-only">Mes</span>
               <select
+                translate="no"
                 value={selectedMonthIndex}
                 onChange={(event) => {
                   setIsRefreshingIndicators(true);
@@ -702,7 +703,7 @@ export default function DashboardPage() {
                 className="bg-transparent px-2 py-1 outline-none"
               >
                 {monthOptions.map((label, index) => (
-                  <option key={index} value={index}>
+                  <option translate="no" key={index} value={index}>
                     {label}
                   </option>
                 ))}
