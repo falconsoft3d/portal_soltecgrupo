@@ -929,18 +929,37 @@ export default function DashboardPage() {
                         </td>
                       </tr>
                     ) : (
-                      aappData.rows.map((analysis) => (
-                        <tr key={analysis.id} className="border-t border-slate-100 text-slate-700">
-                          <td className="px-3 py-2 font-semibold">{analysis.name}</td>
-                          <td className="px-3 py-2">{analysis.project_name || '—'}</td>
-                          <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
-                          <td className="px-3 py-2">{analysis.created_by || '—'}</td>
-                          <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
-                          <td className="px-3 py-2">{analysis.line_note || '—'}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.line_cost || 0)}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.line_subtotal || analysis.subtotal || 0)}</td>
-                        </tr>
-                      ))
+                      aappData.rows.map((analysis) =>
+                        (analysis.lines ?? []).length > 0 ? (
+                          (analysis.lines ?? []).map((line, idx) => (
+                            <tr key={`${analysis.id}-${idx}`} className="border-t border-slate-100 text-slate-700">
+                              {idx === 0 ? (
+                                <>
+                                  <td className="px-3 py-2 font-semibold" rowSpan={(analysis.lines ?? []).length}>{analysis.name}</td>
+                                  <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{analysis.project_name || '—'}</td>
+                                  <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{formatDate(analysis.end_date)}</td>
+                                  <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{analysis.created_by || '—'}</td>
+                                  <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{formatDateTime(analysis.create_date)}</td>
+                                </>
+                              ) : null}
+                              <td className="px-3 py-2">{line.note || '—'}</td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.product_cost)}</td>
+                              <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.subtotal)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr key={analysis.id} className="border-t border-slate-100 text-slate-700">
+                            <td className="px-3 py-2 font-semibold">{analysis.name}</td>
+                            <td className="px-3 py-2">{analysis.project_name || '—'}</td>
+                            <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
+                            <td className="px-3 py-2">{analysis.created_by || '—'}</td>
+                            <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
+                            <td className="px-3 py-2">—</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(0)}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>
+                          </tr>
+                        )
+                      )
                     )}
                   </tbody>
                 </table>

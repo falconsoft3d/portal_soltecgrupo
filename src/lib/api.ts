@@ -140,6 +140,13 @@ export interface InvoicedInvoiceItem {
   total: number;
 }
 
+export interface PickingAnalysisLineItem {
+  note: string;
+  product_cost: number;
+  assets_qty: number;
+  subtotal: number;
+}
+
 export interface PickingAnalysisItem {
   id: number;
   name: string;
@@ -151,9 +158,7 @@ export interface PickingAnalysisItem {
   line_count: number;
   subtotal: number;
   state: string;
-  line_note: string;
-  line_cost: number;
-  line_subtotal: number;
+  lines: PickingAnalysisLineItem[];
 }
 
 export interface PickingAnalysesResponse extends ApiResponse {
