@@ -299,7 +299,7 @@ export default function DashboardPage() {
 
   const marginPercent = useMemo(() => {
     if (!invoicedData.totalAmount) return 0;
-    return (resultAmount / invoicedData.totalAmount) * 100;
+    return (resultAmount / invoicedData.totalAmount) * 100 - 10;
   }, [invoicedData.totalAmount, resultAmount]);
 
   const kpisView = useMemo(
