@@ -334,40 +334,73 @@ export default function AnalisisAlbaranPage() {
                   <th className="px-3 py-2">Creado</th>
                   <th className="px-3 py-2">Fecha creacion</th>
                   <th className="px-3 py-2">Nota</th>
-                  <th className="px-3 py-2 text-right">Costo</th>
-                  <th className="px-3 py-2 text-right">Subtotal</th>
+                  <th className="px-3 py-2 text-right">Cant. Activo</th>
+                  <th className="px-3 py-2 text-right">Costo unit.</th>
+                  <th className="px-3 py-2 text-right">Total parcial</th>
                   <th className="px-3 py-2 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {analyses.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={10} className="px-3 py-4 text-center text-sm text-gray-500">
                       No hay analisis de albaran creados.
                     </td>
                   </tr>
                 ) : (
-                  analyses.map((analysis) => (
-                    <tr key={analysis.id} className="border-t border-gray-100 text-gray-700">
-                      <td className="px-3 py-2 font-semibold">{analysis.name}</td>
-                      <td className="px-3 py-2">{analysis.project_name || '—'}</td>
-                      <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
-                      <td className="px-3 py-2">{analysis.created_by || '—'}</td>
-                      <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
-                      <td className="px-3 py-2">{analysis.line_note || '—'}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.line_cost || 0)}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.line_subtotal || analysis.subtotal || 0)}</td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(analysis)}
-                          className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  analyses.map((analysis) =>
+                    (analysis.lines ?? []).length > 0 ? (
+                      (analysis.lines ?? []).map((line, idx) => (
+                        <tr key={`${analysis.id}-${idx}`} className="border-t border-gray-100 text-gray-700">
+                          {idx === 0 ? (
+                            <>
+                              <td className="px-3 py-2 font-semibold" rowSpan={(analysis.lines ?? []).length}>{analysis.name}</td>
+                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{analysis.project_name || '—'}</td>
+                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{formatDate(analysis.end_date)}</td>
+                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{analysis.created_by || '—'}</td>
+                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{formatDateTime(analysis.create_date)}</td>
+                            </>
+                          ) : null}
+                          <td className="px-3 py-2">{line.note || '—'}</td>
+                          <td className="px-3 py-2 text-right">{line.assets_qty}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.product_cost)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.subtotal)}</td>
+                          {idx === 0 ? (
+                            <td className="px-3 py-2 text-right" rowSpan={(analysis.lines ?? []).length}>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(analysis)}
+                                className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                              >
+                                Eliminar
+                              </button>
+                            </td>
+                          ) : null}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr key={analysis.id} className="border-t border-gray-100 text-gray-700">
+                        <td className="px-3 py-2 font-semibold">{analysis.name}</td>
+                        <td className="px-3 py-2">{analysis.project_name || '—'}</td>
+                        <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
+                        <td className="px-3 py-2">{analysis.created_by || '—'}</td>
+                        <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
+                        <td className="px-3 py-2">—</td>
+                        <td className="px-3 py-2 text-right">—</td>
+                        <td className="px-3 py-2 text-right">—</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(analysis)}
+                            className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  )
                 )}
               </tbody>
             </table>
