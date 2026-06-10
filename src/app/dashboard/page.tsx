@@ -234,7 +234,6 @@ export default function DashboardPage() {
   const [filterMode, setFilterMode] = useState<'origin' | 'month'>('origin');
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(6);
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | 'all'>('all');
   const [materialsExpanded, setMaterialsExpanded] = useState(false);
@@ -272,25 +271,7 @@ export default function DashboardPage() {
 
   const selectedMonth = useMemo(() => monthOptions[selectedMonthIndex], [selectedMonthIndex]);
   const selectedMonthNumber = useMemo(() => selectedMonthIndex + 1, [selectedMonthIndex]);
-  const selectedMonthsKey = useMemo(() => selectedMonths.slice().sort((a, b) => a - b).join(','), [selectedMonths]);
-  const selectedMonthLabels = useMemo(
-    () => selectedMonths.slice().sort((a, b) => a - b).map((month) => monthOptions[month - 1]),
-    [selectedMonths],
-  );
-  const requestMonth = useMemo(() => {
-    if (filterMode === 'origin') return selectedMonthNumber;
-    if (selectedMonths.length === 0) return selectedMonthNumber;
-    return undefined;
-  }, [filterMode, selectedMonthNumber, selectedMonths]);
-  const requestMonths = useMemo(() => {
-    if (filterMode !== 'month' || selectedMonths.length === 0) return undefined;
-    return selectedMonths;
-  }, [filterMode, selectedMonths]);
-  const selectedMonthsButtonLabel = useMemo(() => {
-    if (selectedMonths.length === 0) return selectedMonth;
-    if (selectedMonths.length === 1) return selectedMonthLabels[0];
-    return `${selectedMonthLabels[0]} +${selectedMonths.length - 1}`;
-  }, [selectedMonth, selectedMonths.length, selectedMonthLabels]);
+  const requestMonth = useMemo(() => selectedMonthNumber, [selectedMonthNumber]);
   const yearOptions = useMemo(
     () => [currentYear - 2, currentYear - 1, currentYear, currentYear + 1],
     [currentYear],
@@ -531,13 +512,13 @@ export default function DashboardPage() {
     refreshRequestRef.current = requestId;
 
     Promise.all([
-      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, requestMonths),
-      apiPickingAnalyses(token, selectedProjectId, requestMonth, filterMode, requestMonths),
-      apiMaterials(token, selectedProjectId, requestMonth, filterMode, requestMonths),
-      apiAttendances(token, selectedProjectId, requestMonth, filterMode, requestMonths),
-      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, requestMonths),
-      apiShipments(token, selectedProjectId, requestMonth, filterMode, requestMonths),
-      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, requestMonths),
+      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiPickingAnalyses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiMaterials(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiShipments(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
     ])
       .then(([invoicedRes, aappRes, materialsRes, attendanceRes, partnerAttendanceRes, shipmentsRes, otherExpensesRes]) => {
         if (refreshRequestRef.current !== requestId) return;
@@ -602,7 +583,7 @@ export default function DashboardPage() {
         if (refreshRequestRef.current !== requestId) return;
         setIsRefreshingIndicators(false);
       });
-  }, [selectedProjectId, requestMonth, requestMonths, selectedMonthsKey, filterMode]);
+  }, [selectedProjectId, requestMonth, filterMode, selectedYear]);
 
   async function handleExportCostCentersXlsx() {
     const hasData =
@@ -691,7 +672,7 @@ export default function DashboardPage() {
         selectedProjectId === 'all'
           ? 'todas-obras'
           : projects.find((project) => project.id === selectedProjectId)?.code || String(selectedProjectId);
-      const periodLabel = filterMode === 'origin' ? `origen-m${selectedMonthNumber}` : `meses-${(requestMonths || [selectedMonthNumber]).join('-')}`;
+      const periodLabel = filterMode === 'origin' ? `origen-m${selectedMonthNumber}` : `mes-${selectedMonthNumber}-${selectedYear}`;
       const filename = `centros-coste_${projectName}_${periodLabel}.xlsx`;
 
       writeFileXLSX(workbook, filename);
@@ -709,7 +690,7 @@ export default function DashboardPage() {
             <span>ObraControl</span>
           </div>
 
-          <div className="lg:w-auto lg:min-w-[220px]">
+          <div className="flex items-center gap-2">
             <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
               <span className="mr-2 font-semibold text-slate-600">Mes:</span>
               <input
@@ -726,10 +707,27 @@ export default function DashboardPage() {
               />
               <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">{selectedMonth}</span>
             </label>
+            <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
+              <span className="sr-only">Año</span>
+              <select
+                value={selectedYear}
+                onChange={(event) => {
+                setIsRefreshingIndicators(true);
+                setSelectedYear(Number(event.target.value));
+              }}
+                className="bg-transparent px-2 py-1 outline-none"
+              >
+                {yearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
-        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
           <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <span className="sr-only">Obra</span>
             <select
@@ -777,36 +775,15 @@ export default function DashboardPage() {
             onClick={() => {
               setIsRefreshingIndicators(true);
               setFilterMode('month');
-              setSelectedMonths((current) => {
-                if (current.includes(selectedMonthNumber)) {
-                  return current.filter((month) => month !== selectedMonthNumber);
-                }
-                return [...current, selectedMonthNumber].sort((a, b) => a - b);
-              });
             }}
             className={`rounded-lg border px-4 py-2 text-sm font-bold ${
               filterMode === 'month'
                 ? 'border-blue-500 bg-blue-50 text-blue-700'
                 : 'border-slate-300 bg-white text-slate-700'
             }`}
-            title={selectedMonthLabels.length ? `Meses seleccionados: ${selectedMonthLabels.join(', ')}` : undefined}
           >
-            {selectedMonthsButtonLabel}
+            Mes
           </button>
-          <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
-            <span className="sr-only">Año</span>
-            <select
-              value={selectedYear}
-              onChange={(event) => setSelectedYear(Number(event.target.value))}
-              className="bg-transparent px-2 py-1 outline-none"
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
 
       </article>
