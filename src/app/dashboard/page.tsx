@@ -321,7 +321,7 @@ export default function DashboardPage() {
             ? {
                 ...kpi,
                 value: formatCompactAmount(aappData.totalAmount),
-                subtitle: filterMode === 'origin' ? 'Acumulado mes' : 'Seleccion mes',
+                subtitle: 'Acumulado mes',
               }
           : kpi.title === 'RESULTADO'
             ? {
@@ -513,26 +513,19 @@ export default function DashboardPage() {
 
     Promise.all([
       apiInvoiced(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
-      apiPickingAnalyses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
       apiMaterials(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
       apiAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
       apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
       apiShipments(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
       apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
     ])
-      .then(([invoicedRes, aappRes, materialsRes, attendanceRes, partnerAttendanceRes, shipmentsRes, otherExpensesRes]) => {
+      .then(([invoicedRes, materialsRes, attendanceRes, partnerAttendanceRes, shipmentsRes, otherExpensesRes]) => {
         if (refreshRequestRef.current !== requestId) return;
 
         setInvoicedData({
           rows: invoicedRes.success ? invoicedRes.invoices ?? [] : [],
           totalRecords: invoicedRes.success ? invoicedRes.total_records ?? 0 : 0,
           totalAmount: invoicedRes.success ? invoicedRes.total_amount ?? 0 : 0,
-        });
-
-        setAappData({
-          rows: aappRes.success ? aappRes.analyses ?? [] : [],
-          totalRecords: aappRes.success ? aappRes.total_records ?? 0 : 0,
-          totalAmount: aappRes.success ? aappRes.total_amount ?? 0 : 0,
         });
 
         setMaterialData({
@@ -572,7 +565,6 @@ export default function DashboardPage() {
       .catch(() => {
         if (refreshRequestRef.current !== requestId) return;
         setInvoicedData({ rows: [], totalRecords: 0, totalAmount: 0 });
-        setAappData({ rows: [], totalRecords: 0, totalAmount: 0 });
         setMaterialData({ rows: [], totalRecords: 0, totalAmount: 0 });
         setAttendanceData({ rows: [], summary: [], totalRecords: 0, totalHours: 0, totalAmount: 0 });
         setPartnerAttendanceData({ rows: [], summary: [], totalRecords: 0, totalHours: 0, totalAmount: 0 });
