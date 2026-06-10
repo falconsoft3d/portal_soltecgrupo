@@ -145,6 +145,7 @@ export interface PickingAnalysisLineItem {
   product_cost: number;
   assets_qty: number;
   subtotal: number;
+  // solo líneas con assets_qty != 0 vienen del servidor
 }
 
 export interface PickingAnalysisItem {

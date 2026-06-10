@@ -917,14 +917,15 @@ export default function DashboardPage() {
                       <th className="px-3 py-2">Creado</th>
                       <th className="px-3 py-2">Fecha creación</th>
                       <th className="px-3 py-2">Nota</th>
-                      <th className="px-3 py-2 text-right">Costo</th>
-                      <th className="px-3 py-2 text-right">Subtotal</th>
+                      <th className="px-3 py-2 text-right">Cant. Activo</th>
+                      <th className="px-3 py-2 text-right">Costo unit.</th>
+                      <th className="px-3 py-2 text-right">Total parcial</th>
                     </tr>
                   </thead>
                   <tbody>
                     {aappData.rows.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-3 py-4 text-center text-sm text-slate-500">
+                        <td colSpan={9} className="px-3 py-4 text-center text-sm text-slate-500">
                           No hay análisis para el filtro actual.
                         </td>
                       </tr>
@@ -943,6 +944,7 @@ export default function DashboardPage() {
                                 </>
                               ) : null}
                               <td className="px-3 py-2">{line.note || '—'}</td>
+                              <td className="px-3 py-2 text-right">{line.assets_qty}</td>
                               <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.product_cost)}</td>
                               <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.subtotal)}</td>
                             </tr>
@@ -955,7 +957,8 @@ export default function DashboardPage() {
                             <td className="px-3 py-2">{analysis.created_by || '—'}</td>
                             <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
                             <td className="px-3 py-2">—</td>
-                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(0)}</td>
+                            <td className="px-3 py-2 text-right">—</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">—</td>
                             <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>
                           </tr>
                         )
