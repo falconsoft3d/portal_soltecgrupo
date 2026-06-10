@@ -203,7 +203,7 @@ function formatDateTime(value: string | false): string {
   const day = String(date.getDate()).padStart(2, '0');
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
 function formatDate(value: string | false): string {
@@ -213,7 +213,7 @@ function formatDate(value: string | false): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return `${day}/${month}/${year}`;
 }
 
 function extractProjectCode(nameRaw: string): string {
@@ -692,7 +692,7 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-2">
             <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-              <span className="mr-2 font-semibold text-slate-600">Mes:</span>
+              <span translate="no" className="mr-2 font-semibold text-slate-600">Mes:</span>
               <input
                 type="range"
                 min={0}
@@ -810,7 +810,7 @@ export default function DashboardPage() {
                   >
                     <div>
                       <p className="text-xs font-bold tracking-wide text-slate-500">{kpi.title}</p>
-                      <p className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
+                      <p translate="no" className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
                       <p className="text-sm font-medium text-slate-500">{kpi.subtitle}</p>
                     </div>
                     <span className="text-lg text-slate-400">{invoicedExpanded ? '⌄' : '›'}</span>
@@ -825,7 +825,7 @@ export default function DashboardPage() {
                   >
                     <div>
                       <p className="text-xs font-bold tracking-wide text-slate-500">{kpi.title}</p>
-                      <p className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
+                      <p translate="no" className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
                       <p className="text-sm font-medium text-slate-500">{kpi.subtitle}</p>
                     </div>
                     <span className="text-lg text-slate-400">{aappExpanded ? '⌄' : '›'}</span>
@@ -834,7 +834,7 @@ export default function DashboardPage() {
               ) : (
                 <article key={kpi.title} className={`rounded-xl border border-slate-200 p-4 shadow-sm ${kpi.tone}`}>
                   <p className="text-xs font-bold tracking-wide text-slate-500">{kpi.title}</p>
-                  <p className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
+                  <p translate="no" className={`mt-1 text-3xl font-extrabold tracking-tight ${kpi.valueColor}`}>{kpi.value}</p>
                   <p className="text-sm font-medium text-slate-500">{kpi.subtitle}</p>
                 </article>
               ),
