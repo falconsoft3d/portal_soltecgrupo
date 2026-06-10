@@ -954,7 +954,7 @@ export default function DashboardPage() {
               {costCentersView.map((center) => (
                 <article key={center.name} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
                   <p className="text-xs font-bold text-slate-600">{center.name}</p>
-                  <p className={`mt-0.5 text-3xl font-extrabold ${center.color.replace('bg-', 'text-')}`}>{center.amount}</p>
+                  <p translate="no" className={`mt-0.5 text-3xl font-extrabold ${center.color.replace('bg-', 'text-')}`}>{center.amount}</p>
                   <p className="mt-0.5 text-xs text-slate-500">{center.cte} cte • {center.fact} fact.</p>
                   <div className="mt-1.5 h-0.5 overflow-hidden rounded bg-slate-200">
                     <div className={`h-full ${center.color}`} style={{ width: center.cte }} />
@@ -1077,12 +1077,12 @@ export default function DashboardPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
                       <p className="text-xl font-extrabold tracking-tight text-sky-500">Materiales</p>
-                      <p className="text-sm text-slate-500">{materialData.totalRecords} líneas</p>
+                      <p className="text-sm font-semibold text-slate-600"><span translate="no">{materialData.totalRecords}</span> líneas</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <p className="text-3xl font-extrabold text-sky-500">{formatCompactAmount(materialData.totalAmount)}</p>
+                    <p translate="no" className="text-3xl font-extrabold text-sky-500">{formatCompactAmount(materialData.totalAmount)}</p>
                     <span className="text-slate-400">{materialsExpanded ? '⌄' : '›'}</span>
                   </div>
                 </button>
@@ -1292,12 +1292,12 @@ export default function DashboardPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
                       <p className="text-xl font-extrabold tracking-tight text-zinc-500">Otros gastos</p>
-                      <p className="text-sm text-slate-500">{otherExpenseData.totalRecords} registros</p>
+                      <p className="text-sm font-semibold text-slate-600"><span translate="no">{otherExpenseData.totalRecords}</span> registros</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <p className="text-3xl font-extrabold text-zinc-500">{formatCompactAmount(otherExpenseData.totalAmount)}</p>
+                    <p translate="no" className="text-3xl font-extrabold text-zinc-500">{formatCompactAmount(otherExpenseData.totalAmount)}</p>
                     <span className="text-slate-400">{otherExpenseExpanded ? '⌄' : '›'}</span>
                   </div>
                 </button>
@@ -1355,12 +1355,12 @@ export default function DashboardPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
                       <p className="text-xl font-extrabold tracking-tight text-amber-500">Viajes</p>
-                      <p className="text-sm text-slate-500">{shipmentData.totalRecords} desplazamientos</p>
+                      <p className="text-sm font-semibold text-slate-600"><span translate="no">{shipmentData.totalRecords}</span> desplazamientos</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                      <p className="text-3xl font-extrabold text-amber-500">{formatCompactAmount(shipmentData.totalAmount)}</p>
+                      <p translate="no" className="text-3xl font-extrabold text-amber-500">{formatCompactAmount(shipmentData.totalAmount)}</p>
                     <span className="text-slate-400">{shipmentExpanded ? '⌄' : '›'}</span>
                   </div>
                 </button>
@@ -1461,12 +1461,12 @@ export default function DashboardPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
                       <p className="text-xl font-extrabold tracking-tight text-rose-500">Asist. partner</p>
-                      <p className="text-sm text-slate-500">{partnerAttendanceData.totalRecords} registros</p>
+                      <p className="text-sm font-semibold text-slate-600"><span translate="no">{partnerAttendanceData.totalRecords}</span> registros</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                      <p className="text-3xl font-extrabold text-rose-500">{formatCompactAmount(partnerAttendanceData.totalAmount)}</p>
+                      <p translate="no" className="text-3xl font-extrabold text-rose-500">{formatCompactAmount(partnerAttendanceData.totalAmount)}</p>
                     <span className="text-slate-400">{partnerAttendanceExpanded ? '⌄' : '›'}</span>
                   </div>
                 </button>
@@ -1538,12 +1538,12 @@ export default function DashboardPage() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                   <div>
                     <p className="text-xl font-extrabold tracking-tight text-emerald-500">Asistencias</p>
-                    <p className="text-sm text-slate-500">{attendanceData.totalRecords} fichajes</p>
+                    <p className="text-sm font-semibold text-slate-600"><span translate="no">{attendanceData.totalRecords}</span> fichajes</p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <p className="text-3xl font-extrabold text-emerald-500">{formatCompactAmount(attendanceData.totalAmount)}</p>
+                  <p translate="no" className="text-3xl font-extrabold text-emerald-500">{formatCompactAmount(attendanceData.totalAmount)}</p>
                   <span className="text-slate-400">{attendanceExpanded ? '⌄' : '›'}</span>
                 </div>
               </button>
