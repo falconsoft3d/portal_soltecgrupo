@@ -73,6 +73,7 @@ export default function AnalisisAlbaranPage() {
   const [analyses, setAnalyses] = useState<PickingAnalysisItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
+  const [showZero, setShowZero] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
@@ -316,9 +317,22 @@ export default function AnalisisAlbaranPage() {
       )}
 
       <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-800">Mis analisis</h2>
-          <span className="text-sm text-gray-500">{analyses.length} registros</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowZero((v) => !v)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                showZero
+                  ? 'border-slate-400 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+              }`}
+            >
+              {showZero ? 'Ocultar en 0' : 'Mostrar en 0'}
+            </button>
+            <span className="text-sm text-gray-500">{analyses.length} registros</span>
+          </div>
         </div>
 
         {isLoading ? (
@@ -348,7 +362,9 @@ export default function AnalisisAlbaranPage() {
                     </td>
                   </tr>
                 ) : (
-                  analyses.map((analysis) =>
+                  analyses
+                    .filter((a) => showZero || a.subtotal !== 0)
+                    .map((analysis) =>
                     (analysis.lines ?? []).length > 0 ? (
                       (analysis.lines ?? []).map((line, idx) => (
                         <tr key={`${analysis.id}-${idx}`} className="border-t border-gray-100 text-gray-700">
