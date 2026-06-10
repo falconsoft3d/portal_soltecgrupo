@@ -577,6 +577,23 @@ export default function DashboardPage() {
       });
   }, [selectedProjectId, requestMonth, filterMode, selectedYear]);
 
+  useEffect(() => {
+    const token = getToken();
+    if (!token) return;
+
+    apiPickingAnalyses(token, selectedProjectId, requestMonth, 'month', undefined, selectedYear)
+      .then((res) => {
+        setAappData({
+          rows: res.success ? res.analyses ?? [] : [],
+          totalRecords: res.success ? res.total_records ?? 0 : 0,
+          totalAmount: res.success ? res.total_amount ?? 0 : 0,
+        });
+      })
+      .catch(() => {
+        setAappData({ rows: [], totalRecords: 0, totalAmount: 0 });
+      });
+  }, [selectedProjectId, requestMonth, selectedYear]);
+
   async function handleExportCostCentersXlsx() {
     const hasData =
       materialData.rows.length > 0 ||
