@@ -691,21 +691,22 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-              <span translate="no" className="mr-2 font-semibold text-slate-600">Mes:</span>
-              <input
-                type="range"
-                min={0}
-                max={11}
-                step={1}
+            <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
+              <span className="sr-only">Mes</span>
+              <select
                 value={selectedMonthIndex}
                 onChange={(event) => {
                   setIsRefreshingIndicators(true);
                   setSelectedMonthIndex(Number(event.target.value));
                 }}
-                className="mx-2 h-1 w-28 accent-slate-700 align-middle"
-              />
-              <span className="rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">{selectedMonth}</span>
+                className="bg-transparent px-2 py-1 outline-none"
+              >
+                {monthOptions.map((label, index) => (
+                  <option key={index} value={index}>
+                    {label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
               <span className="sr-only">Año</span>
@@ -761,6 +762,7 @@ export default function DashboardPage() {
             onClick={() => {
               setIsRefreshingIndicators(true);
               setFilterMode('origin');
+              setSelectedMaterialCategory('Todas');
             }}
             className={`rounded-lg border px-4 py-2 text-sm font-bold ${
               filterMode === 'origin'
@@ -775,6 +777,7 @@ export default function DashboardPage() {
             onClick={() => {
               setIsRefreshingIndicators(true);
               setFilterMode('month');
+              setSelectedMaterialCategory('Todas');
             }}
             className={`rounded-lg border px-4 py-2 text-sm font-bold ${
               filterMode === 'month'
@@ -953,7 +956,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
               {costCentersView.map((center) => (
                 <article key={center.name} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                  <p className="text-xs font-bold text-slate-600">{center.name}</p>
+                  <p translate="no" className="text-xs font-bold text-slate-600">{center.name}</p>
                   <p translate="no" className={`mt-0.5 text-3xl font-extrabold ${center.color.replace('bg-', 'text-')}`}>{center.amount}</p>
                   <p className="mt-0.5 text-xs text-slate-500">{center.cte} cte • {center.fact} fact.</p>
                   <div className="mt-1.5 h-0.5 overflow-hidden rounded bg-slate-200">
@@ -1076,7 +1079,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
-                      <p className="text-xl font-extrabold tracking-tight text-sky-500">Materiales</p>
+                      <p translate="no" className="text-xl font-extrabold tracking-tight text-sky-500">Materiales</p>
                       <p className="text-sm font-semibold text-slate-600"><span translate="no">{materialData.totalRecords}</span> líneas</p>
                     </div>
                   </div>
@@ -1291,7 +1294,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
-                      <p className="text-xl font-extrabold tracking-tight text-zinc-500">Otros gastos</p>
+                      <p translate="no" className="text-xl font-extrabold tracking-tight text-zinc-500">Otros gastos</p>
                       <p className="text-sm font-semibold text-slate-600"><span translate="no">{otherExpenseData.totalRecords}</span> registros</p>
                     </div>
                   </div>
@@ -1354,7 +1357,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
-                      <p className="text-xl font-extrabold tracking-tight text-amber-500">Viajes</p>
+                      <p translate="no" className="text-xl font-extrabold tracking-tight text-amber-500">Viajes</p>
                       <p className="text-sm font-semibold text-slate-600"><span translate="no">{shipmentData.totalRecords}</span> desplazamientos</p>
                     </div>
                   </div>
@@ -1460,7 +1463,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                     <div>
-                      <p className="text-xl font-extrabold tracking-tight text-rose-500">Asist. partner</p>
+                      <p translate="no" className="text-xl font-extrabold tracking-tight text-rose-500">Asist. partner</p>
                       <p className="text-sm font-semibold text-slate-600"><span translate="no">{partnerAttendanceData.totalRecords}</span> registros</p>
                     </div>
                   </div>
@@ -1537,7 +1540,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm">{row.icon}</div>
                   <div>
-                    <p className="text-xl font-extrabold tracking-tight text-emerald-500">Asistencias</p>
+                    <p translate="no" className="text-xl font-extrabold tracking-tight text-emerald-500">Asistencias</p>
                     <p className="text-sm font-semibold text-slate-600"><span translate="no">{attendanceData.totalRecords}</span> fichajes</p>
                   </div>
                 </div>
