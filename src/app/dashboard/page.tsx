@@ -234,11 +234,35 @@ function extractProjectCode(nameRaw: string): string {
 
 export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
-  const [filterMode, setFilterMode] = useState<'origin' | 'month'>('origin');
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState(6);
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+
+  // ── Inicialización desde localStorage ───────────────────────────────
+  const [filterMode, setFilterMode] = useState<'origin' | 'month'>(() => {
+    if (typeof window === 'undefined') return 'origin';
+    return (localStorage.getItem('dash_filterMode') as 'origin' | 'month') ?? 'origin';
+  });
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(() => {
+    if (typeof window === 'undefined') return 6;
+    const v = localStorage.getItem('dash_monthIndex');
+    return v !== null ? Number(v) : new Date().getMonth() + 1;
+  });
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (typeof window === 'undefined') return currentYear;
+    const v = localStorage.getItem('dash_year');
+    return v !== null ? Number(v) : currentYear;
+  });
   const [projects, setProjects] = useState<PortalProject[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<number | 'all'>('all');
+  const [selectedProjectId, setSelectedProjectId] = useState<number | 'all'>(() => {
+    if (typeof window === 'undefined') return 'all';
+    const v = localStorage.getItem('dash_projectId');
+    if (!v || v === 'all') return 'all';
+    return Number(v);
+  });
+
+  // ── Persistencia en localStorage ────────────────────────────────────
+  useEffect(() => { localStorage.setItem('dash_filterMode', filterMode); }, [filterMode]);
+  useEffect(() => { localStorage.setItem('dash_monthIndex', String(selectedMonthIndex)); }, [selectedMonthIndex]);
+  useEffect(() => { localStorage.setItem('dash_year', String(selectedYear)); }, [selectedYear]);
+  useEffect(() => { localStorage.setItem('dash_projectId', String(selectedProjectId)); }, [selectedProjectId]);
   const [materialsExpanded, setMaterialsExpanded] = useState(false);
   const [selectedMaterialCategory, setSelectedMaterialCategory] = useState('Todas');
   const [materialsViewMode, setMaterialsViewMode] = useState<'individual' | 'grouped'>('individual');
