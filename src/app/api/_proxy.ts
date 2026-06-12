@@ -33,6 +33,14 @@ export async function odooProxy(
     );
   }
 
+  // Si Odoo devuelve un error JSON-RPC, extraer el mensaje real
+  const rpcError = (json as { error?: { message?: string; data?: { message?: string } } }).error;
+  if (rpcError) {
+    const message =
+      rpcError.data?.message || rpcError.message || 'Error del servidor.';
+    return Response.json({ success: false, error: message }, { status: 200 });
+  }
+
   // Odoo envuelve la respuesta en json.result
   const result = (json as { result?: unknown }).result ?? json;
 
