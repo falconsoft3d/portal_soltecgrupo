@@ -10,6 +10,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [partner, setPartner] = useState<PartnerInfo | null>(null);
   const [checking, setChecking] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const token = getToken();
@@ -51,9 +52,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
       {/* Navbar fijo */}
-      <header className="fixed top-0 left-0 right-0 h-14 bg-indigo-700 text-white shadow z-30">
+      <header className="fixed top-0 left-0 right-0 h-14 bg-brand-700 text-white shadow z-30">
         <div className="px-4 h-14 flex items-center justify-between">
-          <span className="font-bold text-lg tracking-wide">Portal Soltec</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="p-1.5 rounded-lg hover:bg-white/20 transition"
+              aria-label="Alternar menú"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <span className="font-bold text-lg tracking-wide">Portal Soltec</span>
+          </div>
           <div className="flex items-center gap-4">
             {partner && (
               <span className="text-sm opacity-90 hidden sm:block">{partner.name}</span>
@@ -68,11 +80,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </header>
 
-      {/* Sidebar fijo a la izquierda */}
-      <Sidebar />
+      {/* Sidebar */}
+      <Sidebar open={sidebarOpen} />
 
       {/* Contenido desplazado para no quedar bajo el sidebar ni el header */}
-      <main className="flex-1 pt-14 md:ml-56 p-6">{children}</main>
+      <main className={`flex-1 pt-14 p-6 transition-all duration-300 ${sidebarOpen ? 'md:ml-56' : 'md:ml-0'}`}>{children}</main>
     </div>
   );
 }

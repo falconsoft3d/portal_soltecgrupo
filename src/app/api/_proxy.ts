@@ -23,9 +23,18 @@ export async function odooProxy(
     body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params }),
   });
 
-  const json = await odooRes.json();
+  let json: unknown;
+  try {
+    json = await odooRes.json();
+  } catch {
+    return Response.json(
+      { success: false, error: `Odoo no respondió correctamente (HTTP ${odooRes.status}).` },
+      { status: 502 },
+    );
+  }
+
   // Odoo envuelve la respuesta en json.result
-  const result = json.result ?? json;
+  const result = (json as { result?: unknown }).result ?? json;
 
   return Response.json(result, { status: odooRes.ok ? 200 : 502 });
 }

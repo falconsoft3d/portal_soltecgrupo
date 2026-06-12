@@ -85,7 +85,7 @@ export default function LoginPage() {
               value={login}
               onChange={(e) => setLogin(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                         focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
                          transition"
               placeholder="usuario@empresa.com"
             />
@@ -103,7 +103,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white
-                         focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                         focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
                          transition"
               placeholder="••••••••"
             />
@@ -114,7 +114,7 @@ export default function LoginPage() {
               type="checkbox"
               checked={rememberPassword}
               onChange={(e) => setRememberPassword(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
             />
             Recordar contraseña (guardada cifrada en este navegador)
           </label>
@@ -128,7 +128,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed
+            className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed
                        text-white font-semibold rounded-lg py-2.5 text-sm transition"
           >
             {loading ? 'Ingresando...' : 'Iniciar sesión'}

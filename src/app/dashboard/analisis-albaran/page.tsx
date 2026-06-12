@@ -201,7 +201,7 @@ export default function AnalisisAlbaranPage() {
               setSuccess('');
               setShowCreateForm(true);
             }}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
           >
             Nuevo analisis
           </button>
@@ -228,7 +228,7 @@ export default function AnalisisAlbaranPage() {
                     const value = event.target.value;
                     setSelectedProjectId(value ? Number(value) : '');
                   }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 >
                   <option value="">Selecciona un proyecto...</option>
@@ -246,7 +246,7 @@ export default function AnalisisAlbaranPage() {
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 />
               </label>
@@ -257,7 +257,7 @@ export default function AnalisisAlbaranPage() {
                   type="text"
                   value={lineNote}
                   onChange={(event) => setLineNote(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 />
               </label>
@@ -269,7 +269,7 @@ export default function AnalisisAlbaranPage() {
                   step="0.01"
                   value={lineCost}
                   onChange={(event) => setLineCost(Number(event.target.value || 0))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 />
               </label>
@@ -282,7 +282,7 @@ export default function AnalisisAlbaranPage() {
                   min="0"
                   value={assetsQty}
                   onChange={(event) => setAssetsQty(Number(event.target.value || 0))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 />
               </label>
@@ -307,7 +307,7 @@ export default function AnalisisAlbaranPage() {
               <button
                 type="submit"
                 disabled={isCreating}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreating ? 'Guardando...' : 'Guardar'}
               </button>
@@ -326,7 +326,7 @@ export default function AnalisisAlbaranPage() {
               className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
                 showZero
                   ? 'border-slate-400 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                  : 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
               }`}
             >
               {showZero ? 'Ocultar en 0' : 'Mostrar en 0'}

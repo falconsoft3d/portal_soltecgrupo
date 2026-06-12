@@ -360,3 +360,84 @@ export const apiDeletePaidstate = async (
 ): Promise<ApiResponse> =>
   post('/api/paidstates/delete', { paidstate_id }, token);
 
+// ------------------------------------------------------------------ //
+//  result.table                                                       //
+// ------------------------------------------------------------------ //
+
+export interface ResultTableItem {
+  id: number;
+  name: string;
+  title: string;
+  from_date: string | false;
+  to_date: string | false;
+  line_count: number;
+  states: string[];
+  managers: { id: number; name: string }[];
+  project_ids: { id: number; display_name: string }[];
+}
+
+export interface ResultTableLineItem {
+  id: number;
+  state_project: string;
+  nexecution_manager: string;
+  project_name: string;
+  year: string;
+  month: string;
+  fdo_orig: number;
+  fdo_mon: number;
+  fdo_year: number;
+  cte_orig: number;
+  cte_mes: number;
+  mat: number;
+  asist: number;
+  viajes: number;
+  otros: number;
+  cte_year: number;
+  result_orig: number;
+  result_year: number;
+}
+
+export interface ResultTableDetailItem extends ResultTableItem {
+  lines: ResultTableLineItem[];
+}
+
+export interface ResultTablesResponse extends ApiResponse {
+  result_tables?: ResultTableItem[];
+  total_records?: number;
+}
+
+export interface ResultTableDetailResponse extends ApiResponse {
+  result_table?: ResultTableDetailItem;
+}
+
+export interface CreateResultTableResponse extends ApiResponse {
+  result_table?: ResultTableItem;
+}
+
+export const apiResultTables = async (token: string): Promise<ResultTablesResponse> =>
+  post('/api/result-tables', {}, token) as Promise<ResultTablesResponse>;
+
+export const apiResultTableDetail = async (
+  token: string,
+  table_id: number,
+): Promise<ResultTableDetailResponse> =>
+  post('/api/result-tables/detail', { table_id }, token) as Promise<ResultTableDetailResponse>;
+
+export const apiCreateResultTable = async (
+  token: string,
+  title: string,
+  from_date: string,
+  to_date: string,
+): Promise<CreateResultTableResponse> =>
+  post('/api/result-tables/create', { title, from_date, to_date }, token) as Promise<CreateResultTableResponse>;
+
+export const apiUpdateAndCalcResultTable = async (
+  token: string,
+  table_id: number,
+  from_date: string,
+  to_date: string,
+  project_ids: number[],
+): Promise<ResultTableDetailResponse> =>
+  post('/api/result-tables/update-and-calc', { table_id, from_date, to_date, project_ids }, token) as Promise<ResultTableDetailResponse>;
+
+

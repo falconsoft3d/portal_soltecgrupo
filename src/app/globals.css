@@ -10,6 +10,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Paleta Odoo brand #714B67 */
+  --color-brand-50:  #f5f0f4;
+  --color-brand-100: #e8dde5;
+  --color-brand-200: #d3bdcf;
+  --color-brand-300: #b793ae;
+  --color-brand-400: #9a6b8e;
+  --color-brand-500: #714B67;
+  --color-brand-600: #5f3f58;
+  --color-brand-700: #4e3348;
+  --color-brand-800: #3d2839;
+  --color-brand-900: #2c1d29;
 }
 
 @media (prefers-color-scheme: dark) {

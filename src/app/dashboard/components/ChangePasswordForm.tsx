@@ -63,7 +63,7 @@ export default function ChangePasswordForm() {
             value={form[name as keyof typeof form]}
             onChange={handleChange}
             className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 bg-white
-                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+                       focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
                        transition"
             placeholder="••••••••"
           />
@@ -85,7 +85,7 @@ export default function ChangePasswordForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed
+        className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed
                    text-white font-semibold rounded-lg py-2.5 text-sm transition"
       >
         {loading ? 'Guardando...' : 'Cambiar contraseña'}

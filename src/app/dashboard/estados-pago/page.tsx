@@ -248,7 +248,7 @@ export default function EstadosPagoPage() {
               setSuccess('');
               setShowCreateForm(true);
             }}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700"
           >
             Nuevo estado
           </button>
@@ -289,7 +289,7 @@ export default function EstadosPagoPage() {
                       setError('No se pudieron cargar los presupuestos para el proyecto seleccionado.');
                     }
                   }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 >
                   <option value="">Selecciona un proyecto...</option>
@@ -309,7 +309,7 @@ export default function EstadosPagoPage() {
                     const value = event.target.value;
                     setSelectedBudgetId(value ? Number(value) : '');
                   }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                   disabled={!selectedProjectId}
                 >
@@ -329,7 +329,7 @@ export default function EstadosPagoPage() {
                   step="0.01"
                   value={price}
                   onChange={(event) => setPrice(Number(event.target.value || 0))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 />
               </label>
@@ -340,7 +340,7 @@ export default function EstadosPagoPage() {
                   type="date"
                   value={date}
                   onChange={(event) => setDate(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-indigo-400"
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
                   required
                 />
               </label>
@@ -364,7 +364,7 @@ export default function EstadosPagoPage() {
               <button
                 type="submit"
                 disabled={isCreating}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreating ? 'Guardando...' : 'Guardar'}
               </button>

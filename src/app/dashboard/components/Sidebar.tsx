@@ -34,6 +34,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/estados-resultados',
+    label: 'Estados de resultados',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-6m4 6V9m4 8V5M3 21h18" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/perfil',
     label: 'Perfil',
     icon: (
@@ -45,11 +54,11 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ open = true }: { open?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-56 hidden md:flex flex-col bg-white border-r border-gray-200 shadow-sm z-20">
+    <aside className={`fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-56 flex flex-col bg-white border-r border-gray-200 shadow-sm z-20 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <nav className="flex flex-col p-3 gap-1 mt-2">
         {NAV_ITEMS.map(({ href, label, icon }) => {
           const active = pathname === href;
@@ -59,7 +68,7 @@ export default function Sidebar() {
               href={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors
                 ${active
-                  ? 'bg-indigo-600 text-white shadow-sm'
+                  ? 'bg-brand-600 text-white shadow-sm'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
             >
