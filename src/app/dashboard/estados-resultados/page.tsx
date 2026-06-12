@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import {
   apiResultTables,
   apiResultTableDetail,
@@ -9,31 +9,73 @@ import {
   apiProjects,
   ResultTableItem,
   ResultTableDetailItem,
+  ResultTableLineItem,
   PortalProject,
 } from '@/lib/api';
 import * as XLSX from 'xlsx';
 import { getToken } from '@/lib/auth';
 
+// ─── Definición de columnas (orden idéntico a Odoo back-office) ───────────────
+type ColKey = keyof ResultTableLineItem;
+interface ColDef {
+  key: ColKey;
+  label: string;
+  align: 'left' | 'center' | 'right';
+  defaultVisible: boolean;
+  isResult?: boolean;
+  isPct?: boolean;
+}
+
+const COLUMNS: ColDef[] = [
+  { key: 'state_project',        label: 'Estado',             align: 'left',   defaultVisible: true  },
+  { key: 'nexecution_manager',   label: 'Jefe de Obra',       align: 'left',   defaultVisible: true  },
+  { key: 'project_name',         label: 'Proyecto',           align: 'left',   defaultVisible: true  },
+  { key: 'year',                 label: 'A',                  align: 'center', defaultVisible: true  },
+  { key: 'month',                label: 'M',                  align: 'center', defaultVisible: true  },
+  { key: 'contracted_sale',      label: 'Cto. Venta',         align: 'right',  defaultVisible: false },
+  { key: 'expansion_contract',   label: 'Expansión',          align: 'right',  defaultVisible: false },
+  { key: 'contracted_cost',      label: 'Cto. Coste',         align: 'right',  defaultVisible: false },
+  { key: 'contracted_coefficient',label: 'Coef. Cto.',        align: 'right',  defaultVisible: false },
+  { key: 'pending_execution',    label: 'Pendiente',          align: 'right',  defaultVisible: false },
+  { key: 'fdo_orig',             label: 'FdO orig',           align: 'right',  defaultVisible: true  },
+  { key: 'cte_orig',             label: 'Cte orig.',          align: 'right',  defaultVisible: true  },
+  { key: 'o_mat',                label: 'O.Mat.',             align: 'right',  defaultVisible: true  },
+  { key: 'o_partner',            label: 'O.Partner.',         align: 'right',  defaultVisible: true  },
+  { key: 'o_asist',              label: 'O.Asist.',           align: 'right',  defaultVisible: true  },
+  { key: 'o_viajes',             label: 'O.Viajes',           align: 'right',  defaultVisible: true  },
+  { key: 'o_otros',              label: 'O.Otros',            align: 'right',  defaultVisible: true  },
+  { key: 'fdo_year',             label: 'FdO-A',              align: 'right',  defaultVisible: true  },
+  { key: 'cte_year',             label: 'Cte-A',              align: 'right',  defaultVisible: true  },
+  { key: 'cte_year_mat',         label: 'A.Mat.',             align: 'right',  defaultVisible: true  },
+  { key: 'cte_year_partner',     label: 'A.Partner.',         align: 'right',  defaultVisible: true  },
+  { key: 'cte_year_asist',       label: 'A.Asist.',           align: 'right',  defaultVisible: true  },
+  { key: 'cte_year_viajes',      label: 'A.Viajes',           align: 'right',  defaultVisible: true  },
+  { key: 'cte_year_otros',       label: 'A.Otros',            align: 'right',  defaultVisible: true  },
+  { key: 'fdo_mon',              label: 'FdO-M',              align: 'right',  defaultVisible: true  },
+  { key: 'cte_mes',              label: 'Cte-M',              align: 'right',  defaultVisible: true  },
+  { key: 'mat',                  label: 'Mat.',               align: 'right',  defaultVisible: true  },
+  { key: 'partner',              label: 'Partner.',           align: 'right',  defaultVisible: true  },
+  { key: 'asist',                label: 'Asist.',             align: 'right',  defaultVisible: true  },
+  { key: 'viajes',               label: 'Viajes',             align: 'right',  defaultVisible: true  },
+  { key: 'otros',                label: 'Otros',              align: 'right',  defaultVisible: true  },
+  { key: 'ap_year',              label: 'A/P-A',              align: 'right',  defaultVisible: true  },
+  { key: 'ap_mon',               label: 'A/P-M',              align: 'right',  defaultVisible: true  },
+  { key: 'result_orig',          label: 'R-Orig',             align: 'right',  defaultVisible: true,  isResult: true },
+  { key: 'result_year',          label: 'R-A',                align: 'right',  defaultVisible: true,  isResult: true },
+  { key: 'mbrut_orig',           label: '%MBrut orig',        align: 'right',  defaultVisible: true,  isPct: true },
+  { key: 'mbrut_year',           label: '%MBrut-A',           align: 'right',  defaultVisible: true,  isPct: true },
+  { key: 'mnet_orig',            label: '%MNet orig',         align: 'right',  defaultVisible: true,  isPct: true },
+  { key: 'mmnet_year',           label: '%MNet-A',            align: 'right',  defaultVisible: true,  isPct: true },
+];
+
 function exportDetailToXlsx(detail: ResultTableDetailItem) {
-  const rows = detail.lines.map((l) => ({
-    'Estado': l.state_project,
-    'Jefe de Obra': l.nexecution_manager,
-    'Proyecto': l.project_name,
-    'Año': l.year,
-    'Mes': l.month,
-    'FdO orig': l.fdo_orig,
-    'FdO-M': l.fdo_mon,
-    'FdO-A': l.fdo_year,
-    'Cte orig.': l.cte_orig,
-    'Cte-M': l.cte_mes,
-    'Mat.': l.mat,
-    'Asist.': l.asist,
-    'Viajes': l.viajes,
-    'Otros': l.otros,
-    'Cte-A': l.cte_year,
-    'R-Orig': l.result_orig,
-    'R-A': l.result_year,
-  }));
+  const rows = detail.lines.map((l) => {
+    const row: Record<string, string | number> = {};
+    for (const col of COLUMNS) {
+      row[col.label] = l[col.key] as string | number;
+    }
+    return row;
+  });
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Líneas');
@@ -104,6 +146,12 @@ export default function EstadosResultadosPage() {
   const [detailError, setDetailError] = useState<string>('');
   const [detailSuccess, setDetailSuccess] = useState<string>('');
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+
+  // Visibilidad de columnas
+  const defaultVisible = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(defaultVisible);
+  const [showColPicker, setShowColPicker] = useState(false);
+  const colPickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const token = getToken();
@@ -428,22 +476,67 @@ export default function EstadosResultadosPage() {
 
         {/* Líneas */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-base font-semibold text-gray-800">
               Líneas
               <span className="ml-2 text-xs text-gray-400 font-normal">({detail.lines.length} registros)</span>
             </h2>
-            {detail.lines.length > 0 && (
-              <button
-                onClick={() => exportDetailToXlsx(detail)}
-                className="flex items-center gap-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" />
-                </svg>
-                Exportar XLSX
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Selector de columnas */}
+              <div className="relative" ref={colPickerRef}>
+                <button
+                  onClick={() => setShowColPicker((v) => !v)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                  </svg>
+                  Columnas
+                </button>
+                {showColPicker && (
+                  <div className="absolute right-0 top-9 z-30 bg-white border border-gray-200 rounded-xl shadow-xl w-56 max-h-96 overflow-y-auto">
+                    <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-600">Mostrar / ocultar columnas</span>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setVisibleCols(new Set(COLUMNS.map((c) => c.key)))} className="text-xs text-brand-600 hover:text-brand-800">Todas</button>
+                        <span className="text-gray-300">|</span>
+                        <button type="button" onClick={() => setVisibleCols(new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key)))} className="text-xs text-gray-500 hover:text-gray-700">Defecto</button>
+                      </div>
+                    </div>
+                    <ul className="divide-y divide-gray-50 py-1">
+                      {COLUMNS.map((col) => (
+                        <li key={col.key}>
+                          <label className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer hover:bg-brand-50 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={visibleCols.has(col.key)}
+                              onChange={() => setVisibleCols((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(col.key)) next.delete(col.key); else next.add(col.key);
+                                return next;
+                              })}
+                              className="w-3.5 h-3.5 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
+                            />
+                            <span className="text-xs text-gray-700">{col.label}</span>
+                          </label>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {detail.lines.length > 0 && (
+                <button
+                  onClick={() => exportDetailToXlsx(detail)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v2a2 2 0 002 2h14a2 2 0 002-2v-2" />
+                  </svg>
+                  Exportar XLSX
+                </button>
+              )}
+            </div>
           </div>
           {detail.lines.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-400 text-sm">
@@ -451,52 +544,40 @@ export default function EstadosResultadosPage() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-gray-700">
+              <table className="w-full text-xs text-gray-700 whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 uppercase tracking-wide">
-                    <th className="px-3 py-3 text-left font-medium">Estado</th>
-                    <th className="px-3 py-3 text-left font-medium">Jefe de Obra</th>
-                    <th className="px-3 py-3 text-left font-medium">Proyecto</th>
-                    <th className="px-3 py-3 text-center font-medium">A</th>
-                    <th className="px-3 py-3 text-center font-medium">M</th>
-                    <th className="px-3 py-3 text-right font-medium">FdO orig</th>
-                    <th className="px-3 py-3 text-right font-medium">FdO-M</th>
-                    <th className="px-3 py-3 text-right font-medium">FdO-A</th>
-                    <th className="px-3 py-3 text-right font-medium">Cte orig.</th>
-                    <th className="px-3 py-3 text-right font-medium">Cte-M</th>
-                    <th className="px-3 py-3 text-right font-medium">Mat.</th>
-                    <th className="px-3 py-3 text-right font-medium">Asist.</th>
-                    <th className="px-3 py-3 text-right font-medium">Viajes</th>
-                    <th className="px-3 py-3 text-right font-medium">Otros</th>
-                    <th className="px-3 py-3 text-right font-medium">Cte-A</th>
-                    <th className="px-3 py-3 text-right font-medium">R-Orig</th>
-                    <th className="px-3 py-3 text-right font-medium">R-A</th>
+                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => (
+                      <th key={col.key} className={`px-3 py-3 font-medium ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
+                        {col.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {detail.lines.map((line) => (
                     <tr key={line.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-3 py-2">{line.state_project || '—'}</td>
-                      <td className="px-3 py-2 max-w-30 truncate">{line.nexecution_manager || '—'}</td>
-                      <td className="px-3 py-2 max-w-40 truncate">{line.project_name || '—'}</td>
-                      <td className="px-3 py-2 text-center">{line.year || '—'}</td>
-                      <td className="px-3 py-2 text-center">{line.month || '—'}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.fdo_orig)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.fdo_mon)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.fdo_year)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.cte_orig)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.cte_mes)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.mat)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.asist)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.viajes)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.otros)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatNumber(line.cte_year)}</td>
-                      <td className={`px-3 py-2 text-right font-mono font-semibold ${line.result_orig >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {formatNumber(line.result_orig)}
-                      </td>
-                      <td className={`px-3 py-2 text-right font-mono font-semibold ${line.result_year >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {formatNumber(line.result_year)}
-                      </td>
+                      {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
+                        const val = line[col.key];
+                        const isStr = typeof val === 'string' || col.key === 'year' || col.key === 'month';
+                        if (isStr) {
+                          return (
+                          <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'project_name' ? 'max-w-40 truncate' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}>
+                              {(val as string) || '—'}
+                            </td>
+                          );
+                        }
+                        const num = val as number;
+                        const colored = col.isResult ? (num >= 0 ? 'text-emerald-600' : 'text-rose-600') : '';
+                        const fmt = col.isPct
+                          ? `${formatNumber(num)} %`
+                          : formatNumber(num);
+                        return (
+                          <td key={col.key} className={`px-3 py-2 text-right font-mono ${col.isResult ? 'font-semibold ' : ''}${colored}`}>
+                            {fmt}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>

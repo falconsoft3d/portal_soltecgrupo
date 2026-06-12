@@ -383,18 +383,48 @@ export interface ResultTableLineItem {
   project_name: string;
   year: string;
   month: string;
+  // Contrato
+  contracted_sale: number;
+  expansion_contract: number;
+  contracted_cost: number;
+  contracted_coefficient: number;
+  pending_execution: number;
+  // FdO / Cte origen
   fdo_orig: number;
-  fdo_mon: number;
-  fdo_year: number;
   cte_orig: number;
+  // Origen
+  o_mat: number;
+  o_partner: number;
+  o_asist: number;
+  o_viajes: number;
+  o_otros: number;
+  // Año
+  fdo_year: number;
+  cte_year: number;
+  cte_year_mat: number;
+  cte_year_partner: number;
+  cte_year_asist: number;
+  cte_year_viajes: number;
+  cte_year_otros: number;
+  // Mes
+  fdo_mon: number;
   cte_mes: number;
   mat: number;
+  partner: number;
   asist: number;
   viajes: number;
   otros: number;
-  cte_year: number;
+  // A/P
+  ap_year: number;
+  ap_mon: number;
+  // Resultado
   result_orig: number;
   result_year: number;
+  // Márgenes
+  mbrut_orig: number;
+  mbrut_year: number;
+  mnet_orig: number;
+  mmnet_year: number;
 }
 
 export interface ResultTableDetailItem extends ResultTableItem {
