@@ -28,9 +28,12 @@ function formatDate(value: string | false): string {
   return `${y}-${m}-${d}`;
 }
 
-function formatDateTime(value: string | false): string {
+function formatDateTime(value: string | false): string { // eslint-disable-line @typescript-eslint/no-unused-vars
   if (!value) return '—';
-  const date = new Date(value);
+  // Odoo devuelve UTC sin 'Z'; añadimos 'Z' para que JS lo interprete como UTC
+  // y lo convierta a la hora local del navegador (p. ej. UTC+2 → +2 h)
+  const normalized = value.replace(' ', 'T') + 'Z';
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return String(value);
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');

@@ -196,7 +196,10 @@ function formatHours(value: number): string {
 
 function formatDateTime(value: string | false): string {
   if (!value) return '—';
-  const date = new Date(value);
+  // Odoo devuelve UTC sin 'Z'; añadimos 'Z' para que JS lo interprete como UTC
+  // y lo convierta a la hora local del navegador (p. ej. UTC+2 → +2 h)
+  const normalized = value.replace(' ', 'T') + 'Z';
+  const date = new Date(normalized);
   if (Number.isNaN(date.getTime())) return String(value);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

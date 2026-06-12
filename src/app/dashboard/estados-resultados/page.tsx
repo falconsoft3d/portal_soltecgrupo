@@ -28,7 +28,7 @@ interface ColDef {
 
 const COLUMNS: ColDef[] = [
   { key: 'state_project',        label: 'Estado',             align: 'left',   defaultVisible: true  },
-  { key: 'nexecution_manager',   label: 'Jefe de Obra',       align: 'left',   defaultVisible: true  },
+  { key: 'nexecution_manager',   label: 'Jefe de Obra',       align: 'left',   defaultVisible: false },
   { key: 'project_name',         label: 'Proyecto',           align: 'left',   defaultVisible: true  },
   { key: 'year',                 label: 'A',                  align: 'center', defaultVisible: true  },
   { key: 'month',                label: 'M',                  align: 'center', defaultVisible: true  },
@@ -39,31 +39,31 @@ const COLUMNS: ColDef[] = [
   { key: 'pending_execution',    label: 'Pendiente',          align: 'right',  defaultVisible: false },
   { key: 'fdo_orig',             label: 'FdO orig',           align: 'right',  defaultVisible: true  },
   { key: 'cte_orig',             label: 'Cte orig.',          align: 'right',  defaultVisible: true  },
-  { key: 'o_mat',                label: 'O.Mat.',             align: 'right',  defaultVisible: true  },
-  { key: 'o_partner',            label: 'O.Partner.',         align: 'right',  defaultVisible: true  },
-  { key: 'o_asist',              label: 'O.Asist.',           align: 'right',  defaultVisible: true  },
-  { key: 'o_viajes',             label: 'O.Viajes',           align: 'right',  defaultVisible: true  },
-  { key: 'o_otros',              label: 'O.Otros',            align: 'right',  defaultVisible: true  },
+  { key: 'o_mat',                label: 'O.Mat.',             align: 'right',  defaultVisible: false },
+  { key: 'o_partner',            label: 'O.Partner.',         align: 'right',  defaultVisible: false },
+  { key: 'o_asist',              label: 'O.Asist.',           align: 'right',  defaultVisible: false },
+  { key: 'o_viajes',             label: 'O.Viajes',           align: 'right',  defaultVisible: false },
+  { key: 'o_otros',              label: 'O.Otros',            align: 'right',  defaultVisible: false },
   { key: 'fdo_year',             label: 'FdO-A',              align: 'right',  defaultVisible: true  },
   { key: 'cte_year',             label: 'Cte-A',              align: 'right',  defaultVisible: true  },
-  { key: 'cte_year_mat',         label: 'A.Mat.',             align: 'right',  defaultVisible: true  },
-  { key: 'cte_year_partner',     label: 'A.Partner.',         align: 'right',  defaultVisible: true  },
-  { key: 'cte_year_asist',       label: 'A.Asist.',           align: 'right',  defaultVisible: true  },
-  { key: 'cte_year_viajes',      label: 'A.Viajes',           align: 'right',  defaultVisible: true  },
-  { key: 'cte_year_otros',       label: 'A.Otros',            align: 'right',  defaultVisible: true  },
+  { key: 'cte_year_mat',         label: 'A.Mat.',             align: 'right',  defaultVisible: false },
+  { key: 'cte_year_partner',     label: 'A.Partner.',         align: 'right',  defaultVisible: false },
+  { key: 'cte_year_asist',       label: 'A.Asist.',           align: 'right',  defaultVisible: false },
+  { key: 'cte_year_viajes',      label: 'A.Viajes',           align: 'right',  defaultVisible: false },
+  { key: 'cte_year_otros',       label: 'A.Otros',            align: 'right',  defaultVisible: false },
   { key: 'fdo_mon',              label: 'FdO-M',              align: 'right',  defaultVisible: true  },
   { key: 'cte_mes',              label: 'Cte-M',              align: 'right',  defaultVisible: true  },
-  { key: 'mat',                  label: 'Mat.',               align: 'right',  defaultVisible: true  },
-  { key: 'partner',              label: 'Partner.',           align: 'right',  defaultVisible: true  },
-  { key: 'asist',                label: 'Asist.',             align: 'right',  defaultVisible: true  },
-  { key: 'viajes',               label: 'Viajes',             align: 'right',  defaultVisible: true  },
-  { key: 'otros',                label: 'Otros',              align: 'right',  defaultVisible: true  },
+  { key: 'mat',                  label: 'Mat.',               align: 'right',  defaultVisible: false },
+  { key: 'partner',              label: 'Partner.',           align: 'right',  defaultVisible: false },
+  { key: 'asist',                label: 'Asist.',             align: 'right',  defaultVisible: false },
+  { key: 'viajes',               label: 'Viajes',             align: 'right',  defaultVisible: false },
+  { key: 'otros',                label: 'Otros',              align: 'right',  defaultVisible: false },
   { key: 'ap_year',              label: 'A/P-A',              align: 'right',  defaultVisible: true  },
   { key: 'ap_mon',               label: 'A/P-M',              align: 'right',  defaultVisible: true  },
   { key: 'result_orig',          label: 'R-Orig',             align: 'right',  defaultVisible: true,  isResult: true },
   { key: 'result_year',          label: 'R-A',                align: 'right',  defaultVisible: true,  isResult: true },
-  { key: 'mbrut_orig',           label: '%MBrut orig',        align: 'right',  defaultVisible: true,  isPct: true },
-  { key: 'mbrut_year',           label: '%MBrut-A',           align: 'right',  defaultVisible: true,  isPct: true },
+  { key: 'mbrut_orig',           label: '%MBrut orig',        align: 'right',  defaultVisible: false, isPct: true },
+  { key: 'mbrut_year',           label: '%MBrut-A',           align: 'right',  defaultVisible: false, isPct: true },
   { key: 'mnet_orig',            label: '%MNet orig',         align: 'right',  defaultVisible: true,  isPct: true },
   { key: 'mmnet_year',           label: '%MNet-A',            align: 'right',  defaultVisible: true,  isPct: true },
 ];
@@ -581,6 +581,30 @@ export default function EstadosResultadosPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold text-gray-800">
+                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col, idx) => {
+                      const isStr = col.key === 'state_project' || col.key === 'nexecution_manager' || col.key === 'project_name' || col.key === 'year' || col.key === 'month';
+                      if (isStr) {
+                        return (
+                          <td key={col.key} className="px-3 py-2 text-xs text-gray-500">
+                            {idx === 0 ? 'TOTAL' : ''}
+                          </td>
+                        );
+                      }
+                      if (col.isPct) {
+                        return <td key={col.key} className="px-3 py-2" />;
+                      }
+                      const total = detail.lines.reduce((sum, line) => sum + ((line[col.key] as number) || 0), 0);
+                      const colored = col.isResult ? (total >= 0 ? 'text-emerald-700' : 'text-rose-700') : '';
+                      return (
+                        <td key={col.key} className={`px-3 py-2 text-right font-mono text-xs ${colored}`}>
+                          {formatNumber(total)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
