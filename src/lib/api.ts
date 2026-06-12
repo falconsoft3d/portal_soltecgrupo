@@ -9,6 +9,7 @@ export interface PartnerInfo {
   name: string;
   email: string;
   login: string;
+  portal_all_projects?: boolean;
 }
 
 export interface ApiResponse {
@@ -25,6 +26,15 @@ export interface PortalProject {
   name: string;
   display_name: string;
   is_manager: boolean;
+}
+
+export interface PortalPartner {
+  id: number;
+  name: string;
+}
+
+export interface PortalPartnersResponse extends ApiResponse {
+  portal_partners?: PortalPartner[];
 }
 
 export interface ProjectsResponse extends ApiResponse {
@@ -468,7 +478,11 @@ export const apiUpdateAndCalcResultTable = async (
   from_date: string,
   to_date: string,
   project_ids: number[],
+  manager_ids?: number[],
 ): Promise<ResultTableDetailResponse> =>
-  post('/api/result-tables/update-and-calc', { table_id, from_date, to_date, project_ids }, token) as Promise<ResultTableDetailResponse>;
+  post('/api/result-tables/update-and-calc', { table_id, from_date, to_date, project_ids, manager_ids }, token) as Promise<ResultTableDetailResponse>;
+
+export const apiPortalPartners = async (token: string): Promise<PortalPartnersResponse> =>
+  post('/api/portal-partners', {}, token) as Promise<PortalPartnersResponse>;
 
 

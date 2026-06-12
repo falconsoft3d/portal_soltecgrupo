@@ -8,6 +8,7 @@ import {
   getRememberedCredentials,
   getToken,
   saveRememberedCredentials,
+  setPartnerInfo,
   setToken,
 } from '@/lib/auth';
 
@@ -52,6 +53,7 @@ export default function LoginPage() {
         }
 
         setToken(res.token);
+        if (res.partner) setPartnerInfo(res.partner as unknown as Record<string, unknown>);
         router.push('/dashboard');
       } else {
         setError(res.error || 'Error al iniciar sesión.');

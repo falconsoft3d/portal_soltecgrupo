@@ -121,3 +121,22 @@ export function setToken(token: string): void {
 export function removeToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
+
+const PARTNER_KEY = 'portal_partner_info';
+
+export function setPartnerInfo(partner: Record<string, unknown>): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PARTNER_KEY, JSON.stringify(partner));
+}
+
+export function getPartnerInfo(): Record<string, unknown> | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(PARTNER_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as Record<string, unknown>; } catch { return null; }
+}
+
+export function removePartnerInfo(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(PARTNER_KEY);
+}

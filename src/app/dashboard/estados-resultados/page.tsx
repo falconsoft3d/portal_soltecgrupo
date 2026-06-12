@@ -7,13 +7,15 @@ import {
   apiCreateResultTable,
   apiUpdateAndCalcResultTable,
   apiProjects,
+  apiPortalPartners,
   ResultTableItem,
   ResultTableDetailItem,
   ResultTableLineItem,
   PortalProject,
+  PortalPartner,
 } from '@/lib/api';
 import * as XLSX from 'xlsx';
-import { getToken } from '@/lib/auth';
+import { getToken, getPartnerInfo } from '@/lib/auth';
 
 // ─── Definición de columnas (orden idéntico a Odoo back-office) ───────────────
 type ColKey = keyof ResultTableLineItem;
@@ -147,6 +149,13 @@ export default function EstadosResultadosPage() {
   const [detailSuccess, setDetailSuccess] = useState<string>('');
   const [showProjectPicker, setShowProjectPicker] = useState(false);
 
+  // Managers (solo si portal_all_projects)
+  const isAdmin = Boolean((getPartnerInfo() as { portal_all_projects?: boolean } | null)?.portal_all_projects);
+  const [portalPartners, setPortalPartners] = useState<PortalPartner[]>([]);
+  const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>([]);
+  const [showManagerPicker, setShowManagerPicker] = useState(false);
+  const managerPickerRef = useRef<HTMLDivElement>(null);
+
   // Visibilidad de columnas
   const defaultVisible = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
   const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(defaultVisible);
@@ -175,12 +184,20 @@ export default function EstadosResultadosPage() {
     setDetailError('');
     setDetailSuccess('');
     setShowProjectPicker(false);
+    setShowManagerPicker(false);
     setIsLoadingDetail(true);
     try {
-      const [detailRes, projectsRes] = await Promise.all([
+      const calls: Promise<unknown>[] = [
         apiResultTableDetail(token, tableId),
         apiProjects(token),
-      ]);
+      ];
+      if (isAdmin) calls.push(apiPortalPartners(token));
+
+      const [detailRes, projectsRes, partnersRes] = await Promise.all(calls) as [
+        Awaited<ReturnType<typeof apiResultTableDetail>>,
+        Awaited<ReturnType<typeof apiProjects>>,
+        Awaited<ReturnType<typeof apiPortalPartners>> | undefined,
+      ];
 
       if (detailRes.success && detailRes.result_table) {
         const t = detailRes.result_table;
@@ -188,12 +205,16 @@ export default function EstadosResultadosPage() {
         setDetailFromDate(typeof t.from_date === 'string' ? t.from_date : firstDay);
         setDetailToDate(typeof t.to_date === 'string' ? t.to_date : lastDay);
         setSelectedProjectIds((t.project_ids ?? []).map((p) => p.id));
+        setSelectedManagerIds((t.managers ?? []).map((m) => m.id));
       } else {
         setError(errorToText(detailRes.error, 'No se pudo cargar el detalle.'));
       }
 
       if (projectsRes.success && projectsRes.projects) {
         setAllowedProjects(projectsRes.projects);
+      }
+      if (partnersRes?.success && partnersRes.portal_partners) {
+        setPortalPartners(partnersRes.portal_partners);
       }
     } catch {
       setError('Error al cargar el detalle.');
@@ -232,6 +253,7 @@ export default function EstadosResultadosPage() {
         detailFromDate,
         detailToDate,
         selectedProjectIds,
+        isAdmin ? selectedManagerIds : undefined,
       );
       if (res.success && res.result_table) {
         setDetail(res.result_table);
@@ -360,6 +382,102 @@ export default function EstadosResultadosPage() {
               />
             </div>
           </div>
+
+          {/* Selector de responsables (solo admin) */}
+          {isAdmin && (
+            <div className="mb-5" ref={managerPickerRef}>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Responsables</label>
+              <button
+                type="button"
+                onClick={() => setShowManagerPicker((v) => !v)}
+                className="w-full sm:w-auto text-left border border-gray-300 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+                {selectedManagerIds.length === 0
+                  ? 'Seleccionar responsables'
+                  : `${selectedManagerIds.length} responsable${selectedManagerIds.length !== 1 ? 's' : ''} seleccionado${selectedManagerIds.length !== 1 ? 's' : ''}`}
+              </button>
+
+              {showManagerPicker && (
+                <div className="mt-2 border border-gray-200 rounded-xl bg-white shadow-lg max-h-64 overflow-y-auto">
+                  <div className="p-2 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Socios con acceso al portal</span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedManagerIds(portalPartners.map((p) => p.id))}
+                        className="text-xs text-brand-600 hover:text-brand-800"
+                      >
+                        Todos
+                      </button>
+                      <span className="text-gray-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedManagerIds([])}
+                        className="text-xs text-gray-500 hover:text-gray-700"
+                      >
+                        Ninguno
+                      </button>
+                    </div>
+                  </div>
+                  {portalPartners.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-gray-400">No hay responsables disponibles.</div>
+                  ) : (
+                    <ul className="divide-y divide-gray-50">
+                      {portalPartners.map((partner) => {
+                        const checked = selectedManagerIds.includes(partner.id);
+                        return (
+                          <li key={partner.id}>
+                            <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-brand-50 transition-colors">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setSelectedManagerIds((prev) =>
+                                    prev.includes(partner.id)
+                                      ? prev.filter((x) => x !== partner.id)
+                                      : [...prev, partner.id],
+                                  )
+                                }
+                                className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
+                              />
+                              <span className="text-sm text-gray-700">{partner.name}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* Tags de responsables seleccionados */}
+              {selectedManagerIds.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {selectedManagerIds.map((id) => {
+                    const mgr = portalPartners.find((p) => p.id === id);
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs rounded-full px-2.5 py-1"
+                      >
+                        {mgr?.name ?? `ID ${id}`}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedManagerIds((prev) => prev.filter((x) => x !== id))}
+                          className="hover:text-indigo-900 ml-0.5"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Selector de obras */}
           <div className="mb-5">
