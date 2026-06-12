@@ -54,7 +54,7 @@ export default function LoginPage() {
 
         setToken(res.token);
         if (res.partner) setPartnerInfo(res.partner as unknown as Record<string, unknown>);
-        router.push('/dashboard');
+        router.push('/dashboard/inicio');
       } else {
         setError(res.error || 'Error al iniciar sesión.');
       }
