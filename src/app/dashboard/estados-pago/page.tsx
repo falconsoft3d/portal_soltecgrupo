@@ -295,7 +295,7 @@ export default function EstadosPagoPage() {
                   <option value="">Selecciona un proyecto...</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
-                      {project.display_name}
+                      {project.is_manager ? '👑 ' : ''}{project.display_name}
                     </option>
                   ))}
                 </select>

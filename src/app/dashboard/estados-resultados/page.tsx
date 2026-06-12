@@ -417,7 +417,9 @@ export default function EstadosResultadosPage() {
                               onChange={() => toggleProject(project.id)}
                               className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
                             />
-                            <span className="text-sm text-gray-700">{project.display_name}</span>
+                            <span className="text-sm text-gray-700">
+                              {project.is_manager ? '👑 ' : ''}{project.display_name}
+                            </span>
                           </label>
                         </li>
                       );

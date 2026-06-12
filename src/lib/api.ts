@@ -24,6 +24,7 @@ export interface PortalProject {
   code: string;
   name: string;
   display_name: string;
+  is_manager: boolean;
 }
 
 export interface ProjectsResponse extends ApiResponse {
