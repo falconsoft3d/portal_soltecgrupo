@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiMe, apiLogout, PartnerInfo } from '@/lib/api';
-import { getToken, removeToken } from '@/lib/auth';
+import { getToken, removeToken, setPartnerInfo } from '@/lib/auth';
 import Sidebar from './components/Sidebar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .then((res) => {
         if (res.success && res.partner) {
           setPartner(res.partner);
+          setPartnerInfo(res.partner as unknown as Record<string, unknown>);
         } else {
           removeToken();
           router.replace('/login');

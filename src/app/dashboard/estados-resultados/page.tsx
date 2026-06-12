@@ -8,6 +8,7 @@ import {
   apiUpdateAndCalcResultTable,
   apiProjects,
   apiPortalPartners,
+  apiMe,
   ResultTableItem,
   ResultTableDetailItem,
   ResultTableLineItem,
@@ -15,7 +16,7 @@ import {
   PortalPartner,
 } from '@/lib/api';
 import * as XLSX from 'xlsx';
-import { getToken, getPartnerInfo } from '@/lib/auth';
+import { getToken } from '@/lib/auth';
 
 // ─── Definición de columnas (orden idéntico a Odoo back-office) ───────────────
 type ColKey = keyof ResultTableLineItem;
@@ -150,7 +151,7 @@ export default function EstadosResultadosPage() {
   const [showProjectPicker, setShowProjectPicker] = useState(false);
 
   // Managers (solo si portal_all_projects)
-  const isAdmin = Boolean((getPartnerInfo() as { portal_all_projects?: boolean } | null)?.portal_all_projects);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [portalPartners, setPortalPartners] = useState<PortalPartner[]>([]);
   const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>([]);
   const [showManagerPicker, setShowManagerPicker] = useState(false);
@@ -165,14 +166,19 @@ export default function EstadosResultadosPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    apiResultTables(token)
-      .then((res) => {
-        if (res.success) {
-          setTables(res.result_tables || []);
-        } else {
-          setError(errorToText(res.error, 'No se pudieron cargar los estados de resultados.'));
-        }
-      })
+    Promise.all([
+      apiResultTables(token),
+      apiMe(token),
+    ]).then(([tablesRes, meRes]) => {
+      if (tablesRes.success) {
+        setTables(tablesRes.result_tables || []);
+      } else {
+        setError(errorToText(tablesRes.error, 'No se pudieron cargar los estados de resultados.'));
+      }
+      if (meRes.success && meRes.partner?.portal_all_projects) {
+        setIsAdmin(true);
+      }
+    })
       .catch(() => setError('No se pudo cargar la información.'))
       .finally(() => setIsLoading(false));
   }, []);
