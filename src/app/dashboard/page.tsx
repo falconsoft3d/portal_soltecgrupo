@@ -1237,7 +1237,7 @@ export default function DashboardPage() {
                                 <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{line.reference || '—'}</td>
                                 <td className="px-2 py-1.5 text-slate-700">{line.product_name || '—'}</td>
                                 <td className="px-2 py-1.5 text-slate-600">{line.description || '—'}</td>
-                                <td className="px-2 py-1.5 text-right text-slate-700">{line.qty.toFixed(2)} {line.uom_name || ''}</td>
+                                <td className={`px-2 py-1.5 text-right whitespace-nowrap ${line.qty < 0 ? 'text-rose-600' : 'text-slate-700'}`}>{line.qty.toFixed(2)} {line.uom_name || ''}</td>
                                 <td className="px-2 py-1.5 text-right text-slate-700 whitespace-nowrap">{formatCurrency(line.unit_price)}</td>
                                 <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${line.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                                   {formatCurrency(line.subtotal)}
@@ -1308,7 +1308,7 @@ export default function DashboardPage() {
                                                   <td className="px-2 py-1 text-slate-600 whitespace-nowrap">{line.picking_name || '—'}</td>
                                                   <td className="px-2 py-1 text-slate-600 whitespace-nowrap">{line.reference || '—'}</td>
                                                   <td className="px-2 py-1 text-slate-600">{line.description || '—'}</td>
-                                                  <td className="px-2 py-1 text-right text-slate-700">{line.qty.toFixed(2)} {line.uom_name || ''}</td>
+                                                  <td className={`px-2 py-1 text-right whitespace-nowrap ${line.qty < 0 ? 'text-rose-600' : 'text-slate-700'}`}>{line.qty.toFixed(2)} {line.uom_name || ''}</td>
                                                   <td className="px-2 py-1 text-right text-slate-700 whitespace-nowrap">{formatCurrency(line.unit_price)}</td>
                                                   <td className={`px-2 py-1 text-right font-semibold whitespace-nowrap ${line.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                                                     {formatCurrency(line.subtotal)}
