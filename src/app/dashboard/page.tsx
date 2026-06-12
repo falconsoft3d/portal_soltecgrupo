@@ -1280,7 +1280,7 @@ export default function DashboardPage() {
                                   >
                                     <td className="px-2 py-1.5 text-slate-600">{group.category}</td>
                                     <td className="px-2 py-1.5 font-semibold text-slate-700">{expanded ? '⌄' : '›'} {group.product}</td>
-                                    <td className="px-2 py-1.5 text-right text-slate-700">{group.qty.toFixed(2)}</td>
+                                    <td className={`px-2 py-1.5 text-right ${group.qty < 0 ? 'text-rose-600' : 'text-slate-700'}`}>{group.qty.toFixed(2)}</td>
                                     <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${group.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
                                       {formatCurrency(group.subtotal)}
                                     </td>
