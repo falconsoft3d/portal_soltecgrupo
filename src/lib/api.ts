@@ -177,6 +177,7 @@ export interface PickingAnalysesResponse extends ApiResponse {
   analyses?: PickingAnalysisItem[];
   total_records?: number;
   total_amount?: number;
+  prev_month_total?: number;
 }
 
 export interface CreatePickingAnalysisResponse extends ApiResponse {

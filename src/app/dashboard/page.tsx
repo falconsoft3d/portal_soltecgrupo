@@ -170,6 +170,7 @@ type AappData = {
   rows: PickingAnalysisItem[];
   totalRecords: number;
   totalAmount: number;
+  prevMonthTotal: number;
 };
 
 function formatK(value: number): string {
@@ -291,7 +292,7 @@ export default function DashboardPage() {
   const [invoicedExpanded, setInvoicedExpanded] = useState(false);
   const [invoicedData, setInvoicedData] = useState<InvoicedData>({ rows: [], totalRecords: 0, totalAmount: 0 });
   const [aappExpanded, setAappExpanded] = useState(false);
-  const [aappData, setAappData] = useState<AappData>({ rows: [], totalRecords: 0, totalAmount: 0 });
+  const [aappData, setAappData] = useState<AappData>({ rows: [], totalRecords: 0, totalAmount: 0, prevMonthTotal: 0 });
   const [isRefreshingIndicators, setIsRefreshingIndicators] = useState(true);
   const [isExportingCenters, setIsExportingCenters] = useState(false);
   const refreshRequestRef = useRef(0);
@@ -319,9 +320,14 @@ export default function DashboardPage() {
     ],
   );
 
+  const aappDisplayAmount = useMemo(
+    () => filterMode === 'month' ? aappData.totalAmount - aappData.prevMonthTotal : aappData.totalAmount,
+    [filterMode, aappData.totalAmount, aappData.prevMonthTotal],
+  );
+
   const resultAmount = useMemo(
-    () => invoicedData.totalAmount - totalCostAmount + aappData.totalAmount,
-    [invoicedData.totalAmount, totalCostAmount, aappData.totalAmount],
+    () => invoicedData.totalAmount - totalCostAmount + aappDisplayAmount,
+    [invoicedData.totalAmount, totalCostAmount, aappDisplayAmount],
   );
 
   const marginPercent = useMemo(() => {
@@ -347,8 +353,8 @@ export default function DashboardPage() {
           : kpi.title === 'AAPP'
             ? {
                 ...kpi,
-                value: formatCompactAmount(aappData.totalAmount),
-                subtitle: 'Acumulado mes',
+                value: formatCompactAmount(aappDisplayAmount),
+                subtitle: filterMode === 'month' ? 'Mes − mes anterior' : 'Acumulado mes',
               }
           : kpi.title === 'RESULTADO'
             ? {
@@ -366,7 +372,7 @@ export default function DashboardPage() {
               }
           : kpi,
       ),
-    [filterMode, invoicedData.totalAmount, totalCostAmount, aappData.totalAmount, resultAmount, marginPercent],
+    [filterMode, invoicedData.totalAmount, totalCostAmount, aappData.totalAmount, aappDisplayAmount, resultAmount, marginPercent],
   );
 
   const costCentersView = useMemo(
@@ -614,10 +620,11 @@ export default function DashboardPage() {
           rows: res.success ? res.analyses ?? [] : [],
           totalRecords: res.success ? res.total_records ?? 0 : 0,
           totalAmount: res.success ? res.total_amount ?? 0 : 0,
+          prevMonthTotal: res.success ? res.prev_month_total ?? 0 : 0,
         });
       })
       .catch(() => {
-        setAappData({ rows: [], totalRecords: 0, totalAmount: 0 });
+        setAappData({ rows: [], totalRecords: 0, totalAmount: 0, prevMonthTotal: 0 });
       });
   }, [selectedProjectId, requestMonth, selectedYear]);
 
@@ -898,7 +905,7 @@ export default function DashboardPage() {
                       <th className="px-3 py-2">Fecha</th>
                       <th className="px-3 py-2">Cliente</th>
                       <th className="px-3 py-2">Proyecto</th>
-                      <th className="px-3 py-2 text-right whitespace-nowrap">Importe</th>
+                      <th className="px-3 py-2 text-right whitespace-nowrap">Base imp.</th>
                     </tr>
                   </thead>
                   <tbody>
