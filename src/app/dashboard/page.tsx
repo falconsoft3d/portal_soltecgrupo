@@ -788,7 +788,7 @@ export default function DashboardPage() {
               <option value="all">Todas las obras</option>
               {(projects.length ? projects : []).map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.is_manager ? '👑 ' : ''}{project.display_name}
+                  {project.is_manager ? '👑 ' : ''}{project.display_name}{project.state_name ? ` (${project.state_name})` : ''}
                 </option>
               ))}
               {projects.length === 0 && (

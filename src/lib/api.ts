@@ -26,6 +26,7 @@ export interface PortalProject {
   name: string;
   display_name: string;
   is_manager: boolean;
+  state_name: string;
 }
 
 export interface PortalPartner {
