@@ -258,12 +258,21 @@ export default function DashboardPage() {
     if (!v || v === 'all') return 'all';
     return Number(v);
   });
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const v = localStorage.getItem('dash_companyIds');
+      return v ? (JSON.parse(v) as number[]) : [];
+    } catch { return []; }
+  });
+  const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
 
   // ── Persistencia en localStorage ────────────────────────────────────
   useEffect(() => { localStorage.setItem('dash_filterMode', filterMode); }, [filterMode]);
   useEffect(() => { localStorage.setItem('dash_monthIndex', String(selectedMonthIndex)); }, [selectedMonthIndex]);
   useEffect(() => { localStorage.setItem('dash_year', String(selectedYear)); }, [selectedYear]);
   useEffect(() => { localStorage.setItem('dash_projectId', String(selectedProjectId)); }, [selectedProjectId]);
+  useEffect(() => { localStorage.setItem('dash_companyIds', JSON.stringify(selectedCompanyIds)); }, [selectedCompanyIds]);
   const [materialsExpanded, setMaterialsExpanded] = useState(false);
   const [selectedMaterialCategory, setSelectedMaterialCategory] = useState('Todas');
   const [materialsViewMode, setMaterialsViewMode] = useState<'individual' | 'grouped'>('individual');
@@ -303,6 +312,37 @@ export default function DashboardPage() {
   const yearOptions = useMemo(
     () => [currentYear - 2, currentYear - 1, currentYear, currentYear + 1],
     [currentYear],
+  );
+
+  // ── Compañías disponibles y proyectos filtrados ───────────────────────
+  const companies = useMemo(() => {
+    const seen = new Map<number, string>();
+    projects.forEach((p) => {
+      if (p.company_id && !seen.has(p.company_id)) {
+        seen.set(p.company_id, p.company_name || `Compañía ${p.company_id}`);
+      }
+    });
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [projects]);
+
+  const companyFilteredProjects = useMemo(() => {
+    if (selectedCompanyIds.length === 0) return projects;
+    return projects.filter((p) => p.company_id && selectedCompanyIds.includes(p.company_id));
+  }, [projects, selectedCompanyIds]);
+
+  // Si el proyecto seleccionado ya no está en los proyectos filtrados, resetear a 'all'
+  useEffect(() => {
+    if (projects.length === 0) return; // proyectos aún cargando
+    if (selectedProjectId !== 'all' && !companyFilteredProjects.some((p) => p.id === selectedProjectId)) {
+      setSelectedProjectId('all');
+    }
+  }, [projects.length, companyFilteredProjects, selectedProjectId]);
+
+  const activeCompanyIds = useMemo(
+    () => (selectedCompanyIds.length > 0 ? selectedCompanyIds : undefined),
+    [selectedCompanyIds],
   );
   const totalCostAmount = useMemo(
     () =>
@@ -545,12 +585,12 @@ export default function DashboardPage() {
     refreshRequestRef.current = requestId;
 
     Promise.all([
-      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
-      apiMaterials(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
-      apiAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
-      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
-      apiShipments(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
-      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear),
+      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
+      apiMaterials(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
+      apiAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
+      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
+      apiShipments(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
+      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
     ])
       .then(([invoicedRes, materialsRes, attendanceRes, partnerAttendanceRes, shipmentsRes, otherExpensesRes]) => {
         if (refreshRequestRef.current !== requestId) return;
@@ -608,13 +648,13 @@ export default function DashboardPage() {
         if (refreshRequestRef.current !== requestId) return;
         setIsRefreshingIndicators(false);
       });
-  }, [selectedProjectId, requestMonth, filterMode, selectedYear]);
+  }, [selectedProjectId, requestMonth, filterMode, selectedYear, activeCompanyIds]);
 
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
-    apiPickingAnalyses(token, selectedProjectId, requestMonth, 'month', undefined, selectedYear)
+    apiPickingAnalyses(token, selectedProjectId, requestMonth, 'month', undefined, selectedYear, activeCompanyIds)
       .then((res) => {
         setAappData({
           rows: res.success ? res.analyses ?? [] : [],
@@ -626,7 +666,7 @@ export default function DashboardPage() {
       .catch(() => {
         setAappData({ rows: [], totalRecords: 0, totalAmount: 0, prevMonthTotal: 0 });
       });
-  }, [selectedProjectId, requestMonth, selectedYear]);
+  }, [selectedProjectId, requestMonth, selectedYear, activeCompanyIds]);
 
   async function handleExportCostCentersXlsx() {
     const hasData =
@@ -733,6 +773,81 @@ export default function DashboardPage() {
             <span>ObraControl</span>
           </div>
 
+          {/* ── Selector de compañía ─────────────────────────────── */}
+          {companies.length > 1 && (
+            <div className="relative flex-1">
+              <button
+                type="button"
+                onClick={() => setCompanyDropdownOpen((open) => !open)}
+                className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                  selectedCompanyIds.length > 0
+                    ? 'border-blue-400 bg-blue-50 text-blue-700'
+                    : 'border-slate-300 bg-white text-slate-600'
+                }`}
+              >
+                <span className="truncate">
+                  {selectedCompanyIds.length === 0
+                    ? 'Todas las compañías'
+                    : selectedCompanyIds.length === 1
+                      ? (companies.find((c) => c.id === selectedCompanyIds[0])?.name ?? 'Compañía')
+                      : `${selectedCompanyIds.length} compañías`}
+                </span>
+                <span className="shrink-0 text-xs text-slate-400">{companyDropdownOpen ? '▲' : '▼'}</span>
+              </button>
+              {companyDropdownOpen && (
+                <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-slate-200 bg-white shadow-lg">
+                  <div className="p-2 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Filtrar por compañía</span>
+                    {selectedCompanyIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCompanyIds([]);
+                          setIsRefreshingIndicators(true);
+                        }}
+                        className="text-xs text-blue-600 hover:underline"
+                      >
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
+                  <ul className="max-h-60 overflow-y-auto py-1">
+                    {companies.map((company) => {
+                      const checked = selectedCompanyIds.includes(company.id);
+                      return (
+                        <li key={company.id}>
+                          <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setIsRefreshingIndicators(true);
+                                setSelectedCompanyIds((prev) =>
+                                  checked
+                                    ? prev.filter((id) => id !== company.id)
+                                    : [...prev, company.id],
+                                );
+                              }}
+                              className="h-4 w-4 rounded accent-blue-600"
+                            />
+                            <span className="truncate">{company.name}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              {/* Overlay para cerrar al hacer click fuera */}
+              {companyDropdownOpen && (
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setCompanyDropdownOpen(false)}
+                />
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">
               <span className="sr-only">Mes</span>
@@ -786,12 +901,12 @@ export default function DashboardPage() {
               className="w-full bg-transparent font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="all">Todas las obras</option>
-              {(projects.length ? projects : []).map((project) => (
+              {(companyFilteredProjects.length ? companyFilteredProjects : []).map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.is_manager ? '👑 ' : ''}{project.display_name}{project.state_name ? ` (${project.state_name})` : ''}
                 </option>
               ))}
-              {projects.length === 0 && (
+              {companyFilteredProjects.length === 0 && (
                 projectOptionsFallback.map((project) => (
                   <option key={project} value="">
                     {project}
