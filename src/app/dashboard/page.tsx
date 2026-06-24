@@ -173,21 +173,29 @@ type AappData = {
   prevMonthTotal: number;
 };
 
+/** Formatea un número en formato español: punto de miles y coma decimal */
+function esNum(value: number, decimals = 2): string {
+  const sign = value < 0 ? '-' : '';
+  const [intPart, decPart] = Math.abs(value).toFixed(decimals).split('.');
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return decimals > 0 ? `${sign}${intFormatted},${decPart}` : `${sign}${intFormatted}`;
+}
+
 function formatK(value: number): string {
-  return `€${(value / 1000).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}k`;
+  return `€${esNum(value / 1000, 1)}k`;
 }
 
 function formatCompactAmount(value: number): string {
   if (Math.abs(value) >= 1000) return formatK(value);
-  return `€${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `€${esNum(value)}`;
 }
 
 function formatCurrency(value: number): string {
-  return `${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  return `${esNum(value)} €`;
 }
 
 function formatAxisAmount(value: number): string {
-  if (Math.abs(value) >= 1000) return `${(value / 1000).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}k`;
+  if (Math.abs(value) >= 1000) return `${esNum(value / 1000, 1)}k`;
   return `${Math.round(value)}`;
 }
 

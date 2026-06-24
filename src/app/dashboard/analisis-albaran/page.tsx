@@ -44,7 +44,10 @@ function formatDateTime(value: string | false): string { // eslint-disable-line 
 }
 
 function formatCurrency(value: number): string {
-  return `${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  const sign = value < 0 ? '-' : '';
+  const [intPart, decPart] = Math.abs(value).toFixed(2).split('.');
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${sign}${intFormatted},${decPart} €`;
 }
 
 function errorToText(value: unknown, fallback: string): string {
