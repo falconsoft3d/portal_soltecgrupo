@@ -174,20 +174,20 @@ type AappData = {
 };
 
 function formatK(value: number): string {
-  return `€${(value / 1000).toFixed(1)}k`;
+  return `€${(value / 1000).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}k`;
 }
 
 function formatCompactAmount(value: number): string {
   if (Math.abs(value) >= 1000) return formatK(value);
-  return `€${value.toFixed(2)}`;
+  return `€${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatCurrency(value: number): string {
-  return `${value.toFixed(2)} €`;
+  return `${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 function formatAxisAmount(value: number): string {
-  if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`;
+  if (Math.abs(value) >= 1000) return `${(value / 1000).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}k`;
   return `${Math.round(value)}`;
 }
 

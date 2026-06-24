@@ -32,7 +32,7 @@ function formatDate(value: string | false): string {
 }
 
 function formatCurrency(value: number): string {
-  return `${value.toFixed(2)} €`;
+  return `${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 function errorToText(value: unknown, fallback: string): string {
