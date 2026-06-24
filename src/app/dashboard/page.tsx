@@ -1228,7 +1228,7 @@ export default function DashboardPage() {
                             }}
                           />
                           <div
-                            className="bg-sky-500"
+                            className="bg-emerald-500"
                             style={{
                               height: `${(project.attendance / maxProjectTotal) * 100}%`,
                               transition: `height 600ms ease ${index * 45 + 120}ms`,
