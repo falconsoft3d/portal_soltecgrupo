@@ -472,35 +472,37 @@ export default function DashboardPage() {
   );
 
   const projectBars = useMemo(() => {
-    const buckets = new Map<string, { name: string; attendance: number; partner: number; shipment: number; other: number }>();
+    const buckets = new Map<string, { name: string; material: number; attendance: number; partner: number; shipment: number; other: number }>();
 
-    const addBucket = (nameRaw: string, key: 'attendance' | 'partner' | 'shipment' | 'other', amount: number) => {
+    const addBucket = (nameRaw: string, key: 'material' | 'attendance' | 'partner' | 'shipment' | 'other', amount: number) => {
       const name = nameRaw || 'Sin proyecto';
-      const current = buckets.get(name) || { name, attendance: 0, partner: 0, shipment: 0, other: 0 };
+      const current = buckets.get(name) || { name, material: 0, attendance: 0, partner: 0, shipment: 0, other: 0 };
       current[key] += amount;
       buckets.set(name, current);
     };
 
+    materialData.rows.forEach((row) => addBucket(row.project_name, 'material', row.subtotal));
     attendanceData.rows.forEach((row) => addBucket(row.project_name, 'attendance', row.total));
     partnerAttendanceData.rows.forEach((row) => addBucket(row.project_name, 'partner', row.total));
     shipmentData.rows.forEach((row) => addBucket(row.destination_project || row.origin_project, 'shipment', row.total));
     otherExpenseData.rows.forEach((row) => addBucket(row.project_name, 'other', row.total));
 
     const dynamicBars = Array.from(buckets.values())
-      .map((item) => ({ ...item, total: item.attendance + item.partner + item.shipment + item.other }))
+      .map((item) => ({ ...item, total: item.material + item.attendance + item.partner + item.shipment + item.other }))
       .sort((a, b) => b.total - a.total);
 
     if (dynamicBars.length > 0) return dynamicBars;
 
     return projectBarsFallback.map((item) => ({
       name: item.name,
+      material: 0,
       attendance: item.values[0],
       partner: item.values[1],
       shipment: item.values[2],
       other: 0,
       total: item.values[0] + item.values[1] + item.values[2],
     }));
-  }, [attendanceData.rows, partnerAttendanceData.rows, shipmentData.rows, otherExpenseData.rows]);
+  }, [materialData.rows, attendanceData.rows, partnerAttendanceData.rows, shipmentData.rows, otherExpenseData.rows]);
 
   const maxProjectTotal = useMemo(() => {
     if (projectBars.length === 0) return 1;
@@ -1184,10 +1186,30 @@ export default function DashboardPage() {
                   <div className="absolute inset-[34%] rounded-full border border-slate-200 bg-white" />
                 </div>
               </div>
+              <div className="mt-3 space-y-1.5">
+                {donutData.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
+                      <span className="font-medium text-slate-600">{item.label}</span>
+                    </div>
+                    <span className="font-semibold text-slate-700">{formatCurrency(item.value)}</span>
+                  </div>
+                ))}
+              </div>
             </article>
 
             <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm xl:col-span-2">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">CC origen por obra</h3>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-700">CC origen por obra</h3>
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-sky-400" />Materiales</span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" />Asistencias</span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-rose-500" />Asist. partner</span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-500" />Viajes</span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold text-slate-500"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-zinc-400" />Otros gastos</span>
+                </div>
+              </div>
               <div className="mt-4 flex h-56 gap-2">
                 <div className="flex w-10 flex-col justify-between py-2 text-right text-[10px] font-semibold text-slate-500">
                   <span>{formatAxisAmount(maxProjectTotal)}</span>
@@ -1232,6 +1254,13 @@ export default function DashboardPage() {
                             style={{
                               height: `${(project.attendance / maxProjectTotal) * 100}%`,
                               transition: `height 600ms ease ${index * 45 + 120}ms`,
+                            }}
+                          />
+                          <div
+                            className="bg-sky-400"
+                            style={{
+                              height: `${(project.material / maxProjectTotal) * 100}%`,
+                              transition: `height 600ms ease ${index * 45 + 160}ms`,
                             }}
                           />
                         </div>
