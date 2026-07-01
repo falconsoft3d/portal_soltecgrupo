@@ -1812,64 +1812,62 @@ export default function DashboardPage() {
                     <table className="min-w-full text-xs">
                       <thead className="bg-slate-100 text-slate-600">
                         <tr>
-                          <th className="px-2 py-1.5 text-left">Code BIM</th>
-                          <th className="px-2 py-1.5 text-left">Puesto</th>
-                          <th className="px-2 py-1.5 text-left">Empleado</th>
-                          <th className="px-2 py-1.5 text-left">Entrada</th>
-                          <th className="px-2 py-1.5 text-left">Salida</th>
-                          <th className="px-2 py-1.5 text-left">Proyecto E.</th>
-                          <th className="px-2 py-1.5 text-left">Proyecto S.</th>
-                          <th className="px-2 py-1.5 text-center">DE</th>
-                          <th className="px-2 py-1.5 text-center">DS</th>
-                          <th className="px-2 py-1.5 text-center">A</th>
-                          <th className="px-2 py-1.5 text-center">C</th>
-                          <th className="px-2 py-1.5 text-left">Nota</th>
-                          <th className="px-2 py-1.5 text-center">Fest.</th>
-                          <th className="px-2 py-1.5 text-right">UD</th>
-                          <th className="px-2 py-1.5 text-right">MOD</th>
-                          <th className="px-2 py-1.5 text-right">Total HH</th>
-                          <th className="px-2 py-1.5 text-right">MOE</th>
-                          <th className="px-2 py-1.5 text-right">MOF</th>
-                          <th className="px-2 py-1.5 text-right">T-Extra</th>
-                          <th className="px-2 py-1.5 text-right">Dietas</th>
-                          <th className="px-2 py-1.5 text-right">€/H</th>
-                          <th className="px-2 py-1.5 text-right">Costo</th>
+                          <th className="px-0.5 py-1 text-left">Puesto</th>
+                          <th className="px-0.5 py-1 text-left">Empleado</th>
+                          <th className="px-0.5 py-1 text-left">Entrada</th>
+                          <th className="px-0.5 py-1 text-left">Salida</th>
+                          <th className="px-0.5 py-1 text-left">Proyecto E.</th>
+                          <th className="px-0.5 py-1 text-left">Proyecto S.</th>
+                          <th className="px-0.5 py-1 text-center">DE</th>
+                          <th className="px-0.5 py-1 text-center">DS</th>
+                          <th className="px-0.5 py-1 text-center">A</th>
+                          <th className="px-0.5 py-1 text-center">C</th>
+                          <th className="px-0.5 py-1 text-left w-10">Nota</th>
+                          <th className="px-0.5 py-1 text-center">Fest.</th>
+                          <th className="px-0.5 py-1 text-right">UD</th>
+                          <th className="px-0.5 py-1 text-right">MOD</th>
+                          <th className="px-0.5 py-1 text-right">Total HH</th>
+                          <th className="px-0.5 py-1 text-right">MOE</th>
+                          <th className="px-0.5 py-1 text-right">MOF</th>
+                          <th className="px-0.5 py-1 text-right">T-Extra</th>
+                          <th className="px-0.5 py-1 text-right">Dietas</th>
+                          <th className="px-0.5 py-1 text-right">€/H</th>
+                          <th className="px-0.5 py-1 text-right">Costo</th>
                         </tr>
                       </thead>
                       <tbody>
                         {attendanceData.rows.map((attendance) => (
                           <tr key={attendance.id} className="border-t border-slate-200">
-                            <td className="px-2 py-1.5 text-slate-600 font-mono">{attendance.code_bim || '—'}</td>
-                            <td className="px-2 py-1.5 text-slate-600">{attendance.job_name || '—'}</td>
-                            <td className="px-2 py-1.5 text-slate-700">{attendance.employee_name}</td>
-                            <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
-                            <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
-                            <td className="px-2 py-1.5 text-slate-600">{attendance.project_name || '—'}</td>
-                            <td className="px-2 py-1.5 text-slate-600">{attendance.project_out_name || '—'}</td>
-                            <td className="px-2 py-1.5 text-center text-slate-600">{attendance.de || '—'}</td>
-                            <td className="px-2 py-1.5 text-center text-slate-600">{attendance.ds || '—'}</td>
-                            <td className="px-2 py-1.5 text-center">{attendance.almuerzo ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
-                            <td className="px-2 py-1.5 text-center">{attendance.comida ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
-                            <td className="px-2 py-1.5 text-slate-600 max-w-35 truncate" title={attendance.note}>{attendance.note || '—'}</td>
-                            <td className="px-2 py-1.5 text-center">{attendance.festivo ? <span className="inline-block h-3 w-3 rounded-sm bg-amber-400" title="Festivo" /> : null}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.ud.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.mod.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.total_hh.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.moe.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.mof.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.t_extra.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{attendance.dietas.toFixed(2)}</td>
-                            <td className="px-2 py-1.5 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
-                            <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
+                            <td className="px-0.5 py-1 text-slate-600">{attendance.job_name || '—'}</td>
+                            <td className="px-0.5 py-1 text-slate-700">{attendance.employee_name}</td>
+                            <td className="px-0.5 py-1 text-slate-600">{formatDateTime(attendance.check_in)}</td>
+                            <td className="px-0.5 py-1 text-slate-600">{formatDateTime(attendance.check_out)}</td>
+                            <td className="px-0.5 py-1 text-slate-600">{attendance.project_name || '—'}</td>
+                            <td className="px-0.5 py-1 text-slate-600">{attendance.project_out_name || '—'}</td>
+                            <td className="px-0.5 py-1 text-center text-slate-600">{attendance.de || '—'}</td>
+                            <td className="px-0.5 py-1 text-center text-slate-600">{attendance.ds || '—'}</td>
+                            <td className="px-0.5 py-1 text-center">{attendance.almuerzo ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
+                            <td className="px-0.5 py-1 text-center">{attendance.comida ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
+                            <td className="px-0.5 py-1 text-slate-600 w-10 max-w-10 truncate" title={attendance.note}>{attendance.note || '—'}</td>
+                            <td className="px-0.5 py-1 text-center">{attendance.festivo ? <span className="inline-block h-3 w-3 rounded-sm bg-amber-400" title="Festivo" /> : null}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.ud.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.mod.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.total_hh.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.moe.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.mof.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.t_extra.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{attendance.dietas.toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
+                            <td className="px-0.5 py-1 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot className="border-t border-slate-300 bg-slate-100">
                         <tr>
-                          <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={15}>TOTAL</td>
-                          <td className="px-2 py-1.5 text-right font-bold text-slate-700">{attendanceData.totalHours.toFixed(2)} h</td>
-                          <td className="px-2 py-1.5" colSpan={5} />
-                          <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(attendanceData.totalAmount)}</td>
+                          <td className="px-0.5 py-1 font-bold text-slate-700" colSpan={14}>TOTAL</td>
+                          <td className="px-0.5 py-1 text-right font-bold text-slate-700">{attendanceData.totalHours.toFixed(2)} h</td>
+                          <td className="px-0.5 py-1" colSpan={5} />
+                          <td className="px-0.5 py-1 text-right font-bold text-slate-800">{formatCurrency(attendanceData.totalAmount)}</td>
                         </tr>
                       </tfoot>
                     </table>
