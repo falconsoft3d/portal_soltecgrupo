@@ -382,6 +382,13 @@ export const apiDeletePaidstate = async (
 ): Promise<ApiResponse> =>
   post('/api/paidstates/delete', { paidstate_id }, token);
 
+export const apiUpdatePaidstatePrice = async (
+  token: string,
+  paidstate_id: number,
+  price: number,
+): Promise<CreatePaidstateResponse> =>
+  post('/api/paidstates/update-price', { paidstate_id, price }, token) as Promise<CreatePaidstateResponse>;
+
 // ------------------------------------------------------------------ //
 //  result.table                                                       //
 // ------------------------------------------------------------------ //

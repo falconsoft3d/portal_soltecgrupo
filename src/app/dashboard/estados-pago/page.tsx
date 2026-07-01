@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   apiCreatePaidstate,
   apiDeletePaidstate,
@@ -8,6 +8,7 @@ import {
   apiProjectBudgets,
   apiProjects,
   apiSetPaidstateState,
+  apiUpdatePaidstatePrice,
   PaidstateItem,
   PortalProject,
   ProjectBudgetItem,
@@ -78,6 +79,11 @@ export default function EstadosPagoPage() {
   const [isChangingStateId, setIsChangingStateId] = useState<number | null>(null);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  // Edición inline de precio
+  const [editingPriceId, setEditingPriceId] = useState<number | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>('');
+  const [isSavingPrice, setIsSavingPrice] = useState(false);
+  const editPriceInputRef = useRef<HTMLInputElement>(null);
 
   const selectedProjectName = useMemo(() => {
     if (!selectedProjectId) return '—';
@@ -203,6 +209,41 @@ export default function EstadosPagoPage() {
       setError('Error cambiando el estado.');
     } finally {
       setIsChangingStateId(null);
+    }
+  }
+
+  function startEditPrice(item: PaidstateItem) {
+    setEditingPriceId(item.id);
+    setEditingPriceValue(String(item.price ?? 0));
+    setTimeout(() => editPriceInputRef.current?.select(), 0);
+  }
+
+  async function handleSavePrice(item: PaidstateItem) {
+    const token = getToken();
+    if (!token) return;
+
+    const newPrice = parseFloat(editingPriceValue.replace(',', '.'));
+    if (Number.isNaN(newPrice)) {
+      setError('Precio no válido.');
+      return;
+    }
+
+    setIsSavingPrice(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await apiUpdatePaidstatePrice(token, item.id, newPrice);
+      if (!res.success || !res.paidstate) {
+        setError(errorToText(res.error, 'No se pudo actualizar el precio.'));
+        return;
+      }
+      setPaidstates((current) => current.map((row) => (row.id === item.id ? res.paidstate as PaidstateItem : row)));
+      setSuccess(`Precio actualizado en ${item.name}.`);
+    } catch {
+      setError('Error actualizando el precio.');
+    } finally {
+      setIsSavingPrice(false);
+      setEditingPriceId(null);
     }
   }
 
@@ -413,7 +454,48 @@ export default function EstadosPagoPage() {
                       <td className="px-3 py-2">{item.project_name || '—'}</td>
                       <td className="px-3 py-2">{item.budget_name || '—'}</td>
                       <td className="px-3 py-2">{formatDate(item.date)}</td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(item.price || 0)}</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap">
+                        {editingPriceId === item.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <input
+                              ref={editPriceInputRef}
+                              type="number"
+                              step="0.01"
+                              value={editingPriceValue}
+                              onChange={(e) => setEditingPriceValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSavePrice(item);
+                                if (e.key === 'Escape') setEditingPriceId(null);
+                              }}
+                              className="w-28 rounded border border-brand-400 px-1.5 py-0.5 text-right text-sm outline-none"
+                              disabled={isSavingPrice}
+                            />
+                            <button
+                              type="button"
+                              disabled={isSavingPrice}
+                              onClick={() => handleSavePrice(item)}
+                              className="rounded bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                            >
+                              {isSavingPrice ? '…' : '✓'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingPriceId(null)}
+                              className="rounded bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700 hover:bg-gray-300"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ) : (
+                          <span
+                            className={item.state === 'draft' ? 'cursor-pointer underline decoration-dotted hover:text-brand-600' : ''}
+                            title={item.state === 'draft' ? 'Haz clic para editar el precio' : undefined}
+                            onClick={() => item.state === 'draft' && startEditPrice(item)}
+                          >
+                            {formatCurrency(item.price || 0)}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(item.amount_total || 0)}</td>
                       <td className="px-3 py-2">
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${stateBadge(item.state)}`}>
