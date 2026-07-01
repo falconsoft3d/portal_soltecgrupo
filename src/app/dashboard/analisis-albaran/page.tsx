@@ -361,7 +361,7 @@ export default function AnalisisAlbaranPage() {
             </div>
           </form>
         </article>
-      }
+      )}
 
       <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex items-center justify-between gap-3">
