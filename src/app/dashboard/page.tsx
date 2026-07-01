@@ -1602,29 +1602,41 @@ export default function DashboardPage() {
                       <table className="min-w-full text-xs">
                         <thead className="bg-slate-100 text-slate-600">
                           <tr>
-                            <th className="px-2 py-1.5 text-left">Código</th>
-                            <th className="px-2 py-1.5 text-left">Fecha</th>
-                            <th className="px-2 py-1.5 text-left">Origen</th>
-                            <th className="px-2 py-1.5 text-left">Destino</th>
-                            <th className="px-2 py-1.5 text-right">Total</th>
+                            <th className="px-1 py-1 text-left">Código</th>
+                            <th className="px-1 py-1 text-left">Equipos</th>
+                            <th className="px-1 py-1 text-left">Origen</th>
+                            <th className="px-1 py-1 text-left">Partida destino</th>
+                            <th className="px-1 py-1 text-left">Conductor</th>
+                            <th className="px-1 py-1 text-right">Km inicial</th>
+                            <th className="px-1 py-1 text-right">Km final</th>
+                            <th className="px-1 py-1 text-right">Precio</th>
+                            <th className="px-1 py-1 text-right">Cantidad</th>
+                            <th className="px-1 py-1 text-right">Total</th>
+                            <th className="px-1 py-1 text-left">Fecha</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {shipmentData.rows.map((shipment) => (
-                            <tr key={shipment.id} className="border-t border-slate-200">
-                              <td className="px-2 py-1.5 text-slate-700">{shipment.name}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(shipment.date)}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{shipment.origin_project || '—'}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{shipment.destination_project || '—'}</td>
-                              <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(shipment.total)}</td>
+                          {shipmentData.rows.map((shipment, idx) => (
+                            <tr key={`${shipment.id}-${idx}`} className="border-t border-slate-200">
+                              <td className="px-1 py-1 text-slate-700 font-mono">{shipment.name}</td>
+                              <td className="px-1 py-1 text-slate-600">{shipment.vehicle || '—'}</td>
+                              <td className="px-1 py-1 text-slate-600">{shipment.origin_project || '—'}</td>
+                              <td className="px-1 py-1 text-slate-600">{shipment.destination_project || '—'}</td>
+                              <td className="px-1 py-1 text-slate-600">{shipment.driver || '—'}</td>
+                              <td className="px-1 py-1 text-right text-slate-600">{shipment.km_initial.toFixed(2)}</td>
+                              <td className="px-1 py-1 text-right text-slate-600">{shipment.km_final.toFixed(2)}</td>
+                              <td className="px-1 py-1 text-right text-slate-600">{shipment.price.toFixed(2)} €</td>
+                              <td className="px-1 py-1 text-right text-slate-600">{shipment.qty.toFixed(2)}</td>
+                              <td className="px-1 py-1 text-right font-semibold text-slate-800">{formatCurrency(shipment.total)}</td>
+                              <td className="px-1 py-1 text-slate-600">{formatDateTime(shipment.date)}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot className="border-t border-slate-300 bg-slate-100">
                           <tr>
-                            <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
-                            <td className="px-2 py-1.5" colSpan={3} />
-                            <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(shipmentData.totalAmount)}</td>
+                            <td className="px-1 py-1 font-bold text-slate-700" colSpan={9}>TOTAL</td>
+                            <td className="px-1 py-1 text-right font-bold text-slate-800">{formatCurrency(shipmentData.totalAmount)}</td>
+                            <td className="px-1 py-1" />
                           </tr>
                         </tfoot>
                       </table>

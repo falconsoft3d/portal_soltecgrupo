@@ -125,6 +125,12 @@ export interface ShipmentItem {
   date: string | false;
   origin_project: string;
   destination_project: string;
+  vehicle: string;
+  driver: string;
+  km_initial: number;
+  km_final: number;
+  price: number;
+  qty: number;
   total: number;
 }
 
