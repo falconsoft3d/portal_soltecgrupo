@@ -341,6 +341,38 @@ export default function AnalisisAlbaranPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateForm(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isCreating}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCreating ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </form>
+        </article>
+      }
+
+      <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-800">Mis analisis</h2>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowZero((v) => !v)}
+              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
+                showZero
+                  ? 'border-slate-400 bg-slate-100 text-slate-700 hover:bg-slate-200'
                   : 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
               }`}
             >
