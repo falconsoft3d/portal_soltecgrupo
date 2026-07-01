@@ -1757,9 +1757,9 @@ export default function DashboardPage() {
                         </tbody>
                         <tfoot className="border-t border-slate-300 bg-slate-100">
                           <tr>
-                            <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={10}>TOTAL</td>
+                            <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={11}>TOTAL</td>
                             <td className="px-2 py-1.5 text-right font-bold text-slate-700">{partnerAttendanceData.totalHours.toFixed(2)} h</td>
-                            <td className="px-2 py-1.5" colSpan={2} />
+                            <td className="px-2 py-1.5" colSpan={1} />
                             <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(partnerAttendanceData.totalAmount)}</td>
                             <td className="px-2 py-1.5" />
                           </tr>
