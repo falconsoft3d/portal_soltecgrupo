@@ -303,7 +303,7 @@ export default function AnalisisAlbaranPage() {
                             step="0.01"
                             value={line.product_cost}
                             onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, product_cost: Number(e.target.value || 0) } : l))}
-                            className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-2 py-1.5">
@@ -313,7 +313,7 @@ export default function AnalisisAlbaranPage() {
                             min="0"
                             value={line.assets_qty}
                             onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, assets_qty: Number(e.target.value || 0) } : l))}
-                            className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-2 py-1.5 text-center">
