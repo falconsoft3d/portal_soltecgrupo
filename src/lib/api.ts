@@ -46,10 +46,26 @@ export interface ProjectsResponse extends ApiResponse {
 
 export interface AttendanceItem {
   id: number;
+  code_bim: string;
+  job_name: string;
   employee_name: string;
-  project_name: string;
   check_in: string | false;
   check_out: string | false;
+  project_name: string;
+  project_out_name: string;
+  de: string;
+  ds: string;
+  almuerzo: boolean;
+  comida: boolean;
+  note: string;
+  festivo: boolean;
+  ud: number;
+  mod: number;
+  total_hh: number;
+  moe: number;
+  mof: number;
+  t_extra: number;
+  dietas: number;
   hours: number;
   hour_cost: number;
   total: number;
