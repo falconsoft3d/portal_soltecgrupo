@@ -86,7 +86,7 @@ export default function AnalisisAlbaranPage() {
   const [success, setSuccess] = useState<string>('');
   const [editingAnalysisId, setEditingAnalysisId] = useState<number | null>(null);
   const [editEndDate, setEditEndDate] = useState<string>('');
-  const [editLines, setEditLines] = useState<{ id: number; note: string; product_cost: number }[]>([]);
+  const [editLines, setEditLines] = useState<{ id: number; note: string; product_cost: number; oenc: boolean }[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const selectedProjectName = useMemo(() => {
@@ -177,7 +177,7 @@ export default function AnalisisAlbaranPage() {
   function startEdit(analysis: PickingAnalysisItem) {
     setEditingAnalysisId(analysis.id);
     setEditEndDate(typeof analysis.end_date === 'string' ? analysis.end_date : toIsoDate(new Date()));
-    setEditLines((analysis.lines ?? []).map((l) => ({ id: l.id, note: l.note, product_cost: l.product_cost })));
+    setEditLines((analysis.lines ?? []).map((l) => ({ id: l.id, note: l.note, product_cost: l.product_cost, oenc: l.oenc })));
     setError('');
     setSuccess('');
   }
@@ -511,6 +511,7 @@ export default function AnalisisAlbaranPage() {
                                     <tr>
                                       <th className="pb-1 text-left">Nota</th>
                                       <th className="pb-1 text-right">Costo producto</th>
+                                      <th className="pb-1 text-center">OENC</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -521,7 +522,7 @@ export default function AnalisisAlbaranPage() {
                                             type="text"
                                             value={el.note}
                                             onChange={(e) => setEditLines((prev) => prev.map((r, j) => j === i ? { ...r, note: e.target.value } : r))}
-                                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                                            className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-800 outline-none focus:border-brand-400"
                                           />
                                         </td>
                                         <td className="py-1 w-36">
@@ -530,7 +531,16 @@ export default function AnalisisAlbaranPage() {
                                             step="0.01"
                                             value={el.product_cost}
                                             onChange={(e) => setEditLines((prev) => prev.map((r, j) => j === i ? { ...r, product_cost: Number(e.target.value || 0) } : r))}
-                                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                                            className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-right text-sm text-gray-800 outline-none focus:border-brand-400"
+                                          />
+                                        </td>
+                                        <td className="py-1 w-16 text-center">
+                                          <input
+                                            type="checkbox"
+                                            checked={el.oenc}
+                                            onChange={(e) => setEditLines((prev) => prev.map((r, j) => j === i ? { ...r, oenc: e.target.checked } : r))}
+                                            className="h-4 w-4 rounded border-gray-300 accent-brand-600"
+                                            title="Obra en ejecución no certificada"
                                           />
                                         </td>
                                       </tr>
@@ -602,7 +612,7 @@ export default function AnalisisAlbaranPage() {
                                       type="date"
                                       value={editEndDate}
                                       onChange={(e) => setEditEndDate(e.target.value)}
-                                      className="ml-2 rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                                      className="ml-2 rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-800 outline-none focus:border-brand-400"
                                     />
                                   </label>
                                 </div>

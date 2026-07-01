@@ -363,7 +363,7 @@ export const apiUpdatePickingAnalysis = async (
   token: string,
   analysis_id: number,
   end_date: string,
-  lines: { id: number; note: string; product_cost: number }[],
+  lines: { id: number; note: string; product_cost: number; oenc: boolean }[],
 ): Promise<UpdatePickingAnalysisResponse> =>
   post('/api/picking-analyses/update', { analysis_id, end_date, lines }, token) as Promise<UpdatePickingAnalysisResponse>;
 
