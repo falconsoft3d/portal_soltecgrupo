@@ -1,11 +1,12 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   apiCreatePickingAnalysis,
   apiDeletePickingAnalysis,
   apiPickingAnalyses,
   apiProjects,
+  apiUpdatePickingAnalysis,
   PickingAnalysisFormLine,
   PickingAnalysisItem,
   PortalProject,
@@ -83,6 +84,10 @@ export default function AnalisisAlbaranPage() {
   const [showZero, setShowZero] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
+  const [editingAnalysisId, setEditingAnalysisId] = useState<number | null>(null);
+  const [editEndDate, setEditEndDate] = useState<string>('');
+  const [editLines, setEditLines] = useState<{ id: number; note: string; product_cost: number }[]>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const selectedProjectName = useMemo(() => {
     if (!selectedProjectId) return '—';
@@ -166,6 +171,36 @@ export default function AnalisisAlbaranPage() {
       setError('Error creando el analisis de albaran.');
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  function startEdit(analysis: PickingAnalysisItem) {
+    setEditingAnalysisId(analysis.id);
+    setEditEndDate(typeof analysis.end_date === 'string' ? analysis.end_date : toIsoDate(new Date()));
+    setEditLines((analysis.lines ?? []).map((l) => ({ id: l.id, note: l.note, product_cost: l.product_cost })));
+    setError('');
+    setSuccess('');
+  }
+
+  async function handleSaveEdit(analysis: PickingAnalysisItem) {
+    const token = getToken();
+    if (!token) return;
+    setIsSavingEdit(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await apiUpdatePickingAnalysis(token, analysis.id, editEndDate, editLines);
+      if (!res.success || !res.analysis) {
+        setError(errorToText(res.error, 'No se pudo guardar los cambios.'));
+        return;
+      }
+      setAnalyses((current) => current.map((a) => a.id === analysis.id ? res.analysis as PickingAnalysisItem : a));
+      setSuccess(`Análisis ${analysis.name} actualizado correctamente.`);
+      setEditingAnalysisId(null);
+    } catch {
+      setError('Error guardando los cambios.');
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -412,26 +447,140 @@ export default function AnalisisAlbaranPage() {
                 ) : (
                   analyses
                     .filter((a) => showZero || a.subtotal !== 0)
-                    .map((analysis) =>
-                    (analysis.lines ?? []).length > 0 ? (
-                      (analysis.lines ?? []).map((line, idx) => (
-                        <tr key={`${analysis.id}-${idx}`} className="border-t border-gray-100 text-gray-700">
-                          {idx === 0 ? (
-                            <>
-                              <td className="px-3 py-2 font-semibold" rowSpan={(analysis.lines ?? []).length}>{analysis.name}</td>
-                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{analysis.project_name || '—'}</td>
-                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{formatDate(analysis.end_date)}</td>
-                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{analysis.created_by || '—'}</td>
-                              <td className="px-3 py-2" rowSpan={(analysis.lines ?? []).length}>{formatDateTime(analysis.create_date)}</td>
-                            </>
-                          ) : null}
-                          <td className="px-3 py-2">{line.note || '—'}</td>
-                          <td className="px-3 py-2 text-center">{line.oenc ? <span title="Obra en ejecución no certificada" className="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-700">OENC</span> : null}</td>
-                          <td className="px-3 py-2 text-right">{line.assets_qty}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.product_cost)}</td>
-                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.subtotal)}</td>
-                          {idx === 0 ? (
-                            <td className="px-3 py-2 text-right" rowSpan={(analysis.lines ?? []).length}>
+                    .map((analysis) => {
+                    const lines = analysis.lines ?? [];
+                    const isEditing = editingAnalysisId === analysis.id;
+                    const rowSpan = lines.length > 0 ? lines.length + (isEditing ? 1 : 0) : undefined;
+                    return lines.length > 0 ? (
+                      <React.Fragment key={analysis.id}>
+                        {lines.map((line, idx) => (
+                          <tr key={`${analysis.id}-${idx}`} className="border-t border-gray-100 text-gray-700">
+                            {idx === 0 ? (
+                              <>
+                                <td className="px-3 py-2 font-semibold align-top" rowSpan={rowSpan}>{analysis.name}</td>
+                                <td className="px-3 py-2 align-top" rowSpan={rowSpan}>{analysis.project_name || '—'}</td>
+                                <td className="px-3 py-2 align-top" rowSpan={rowSpan}>{formatDate(analysis.end_date)}</td>
+                                <td className="px-3 py-2 align-top" rowSpan={rowSpan}>{analysis.created_by || '—'}</td>
+                                <td className="px-3 py-2 align-top" rowSpan={rowSpan}>{formatDateTime(analysis.create_date)}</td>
+                              </>
+                            ) : null}
+                            <td className="px-3 py-2">{line.note || '—'}</td>
+                            <td className="px-3 py-2 text-center">{line.oenc ? <span title="Obra en ejecución no certificada" className="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-700">OENC</span> : null}</td>
+                            <td className="px-3 py-2 text-right">{line.assets_qty}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.product_cost)}</td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.subtotal)}</td>
+                            {idx === 0 ? (
+                              <td className="px-3 py-2 text-right align-top" rowSpan={rowSpan}>
+                                <div className="flex flex-col items-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => isEditing ? setEditingAnalysisId(null) : startEdit(analysis)}
+                                    className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                                  >
+                                    {isEditing ? 'Cancelar' : 'Editar'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(analysis)}
+                                    className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </td>
+                            ) : null}
+                          </tr>
+                        ))}
+                        {isEditing && (
+                          <tr className="border-t-2 border-brand-200 bg-brand-50/40">
+                            <td colSpan={11} className="px-4 py-3">
+                              <div className="space-y-3">
+                                <div className="flex flex-wrap items-center gap-4">
+                                  <label className="text-xs font-semibold text-gray-600">
+                                    Fecha fin
+                                    <input
+                                      type="date"
+                                      value={editEndDate}
+                                      onChange={(e) => setEditEndDate(e.target.value)}
+                                      className="ml-2 rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                                    />
+                                  </label>
+                                </div>
+                                <table className="w-full text-sm">
+                                  <thead className="text-xs font-bold uppercase text-gray-500">
+                                    <tr>
+                                      <th className="pb-1 text-left">Nota</th>
+                                      <th className="pb-1 text-right">Costo producto</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {editLines.map((el, i) => (
+                                      <tr key={el.id}>
+                                        <td className="pr-3 py-1">
+                                          <input
+                                            type="text"
+                                            value={el.note}
+                                            onChange={(e) => setEditLines((prev) => prev.map((r, j) => j === i ? { ...r, note: e.target.value } : r))}
+                                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                                          />
+                                        </td>
+                                        <td className="py-1 w-36">
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            value={el.product_cost}
+                                            onChange={(e) => setEditLines((prev) => prev.map((r, j) => j === i ? { ...r, product_cost: Number(e.target.value || 0) } : r))}
+                                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                                          />
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingAnalysisId(null)}
+                                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isSavingEdit}
+                                    onClick={() => handleSaveEdit(analysis)}
+                                    className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                                  >
+                                    {isSavingEdit ? 'Guardando...' : 'Guardar'}
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ) : (
+                      <React.Fragment key={analysis.id}>
+                        <tr className="border-t border-gray-100 text-gray-700">
+                          <td className="px-3 py-2 font-semibold">{analysis.name}</td>
+                          <td className="px-3 py-2">{analysis.project_name || '—'}</td>
+                          <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
+                          <td className="px-3 py-2">{analysis.created_by || '—'}</td>
+                          <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
+                          <td className="px-3 py-2">—</td>
+                          <td className="px-3 py-2 text-center">—</td>
+                          <td className="px-3 py-2 text-right">—</td>
+                          <td className="px-3 py-2 text-right">—</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>
+                          <td className="px-3 py-2 text-right">
+                            <div className="flex flex-col items-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => editingAnalysisId === analysis.id ? setEditingAnalysisId(null) : startEdit(analysis)}
+                                className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                              >
+                                {editingAnalysisId === analysis.id ? 'Cancelar' : 'Editar'}
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleDelete(analysis)}
@@ -439,34 +588,48 @@ export default function AnalisisAlbaranPage() {
                               >
                                 Eliminar
                               </button>
-                            </td>
-                          ) : null}
+                            </div>
+                          </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr key={analysis.id} className="border-t border-gray-100 text-gray-700">
-                        <td className="px-3 py-2 font-semibold">{analysis.name}</td>
-                        <td className="px-3 py-2">{analysis.project_name || '—'}</td>
-                        <td className="px-3 py-2">{formatDate(analysis.end_date)}</td>
-                        <td className="px-3 py-2">{analysis.created_by || '—'}</td>
-                        <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
-                        <td className="px-3 py-2">—</td>
-                        <td className="px-3 py-2 text-center">—</td>
-                        <td className="px-3 py-2 text-right">—</td>
-                        <td className="px-3 py-2 text-right">—</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>
-                        <td className="px-3 py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(analysis)}
-                            className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
-                          >
-                            Eliminar
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  )
+                        {editingAnalysisId === analysis.id && (
+                          <tr className="border-t-2 border-brand-200 bg-brand-50/40">
+                            <td colSpan={11} className="px-4 py-3">
+                              <div className="space-y-3">
+                                <div className="flex flex-wrap items-center gap-4">
+                                  <label className="text-xs font-semibold text-gray-600">
+                                    Fecha fin
+                                    <input
+                                      type="date"
+                                      value={editEndDate}
+                                      onChange={(e) => setEditEndDate(e.target.value)}
+                                      className="ml-2 rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingAnalysisId(null)}
+                                    className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isSavingEdit}
+                                    onClick={() => handleSaveEdit(analysis)}
+                                    className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                                  >
+                                    {isSavingEdit ? 'Guardando...' : 'Guardar'}
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>

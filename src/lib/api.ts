@@ -155,6 +155,7 @@ export interface InvoicedInvoiceItem {
 }
 
 export interface PickingAnalysisLineItem {
+  id: number;
   note: string;
   product_cost: number;
   assets_qty: number;
@@ -187,6 +188,10 @@ export interface PickingAnalysesResponse extends ApiResponse {
 export interface CreatePickingAnalysisResponse extends ApiResponse {
   analysis?: PickingAnalysisItem;
   warning?: string | false;
+}
+
+export interface UpdatePickingAnalysisResponse extends ApiResponse {
+  analysis?: PickingAnalysisItem;
 }
 
 export interface ProjectBudgetItem {
@@ -353,6 +358,14 @@ export const apiDeletePickingAnalysis = async (
   analysis_id: number,
 ): Promise<ApiResponse> =>
   post('/api/picking-analyses/delete', { analysis_id }, token);
+
+export const apiUpdatePickingAnalysis = async (
+  token: string,
+  analysis_id: number,
+  end_date: string,
+  lines: { id: number; note: string; product_cost: number }[],
+): Promise<UpdatePickingAnalysisResponse> =>
+  post('/api/picking-analyses/update', { analysis_id, end_date, lines }, token) as Promise<UpdatePickingAnalysisResponse>;
 
 export const apiProjectBudgets = async (
   token: string,
