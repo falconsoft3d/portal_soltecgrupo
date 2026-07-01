@@ -6,6 +6,7 @@ import {
   apiDeletePickingAnalysis,
   apiPickingAnalyses,
   apiProjects,
+  PickingAnalysisFormLine,
   PickingAnalysisItem,
   PortalProject,
 } from '@/lib/api';
@@ -68,14 +69,14 @@ function errorToText(value: unknown, fallback: string): string {
   return fallback;
 }
 
+const EMPTY_LINE = (): PickingAnalysisFormLine => ({ note: '', product_cost: 0, assets_qty: 1, oenc: false });
+
 export default function AnalisisAlbaranPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
   const [endDate, setEndDate] = useState<string>(toIsoDate(new Date()));
-  const [lineNote, setLineNote] = useState<string>('');
-  const [lineCost, setLineCost] = useState<number>(0);
-  const [assetsQty, setAssetsQty] = useState<number>(1);
+  const [formLines, setFormLines] = useState<PickingAnalysisFormLine[]>([EMPTY_LINE()]);
   const [analyses, setAnalyses] = useState<PickingAnalysisItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -132,7 +133,12 @@ export default function AnalisisAlbaranPage() {
       return;
     }
 
-    if (assetsQty < 0) {
+    if (formLines.length === 0) {
+      setError('Debes incluir al menos una línea.');
+      return;
+    }
+
+    if (formLines.some((l) => l.assets_qty < 0)) {
       setError('La cantidad de activos no puede ser negativa.');
       return;
     }
@@ -145,7 +151,7 @@ export default function AnalisisAlbaranPage() {
 
     setIsCreating(true);
     try {
-      const res = await apiCreatePickingAnalysis(token, selectedProjectId, endDate, lineNote, lineCost, assetsQty, 'all');
+      const res = await apiCreatePickingAnalysis(token, selectedProjectId, endDate, formLines, 'all');
       if (!res.success || !res.analysis) {
         setError(errorToText(res.error, 'No se pudo crear el analisis.'));
         return;
@@ -155,9 +161,7 @@ export default function AnalisisAlbaranPage() {
       const warningText = res.warning ? ` (aviso: ${errorToText(res.warning, 'Error en carga de líneas')})` : '';
       setSuccess(`Analisis ${res.analysis.name} creado en Odoo correctamente${warningText}.`);
       setShowCreateForm(false);
-      setLineNote('');
-      setLineCost(0);
-      setAssetsQty(1);
+      setFormLines([EMPTY_LINE()]);
     } catch {
       setError('Error creando el analisis de albaran.');
     } finally {
@@ -256,82 +260,87 @@ export default function AnalisisAlbaranPage() {
                   required
                 />
               </label>
-
-              <label className="text-sm font-medium text-gray-700">
-                Nota (línea)
-                <input
-                  type="text"
-                  value={lineNote}
-                  onChange={(event) => setLineNote(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                />
-              </label>
-
-              <label className="text-sm font-medium text-gray-700">
-                Costo del producto
-                <input
-                  type="number"
-                  step="0.01"
-                  value={lineCost}
-                  onChange={(event) => setLineCost(Number(event.target.value || 0))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                />
-              </label>
-
-              <label className="text-sm font-medium text-gray-700">
-                Cnt de activos
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={assetsQty}
-                  onChange={(event) => setAssetsQty(Number(event.target.value || 0))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                />
-              </label>
             </div>
 
-            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-              <p><span className="font-semibold">Proyecto:</span> {selectedProjectName}</p>
-              <p><span className="font-semibold">Fecha fin:</span> {endDate || '—'}</p>
-              <p><span className="font-semibold">Nota:</span> {lineNote || '—'}</p>
-              <p><span className="font-semibold">Costo:</span> {formatCurrency(lineCost || 0)}</p>
-              <p><span className="font-semibold">Cnt activos:</span> {assetsQty}</p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
-              <button
-                type="button"
-                onClick={() => setShowCreateForm(false)}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isCreating}
-                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isCreating ? 'Guardando...' : 'Guardar'}
-              </button>
-            </div>
-          </form>
-        </article>
-      )}
-
-      <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-gray-800">Mis analisis</h2>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowZero((v) => !v)}
-              className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${
-                showZero
-                  ? 'border-slate-400 bg-slate-100 text-slate-700 hover:bg-slate-200'
+            {/* Tabla de líneas */}
+            <div>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-sm font-semibold text-gray-700">Líneas</span>
+                <button
+                  type="button"
+                  onClick={() => setFormLines((prev) => [...prev, EMPTY_LINE()])}
+                  className="rounded-md border border-brand-400 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                >
+                  + Añadir línea
+                </button>
+              </div>
+              <div className="overflow-auto rounded-lg border border-gray-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-xs font-bold uppercase tracking-wide text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Nota</th>
+                      <th className="px-3 py-2 text-right">Costo producto</th>
+                      <th className="px-3 py-2 text-right">Cant. activos</th>
+                      <th className="px-3 py-2 text-center">OENC</th>
+                      <th className="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formLines.map((line, idx) => (
+                      <tr key={idx} className="border-t border-gray-100">
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="text"
+                            value={line.note}
+                            onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, note: e.target.value } : l))}
+                            placeholder="Nota de la línea"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={line.product_cost}
+                            onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, product_cost: Number(e.target.value || 0) } : l))}
+                            className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.assets_qty}
+                            onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, assets_qty: Number(e.target.value || 0) } : l))}
+                            className="w-24 rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          <input
+                            type="checkbox"
+                            checked={line.oenc}
+                            onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, oenc: e.target.checked } : l))}
+                            className="h-4 w-4 rounded border-gray-300 accent-brand-600"
+                            title="Obra en ejecución no certificada"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          {formLines.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setFormLines((prev) => prev.filter((_, i) => i !== idx))}
+                              className="rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
                   : 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
               }`}
             >
@@ -354,6 +363,7 @@ export default function AnalisisAlbaranPage() {
                   <th className="px-3 py-2">Creado</th>
                   <th className="px-3 py-2">Fecha creacion</th>
                   <th className="px-3 py-2">Nota</th>
+                  <th className="px-3 py-2 text-center">OENC</th>
                   <th className="px-3 py-2 text-right">Cant. Activo</th>
                   <th className="px-3 py-2 text-right">Costo unit.</th>
                   <th className="px-3 py-2 text-right">Total parcial</th>
@@ -363,7 +373,7 @@ export default function AnalisisAlbaranPage() {
               <tbody>
                 {analyses.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={11} className="px-3 py-4 text-center text-sm text-gray-500">
                       No hay analisis de albaran creados.
                     </td>
                   </tr>
@@ -384,6 +394,7 @@ export default function AnalisisAlbaranPage() {
                             </>
                           ) : null}
                           <td className="px-3 py-2">{line.note || '—'}</td>
+                          <td className="px-3 py-2 text-center">{line.oenc ? <span title="Obra en ejecución no certificada" className="inline-block rounded bg-amber-100 px-1.5 py-0.5 text-xs font-bold text-amber-700">OENC</span> : null}</td>
                           <td className="px-3 py-2 text-right">{line.assets_qty}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.product_cost)}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(line.subtotal)}</td>
@@ -408,6 +419,7 @@ export default function AnalisisAlbaranPage() {
                         <td className="px-3 py-2">{analysis.created_by || '—'}</td>
                         <td className="px-3 py-2">{formatDateTime(analysis.create_date)}</td>
                         <td className="px-3 py-2">—</td>
+                        <td className="px-3 py-2 text-center">—</td>
                         <td className="px-3 py-2 text-right">—</td>
                         <td className="px-3 py-2 text-right">—</td>
                         <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>

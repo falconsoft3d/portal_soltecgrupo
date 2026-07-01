@@ -159,6 +159,7 @@ export interface PickingAnalysisLineItem {
   product_cost: number;
   assets_qty: number;
   subtotal: number;
+  oenc: boolean;
   // solo líneas con assets_qty != 0 vienen del servidor
 }
 
@@ -331,16 +332,21 @@ export const apiPickingAnalyses = async (
 ): Promise<PickingAnalysesResponse> =>
   post('/api/picking-analyses', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<PickingAnalysesResponse>;
 
+export interface PickingAnalysisFormLine {
+  note: string;
+  product_cost: number;
+  assets_qty: number;
+  oenc: boolean;
+}
+
 export const apiCreatePickingAnalysis = async (
   token: string,
   project_id: number,
   end_date: string,
-  note: string,
-  product_cost: number,
-  assets_qty: number,
+  lines: PickingAnalysisFormLine[],
   type: 'in' | 'out' | 'internal' | 'all' = 'all',
 ): Promise<CreatePickingAnalysisResponse> =>
-  post('/api/picking-analyses/create', { project_id, end_date, note, product_cost, assets_qty, type }, token) as Promise<CreatePickingAnalysisResponse>;
+  post('/api/picking-analyses/create', { project_id, end_date, lines, type }, token) as Promise<CreatePickingAnalysisResponse>;
 
 export const apiDeletePickingAnalysis = async (
   token: string,
