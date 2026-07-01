@@ -367,6 +367,12 @@ export const apiUpdatePickingAnalysis = async (
 ): Promise<UpdatePickingAnalysisResponse> =>
   post('/api/picking-analyses/update', { analysis_id, end_date, lines }, token) as Promise<UpdatePickingAnalysisResponse>;
 
+export const apiDuplicatePickingAnalysis = async (
+  token: string,
+  analysis_id: number,
+): Promise<UpdatePickingAnalysisResponse> =>
+  post('/api/picking-analyses/duplicate', { analysis_id }, token) as Promise<UpdatePickingAnalysisResponse>;
+
 export const apiProjectBudgets = async (
   token: string,
   project_id: number,

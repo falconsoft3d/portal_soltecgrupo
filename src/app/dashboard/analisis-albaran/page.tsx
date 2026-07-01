@@ -4,6 +4,7 @@ import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   apiCreatePickingAnalysis,
   apiDeletePickingAnalysis,
+  apiDuplicatePickingAnalysis,
   apiPickingAnalyses,
   apiProjects,
   apiUpdatePickingAnalysis,
@@ -201,6 +202,24 @@ export default function AnalisisAlbaranPage() {
       setError('Error guardando los cambios.');
     } finally {
       setIsSavingEdit(false);
+    }
+  }
+
+  async function handleDuplicate(analysis: PickingAnalysisItem) {
+    const token = getToken();
+    if (!token) return;
+    setError('');
+    setSuccess('');
+    try {
+      const res = await apiDuplicatePickingAnalysis(token, analysis.id);
+      if (!res.success || !res.analysis) {
+        setError(errorToText(res.error, 'No se pudo duplicar el análisis.'));
+        return;
+      }
+      setAnalyses((current) => [res.analysis as PickingAnalysisItem, ...current]);
+      setSuccess(`Análisis duplicado como ${res.analysis.name}.`);
+    } catch {
+      setError('Error duplicando el análisis.');
     }
   }
 
@@ -481,6 +500,13 @@ export default function AnalisisAlbaranPage() {
                                   </button>
                                   <button
                                     type="button"
+                                    onClick={() => handleDuplicate(analysis)}
+                                    className="rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+                                  >
+                                    Duplicar
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => handleDelete(analysis)}
                                     className="rounded-md border border-rose-300 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
                                   >
@@ -590,6 +616,13 @@ export default function AnalisisAlbaranPage() {
                                 className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
                               >
                                 {editingAnalysisId === analysis.id ? 'Cancelar' : 'Editar'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicate(analysis)}
+                                className="rounded-md border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 hover:bg-violet-100"
+                              >
+                                Duplicar
                               </button>
                               <button
                                 type="button"
