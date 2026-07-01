@@ -203,6 +203,12 @@ function formatHours(value: number): string {
   return `${value.toFixed(0)} h`;
 }
 
+function formatFloatTime(value: number): string {
+  const h = Math.floor(value);
+  const m = Math.round((value - h) * 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 function formatDateTime(value: string | false): string {
   if (!value) return '—';
   // Odoo devuelve UTC sin 'Z'; añadimos 'Z' para que JS lo interprete como UTC
@@ -1712,32 +1718,50 @@ export default function DashboardPage() {
                         <thead className="bg-slate-100 text-slate-600">
                           <tr>
                             <th className="px-2 py-1.5 text-left">Partner</th>
+                            <th className="px-2 py-1.5 text-left">Proyecto</th>
+                            <th className="px-2 py-1.5 text-left">Nº Contrato</th>
                             <th className="px-2 py-1.5 text-left">Entrada</th>
                             <th className="px-2 py-1.5 text-left">Salida</th>
-                            <th className="px-2 py-1.5 text-right">Horas</th>
+                            <th className="px-2 py-1.5 text-right">H.Ent(C)</th>
+                            <th className="px-2 py-1.5 text-right">H.Sal(C)</th>
+                            <th className="px-2 py-1.5 text-left">Ent.Calc.</th>
+                            <th className="px-2 py-1.5 text-left">Sal.Calc.</th>
                             <th className="px-2 py-1.5 text-right">€/H</th>
-                            <th className="px-2 py-1.5 text-right">Total</th>
+                            <th className="px-2 py-1.5 text-right">T.Total</th>
+                            <th className="px-2 py-1.5 text-right">T.Calc.</th>
+                            <th className="px-2 py-1.5 text-left">Notas</th>
+                            <th className="px-2 py-1.5 text-right">Importe</th>
+                            <th className="px-2 py-1.5 text-center">Imp.Calc</th>
                           </tr>
                         </thead>
                         <tbody>
                           {partnerAttendanceData.rows.map((attendance) => (
                             <tr key={attendance.id} className="border-t border-slate-200">
                               <td className="px-2 py-1.5 text-slate-700">{attendance.partner_name}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{attendance.project_name || '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{attendance.contract_name || '—'}</td>
                               <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
                               <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
-                              <td className="px-2 py-1.5 text-right text-slate-700">{attendance.hours.toFixed(1)} h</td>
+                              <td className="px-2 py-1.5 text-right text-slate-600">{attendance.contract_check_in_time ? formatFloatTime(attendance.contract_check_in_time) : '—'}</td>
+                              <td className="px-2 py-1.5 text-right text-slate-600">{attendance.contract_check_out_time ? formatFloatTime(attendance.contract_check_out_time) : '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in_calculated)}</td>
+                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out_calculated)}</td>
                               <td className="px-2 py-1.5 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
+                              <td className="px-2 py-1.5 text-right text-slate-700">{attendance.tiempo_total.toFixed(2)} h</td>
+                              <td className="px-2 py-1.5 text-right text-slate-700">{attendance.tiempo_total_calculado.toFixed(2)} h</td>
+                              <td className="px-2 py-1.5 text-slate-600 max-w-35 truncate" title={attendance.note}>{attendance.note || '—'}</td>
                               <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
+                              <td className="px-2 py-1.5 text-center">{attendance.use_calculated_time ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" title="Importe con tiempo calculado" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot className="border-t border-slate-300 bg-slate-100">
                           <tr>
-                            <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
+                            <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={10}>TOTAL</td>
+                            <td className="px-2 py-1.5 text-right font-bold text-slate-700">{partnerAttendanceData.totalHours.toFixed(2)} h</td>
                             <td className="px-2 py-1.5" colSpan={2} />
-                            <td className="px-2 py-1.5 text-right font-bold text-slate-700">{partnerAttendanceData.totalHours.toFixed(1)} h</td>
-                            <td className="px-2 py-1.5" />
                             <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(partnerAttendanceData.totalAmount)}</td>
+                            <td className="px-2 py-1.5" />
                           </tr>
                         </tfoot>
                       </table>

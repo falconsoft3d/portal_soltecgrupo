@@ -73,11 +73,20 @@ export interface PartnerAttendanceItem {
   id: number;
   partner_name: string;
   project_name: string;
+  contract_name: string;
   check_in: string | false;
   check_out: string | false;
+  contract_check_in_time: number;
+  contract_check_out_time: number;
+  check_in_calculated: string | false;
+  check_out_calculated: string | false;
   hours: number;
+  tiempo_total: number;
+  tiempo_total_calculado: number;
   hour_cost: number;
   total: number;
+  note: string;
+  use_calculated_time: boolean;
 }
 
 export interface PartnerAttendanceSummaryItem {
