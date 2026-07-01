@@ -85,7 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Sidebar open={sidebarOpen} />
 
       {/* Contenido desplazado para no quedar bajo el sidebar ni el header */}
-      <main className={`flex-1 pt-14 p-6 transition-all duration-300 ${sidebarOpen ? 'md:ml-56' : 'md:ml-0'}`}>{children}</main>
+      <main className={`flex-1 pt-14 px-1 py-2 transition-all duration-300 ${sidebarOpen ? 'md:ml-56' : 'md:ml-0'}`}>{children}</main>
     </div>
   );
 }
