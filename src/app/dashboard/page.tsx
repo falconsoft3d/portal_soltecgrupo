@@ -1379,29 +1379,31 @@ export default function DashboardPage() {
 
                     <div className="overflow-x-auto rounded border border-slate-200">
                       {materialsViewMode === 'individual' ? (
-                        <table className="min-w-full text-xs">
+                        <table className="min-w-full text-xs table-fixed">
                           <thead className="bg-slate-100 text-slate-600">
                             <tr>
-                              <th className="px-2 py-1.5 text-left">Categoría</th>
-                              <th className="px-2 py-1.5 text-left">Fecha</th>
-                              <th className="px-2 py-1.5 text-left">Albarán</th>
-                              <th className="px-2 py-1.5 text-left">Referencia</th>
-                              <th className="px-2 py-1.5 text-left">Producto</th>
+                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Categoría</th>
+                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Fecha</th>
+                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Fecha Albarán</th>
+                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Contacto</th>
+                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Albarán</th>
+                              <th className="px-2 py-1.5 text-left" style={{width:'100px'}}>Referencia</th>
                               <th className="px-2 py-1.5 text-left">Descripción</th>
-                              <th className="px-2 py-1.5 text-right">Cantidad</th>
-                              <th className="px-2 py-1.5 text-right">Coste</th>
-                              <th className="px-2 py-1.5 text-right">Subtotal</th>
+                              <th className="px-2 py-1.5 text-right" style={{width:'80px'}}>Cantidad</th>
+                              <th className="px-2 py-1.5 text-right" style={{width:'75px'}}>Coste</th>
+                              <th className="px-2 py-1.5 text-right" style={{width:'80px'}}>Subtotal</th>
                             </tr>
                           </thead>
                           <tbody>
                             {materialRowsView.map((line) => (
                               <tr key={line.id} className="border-t border-slate-200">
-                                <td className="px-2 py-1.5 text-slate-600">{line.category_name || 'Sin categoría'}</td>
+                                <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'90px'}} title={line.category_name || ''}>{line.category_name || 'Sin categoría'}</td>
                                 <td className="px-2 py-1.5 text-slate-600">{formatDateTime(line.date)}</td>
-                                <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{line.picking_name || '—'}</td>
-                                <td className="px-2 py-1.5 text-slate-600 whitespace-nowrap">{line.reference || '—'}</td>
-                                <td className="px-2 py-1.5 text-slate-700">{line.product_name || '—'}</td>
-                                <td className="px-2 py-1.5 text-slate-600">{line.description || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-600">{formatDateTime(line.scheduled_date)}</td>
+                                <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'90px'}} title={line.partner_name || ''}>{line.partner_name || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-600">{line.picking_name || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={line.reference || ''}>{line.reference || '—'}</td>
+                                <td className="px-2 py-1.5 text-slate-600 min-w-64">{line.description || '—'}</td>
                                 <td className={`px-2 py-1.5 text-right whitespace-nowrap ${line.qty < 0 ? 'text-rose-600' : 'text-slate-700'}`}>{line.qty.toFixed(2)} {line.uom_name || ''}</td>
                                 <td className="px-2 py-1.5 text-right text-slate-700 whitespace-nowrap">{formatCurrency(line.unit_price)}</td>
                                 <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${line.subtotal < 0 ? 'text-rose-600' : 'text-slate-800'}`}>
@@ -1413,7 +1415,7 @@ export default function DashboardPage() {
                           <tfoot className="border-t border-slate-300 bg-slate-100">
                             <tr>
                               <td className="px-2 py-1.5 font-bold text-slate-700">TOTAL</td>
-                              <td className="px-2 py-1.5" colSpan={7} />
+                              <td className="px-2 py-1.5" colSpan={8} />
                               <td className="px-2 py-1.5 text-right font-bold text-slate-800 whitespace-nowrap">{formatCurrency(materialTotalView)}</td>
                             </tr>
                           </tfoot>
@@ -1717,10 +1719,11 @@ export default function DashboardPage() {
                     </p>
 
                     <div className="space-y-1 pb-2">
-                      {partnerAttendanceData.summary.slice(0, 5).map((item) => (
+                      {partnerAttendanceData.summary.map((item) => (
                         <div key={item.partner_name} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm">
-                          <span className="font-semibold text-slate-700">{item.partner_name}</span>
-                          <span className="text-slate-600">{formatHours(item.hours)} · {formatCurrency(item.amount)}</span>
+                          <span className="text-slate-500 text-xs w-28 truncate" title={item.partner_parent}>{item.partner_parent || '—'}</span>
+                          <span className="font-semibold text-slate-700 flex-1 px-2">{item.partner_name}</span>
+                          <span className="text-slate-600 whitespace-nowrap">{formatHours(item.hours)} · {formatCurrency(item.amount)}</span>
                         </div>
                       ))}
                     </div>
@@ -1729,8 +1732,9 @@ export default function DashboardPage() {
                       <table className="min-w-full text-xs">
                         <thead className="bg-slate-100 text-slate-600">
                           <tr>
+                            <th className="px-2 py-1.5 text-left">Empresa</th>
                             <th className="px-2 py-1.5 text-left">Partner</th>
-                            <th className="px-2 py-1.5 text-left">Proyecto</th>
+                            <th className="px-2 py-1.5 text-left" style={{maxWidth:'100px'}}>Proyecto</th>
                             <th className="px-2 py-1.5 text-left">Nº Contrato</th>
                             <th className="px-2 py-1.5 text-left">Entrada</th>
                             <th className="px-2 py-1.5 text-left">Salida</th>
@@ -1749,8 +1753,9 @@ export default function DashboardPage() {
                         <tbody>
                           {partnerAttendanceData.rows.map((attendance) => (
                             <tr key={attendance.id} className="border-t border-slate-200">
+                              <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={attendance.partner_parent}>{attendance.partner_parent || '—'}</td>
                               <td className="px-2 py-1.5 text-slate-700">{attendance.partner_name}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{attendance.project_name || '—'}</td>
+                              <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={attendance.project_name || ''}>{attendance.project_name || '—'}</td>
                               <td className="px-2 py-1.5 text-slate-600">{attendance.contract_name || '—'}</td>
                               <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
                               <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
@@ -1769,7 +1774,7 @@ export default function DashboardPage() {
                         </tbody>
                         <tfoot className="border-t border-slate-300 bg-slate-100">
                           <tr>
-                            <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={11}>TOTAL</td>
+                            <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={12}>TOTAL</td>
                             <td className="px-2 py-1.5 text-right font-bold text-slate-700">{partnerAttendanceData.totalHours.toFixed(2)} h</td>
                             <td className="px-2 py-1.5" colSpan={1} />
                             <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(partnerAttendanceData.totalAmount)}</td>

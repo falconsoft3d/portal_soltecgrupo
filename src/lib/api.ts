@@ -88,6 +88,7 @@ export interface AttendancesResponse extends ApiResponse {
 export interface PartnerAttendanceItem {
   id: number;
   partner_name: string;
+  partner_parent: string;
   project_name: string;
   contract_name: string;
   check_in: string | false;
@@ -107,6 +108,7 @@ export interface PartnerAttendanceItem {
 
 export interface PartnerAttendanceSummaryItem {
   partner_name: string;
+  partner_parent: string;
   hours: number;
   amount: number;
 }
@@ -164,6 +166,8 @@ export interface MaterialLineItem {
   description: string;
   category_name: string;
   date: string | false;
+  scheduled_date: string | false;
+  partner_name: string;
   qty: number;
   unit_price: number;
   uom_name: string;
@@ -559,4 +563,60 @@ export const apiUpdateAndCalcResultTable = async (
 export const apiPortalPartners = async (token: string): Promise<PortalPartnersResponse> =>
   post('/api/portal-partners', {}, token) as Promise<PortalPartnersResponse>;
 
+// ------------------------------------------------------------------ //
+//  Budgets, Objetivos, Mano de Obra                                   //
+// ------------------------------------------------------------------ //
 
+export interface BudgetItem {
+  id: number;
+  code: string;
+  name: string;
+  display_name: string;
+}
+export interface BudgetsResponse extends ApiResponse { budgets?: BudgetItem[]; }
+
+export interface ObjectiveItem {
+  id: number | null;
+  date_from: string;
+  date_to: string;
+  product_id: number | false;
+  product_name: string;
+  daily_units: number;
+}
+export interface ObjectivesResponse extends ApiResponse { objectives?: ObjectiveItem[]; }
+
+export interface LaborLineItem {
+  id: number;
+  product_name: string;
+  h_presupuesto: number;
+  h_imputadas: number;
+  resultado: number;
+  desvio: number;
+}
+export interface LaborResponse extends ApiResponse {
+  lines?: LaborLineItem[];
+  total_labor?: number;
+  total_material?: number;
+  total_other?: number;
+}
+
+export interface ProductOption { id: number; name: string; }
+export interface ProductsResponse extends ApiResponse { products?: ProductOption[]; }
+
+export const apiBudgets = (token: string, project_id?: number): Promise<BudgetsResponse> =>
+  post('/api/budgets', project_id ? { project_id } : {}, token) as Promise<BudgetsResponse>;
+
+export const apiBudgetObjectives = (token: string, budget_id: number): Promise<ObjectivesResponse> =>
+  post('/api/budget-objectives', { budget_id }, token) as Promise<ObjectivesResponse>;
+
+export const apiBudgetObjectivesSave = (token: string, budget_id: number, objectives: ObjectiveItem[]): Promise<ApiResponse> =>
+  post('/api/budget-objectives/save', { budget_id, objectives }, token);
+
+export const apiBudgetObjectiveProducts = (token: string): Promise<ProductsResponse> =>
+  post('/api/budget-objectives/products', {}, token) as Promise<ProductsResponse>;
+
+export const apiBudgetLabor = (token: string, budget_id: number): Promise<LaborResponse> =>
+  post('/api/budget-labor', { budget_id }, token) as Promise<LaborResponse>;
+
+export const apiBudgetLaborCompute = (token: string, budget_id: number): Promise<LaborResponse> =>
+  post('/api/budget-labor/compute', { budget_id }, token) as Promise<LaborResponse>;

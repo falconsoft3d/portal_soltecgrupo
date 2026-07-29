@@ -52,6 +52,24 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/objetivos',
+    label: 'Objetivos',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/dashboard/mano-de-obra',
+    label: 'Mano de Obra',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5.656-3.657M9 20H4v-2a4 4 0 015.656-3.657M15 11a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/perfil',
     label: 'Perfil',
     icon: (
