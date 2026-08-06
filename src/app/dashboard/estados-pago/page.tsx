@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   apiCreatePaidstate,
   apiDeletePaidstate,
@@ -37,6 +37,22 @@ function formatCurrency(value: number): string {
   const [intPart, decPart] = Math.abs(value).toFixed(2).split('.');
   const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${sign}${intFormatted},${decPart} €`;
+}
+
+const MONTH_NAMES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+function monthKeyFromDate(value: string | false): string {
+  if (!value) return 'unknown';
+  const str = String(value);
+  const match = str.match(/^(\d{4})-(\d{2})/);
+  if (!match) return 'unknown';
+  return `${match[1]}-${match[2]}`;
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split('-');
+  const idx = parseInt(month, 10) - 1;
+  return `${MONTH_NAMES[idx] ?? month} ${year}`;
 }
 
 function errorToText(value: unknown, fallback: string): string {
@@ -84,6 +100,8 @@ export default function EstadosPagoPage() {
   const [editingPriceValue, setEditingPriceValue] = useState<string>('');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const editPriceInputRef = useRef<HTMLInputElement>(null);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const monthsInitialized = useRef(false);
 
   const selectedProjectName = useMemo(() => {
     if (!selectedProjectId) return '—';
@@ -94,6 +112,26 @@ export default function EstadosPagoPage() {
     if (!selectedBudgetId) return '—';
     return budgets.find((budget) => budget.id === selectedBudgetId)?.display_name || '—';
   }, [budgets, selectedBudgetId]);
+
+  const groupedPaidstates = useMemo(() => {
+    const map = new Map<string, PaidstateItem[]>();
+    for (const a of paidstates) {
+      const key = monthKeyFromDate(a.date);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    }
+    const keys = [...map.keys()].sort((a, b) => b.localeCompare(a));
+    return keys.map((key) => ({ key, label: monthLabel(key), items: map.get(key)! }));
+  }, [paidstates]);
+
+  function toggleMonth(key: string) {
+    setExpandedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function loadPaidstates(projectId: number | 'all' = 'all') {
     const token = getToken();
@@ -141,6 +179,13 @@ export default function EstadosPagoPage() {
         setIsLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!monthsInitialized.current && groupedPaidstates.length > 0) {
+      monthsInitialized.current = true;
+      setExpandedMonths(new Set([groupedPaidstates[0].key]));
+    }
+  }, [groupedPaidstates]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -448,7 +493,23 @@ export default function EstadosPagoPage() {
                     </td>
                   </tr>
                 ) : (
-                  paidstates.map((item) => (
+                  groupedPaidstates.map(({ key, label, items }) => (
+                    <React.Fragment key={key}>
+                      <tr
+                        className="cursor-pointer select-none bg-gray-100 hover:bg-gray-200"
+                        onClick={() => toggleMonth(key)}
+                      >
+                        <td colSpan={5} className="px-3 py-2 font-bold text-gray-700 text-sm">
+                          <span className="mr-2 text-gray-400">{expandedMonths.has(key) ? '▾' : '▸'}</span>
+                          {label}
+                          <span className="ml-3 text-xs font-normal text-gray-500">({items.length} registros)</span>
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-gray-700 text-sm whitespace-nowrap">
+                          {formatCurrency(items.reduce((sum, a) => sum + (a.amount_total || 0), 0))}
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                      {expandedMonths.has(key) && items.map((item) => (
                     <tr key={item.id} className="border-t border-gray-100 text-gray-700">
                       <td className="px-3 py-2 font-semibold">{item.name}</td>
                       <td className="px-3 py-2">{item.project_name || '—'}</td>
@@ -537,6 +598,8 @@ export default function EstadosPagoPage() {
                         </div>
                       </td>
                     </tr>
+                      ))}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
