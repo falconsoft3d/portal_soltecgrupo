@@ -8,6 +8,7 @@ import {
   apiAttendances,
   apiInvoiced,
   apiMaterials,
+  apiMe,
   apiOtherExpenses,
   apiPickingAnalyses,
   apiPartnerAttendances,
@@ -282,6 +283,12 @@ export default function DashboardPage() {
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
   const [selectedStateNames, setSelectedStateNames] = useState<string[]>([]);
 
+  // Responsables
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
+  const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>([]);
+  const [managerDropdownOpen, setManagerDropdownOpen] = useState(false);
+
   // ── Persistencia en localStorage ────────────────────────────────────
   useEffect(() => { localStorage.setItem('dash_filterMode', filterMode); }, [filterMode]);
   useEffect(() => { localStorage.setItem('dash_monthIndex', String(selectedMonthIndex)); }, [selectedMonthIndex]);
@@ -353,10 +360,25 @@ export default function DashboardPage() {
     return Array.from(seen).sort((a, b) => a.localeCompare(b));
   }, [companyFilteredProjects]);
 
+  const availableManagers = useMemo(() => {
+    const seen = new Map<number, string>();
+    companyFilteredProjects.forEach((p) => {
+      if (p.manager_id && !seen.has(p.manager_id)) seen.set(p.manager_id, p.manager_name);
+    });
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [companyFilteredProjects]);
+
+  const managerFilteredProjects = useMemo(() => {
+    if (selectedManagerIds.length === 0) return companyFilteredProjects;
+    return companyFilteredProjects.filter((p) => p.manager_id && selectedManagerIds.includes(p.manager_id));
+  }, [companyFilteredProjects, selectedManagerIds]);
+
   const stateFilteredProjects = useMemo(() => {
-    if (selectedStateNames.length === 0) return companyFilteredProjects;
-    return companyFilteredProjects.filter((p) => selectedStateNames.includes(p.state_name));
-  }, [companyFilteredProjects, selectedStateNames]);
+    if (selectedStateNames.length === 0) return managerFilteredProjects;
+    return managerFilteredProjects.filter((p) => selectedStateNames.includes(p.state_name));
+  }, [managerFilteredProjects, selectedStateNames]);
 
   // Si el proyecto seleccionado ya no está en los proyectos filtrados, resetear a 'all'
   useEffect(() => {
@@ -372,8 +394,10 @@ export default function DashboardPage() {
   );
 
   const activeStateProjectIds = useMemo(
-    () => (selectedStateNames.length > 0 ? stateFilteredProjects.map((p) => p.id) : undefined),
-    [selectedStateNames, stateFilteredProjects],
+    () => (selectedStateNames.length > 0 || selectedManagerIds.length > 0
+      ? stateFilteredProjects.map((p) => p.id)
+      : undefined),
+    [selectedStateNames, selectedManagerIds, stateFilteredProjects],
   );
   const totalCostAmount = useMemo(
     () =>
@@ -603,6 +627,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
+
+    apiMe(token).then((res) => {
+      if (res.success && res.partner) {
+        setIsAdmin(!!res.partner.portal_all_projects);
+        setCurrentUserName(res.partner.name || '');
+      }
+    });
 
     apiProjects(token).then((res) => {
       if (!res.success || !res.projects?.length) return;
@@ -915,6 +946,81 @@ export default function DashboardPage() {
               )}
             </div>
           )}
+
+          {/* ── Selector de responsable ──────────────────────────── */}
+          <div className="relative flex-1">
+            {isAdmin ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setManagerDropdownOpen((v) => !v)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                    selectedManagerIds.length > 0
+                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-300 bg-white text-slate-600'
+                  }`}
+                >
+                  <span className="truncate">
+                    {selectedManagerIds.length === 0
+                      ? 'Todos los responsables'
+                      : selectedManagerIds.length === 1
+                        ? (availableManagers.find((m) => m.id === selectedManagerIds[0])?.name ?? 'Responsable')
+                        : `${selectedManagerIds.length} responsables`}
+                  </span>
+                  <span className="shrink-0 text-xs text-slate-400">{managerDropdownOpen ? '▲' : '▼'}</span>
+                </button>
+                {managerDropdownOpen && (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <div className="p-2 border-b border-slate-100 flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Filtrar por responsable</span>
+                      {selectedManagerIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedManagerIds([]); setIsRefreshingIndicators(true); }}
+                          className="text-xs text-emerald-600 hover:underline"
+                        >
+                          Limpiar
+                        </button>
+                      )}
+                    </div>
+                    <ul className="max-h-64 overflow-y-auto py-1">
+                      {availableManagers.map((mgr) => {
+                        const checked = selectedManagerIds.includes(mgr.id);
+                        return (
+                          <li key={mgr.id}>
+                            <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  setIsRefreshingIndicators(true);
+                                  setSelectedManagerIds((prev) =>
+                                    checked ? prev.filter((id) => id !== mgr.id) : [...prev, mgr.id],
+                                  );
+                                }}
+                                className="h-4 w-4 rounded accent-emerald-600"
+                              />
+                              <span className="truncate">{mgr.name}</span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+                {managerDropdownOpen && (
+                  <div className="fixed inset-0 z-40" onClick={() => setManagerDropdownOpen(false)} />
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span className="truncate font-medium">{currentUserName || 'Mi responsable'}</span>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <label className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-bold text-slate-700">

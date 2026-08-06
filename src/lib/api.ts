@@ -26,6 +26,8 @@ export interface PortalProject {
   name: string;
   display_name: string;
   is_manager: boolean;
+  manager_id: number | false;
+  manager_name: string;
   state_name: string;
   company_id: number | false;
   company_name: string;
