@@ -149,6 +149,8 @@ export default function EstadosResultadosPage() {
   const [detailError, setDetailError] = useState<string>('');
   const [detailSuccess, setDetailSuccess] = useState<string>('');
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [showAllObras, setShowAllObras] = useState(false);
+  const OBRAS_VISIBLE_LIMIT = 6;
 
   // Managers (solo si portal_all_projects)
   const [isAdmin, setIsAdmin] = useState(false);
@@ -555,22 +557,35 @@ export default function EstadosResultadosPage() {
 
             {/* Tags de obras seleccionadas */}
             {selectedProjectIds.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {selectedNames.map((name, i) => (
-                  <span
-                    key={selectedProjectIds[i]}
-                    className="inline-flex items-center gap-1 bg-brand-50 text-brand-700 text-xs rounded-full px-2.5 py-1"
-                  >
-                    {name}
+              <div className="mt-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {(showAllObras ? selectedNames : selectedNames.slice(0, OBRAS_VISIBLE_LIMIT)).map((name, i) => (
+                    <span
+                      key={selectedProjectIds[i]}
+                      className="inline-flex items-center gap-1 bg-brand-50 text-brand-700 text-xs rounded-full px-2.5 py-1"
+                    >
+                      {name}
+                      <button
+                        type="button"
+                        onClick={() => toggleProject(selectedProjectIds[i])}
+                        className="hover:text-brand-900 ml-0.5"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {selectedNames.length > OBRAS_VISIBLE_LIMIT && (
                     <button
                       type="button"
-                      onClick={() => toggleProject(selectedProjectIds[i])}
-                      className="hover:text-brand-900 ml-0.5"
+                      onClick={() => setShowAllObras((v) => !v)}
+                      className="inline-flex items-center gap-1 bg-gray-100 text-gray-600 text-xs rounded-full px-2.5 py-1 hover:bg-gray-200 transition-colors"
                     >
-                      ×
+                      {showAllObras
+                        ? 'Ver menos'
+                        : `+${selectedNames.length - OBRAS_VISIBLE_LIMIT} más...`}
                     </button>
-                  </span>
-                ))}
+                  )}
+                </div>
               </div>
             )}
           </div>
