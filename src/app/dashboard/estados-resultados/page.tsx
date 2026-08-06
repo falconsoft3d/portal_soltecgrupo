@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Fragment, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   apiResultTables,
   apiResultTableDetail,
@@ -174,6 +174,10 @@ export default function EstadosResultadosPage() {
   const [sortCol, setSortCol] = useState<ColKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Agrupación por estado de proyecto
+  const [groupByState, setGroupByState] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
   // Edición de título y eliminación (vista de lista)
   const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
   const [editingTitleValue, setEditingTitleValue] = useState('');
@@ -262,6 +266,47 @@ export default function EstadosResultadosPage() {
     setSelectedProjectIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+  }
+
+  // Agrupación por estado
+  const sortedLines = useMemo(() => {
+    if (!detail) return [];
+    if (!sortCol) return detail.lines;
+    return [...detail.lines].sort((a, b) => {
+      const av = a[sortCol];
+      const bv = b[sortCol];
+      const cmp =
+        typeof av === 'string' && typeof bv === 'string'
+          ? av.localeCompare(bv, 'es', { sensitivity: 'base' })
+          : ((av as number) || 0) - ((bv as number) || 0);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [detail, sortCol, sortDir]);
+
+  const groupedLines = useMemo(() => {
+    const map = new Map<string, typeof sortedLines>();
+    for (const line of sortedLines) {
+      const key = (line.state_project as string) || '—';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(line);
+    }
+    return Array.from(map.entries()).map(([state, lines]) => ({ state, lines }));
+  }, [sortedLines]);
+
+  // Auto-expand all groups when detail loads
+  useEffect(() => {
+    if (!detail) return;
+    const states = new Set(detail.lines.map((l) => (l.state_project as string) || '—'));
+    setExpandedGroups(states);
+  }, [detail?.id]);
+
+  function toggleGroup(state: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(state)) next.delete(state);
+      else next.add(state);
+      return next;
+    });
   }
 
   async function handleCalcular() {
@@ -694,6 +739,20 @@ export default function EstadosResultadosPage() {
                 <span className="text-indigo-400 font-normal">Objetivo %MNet-A</span>
                 10,00 %
               </span>
+              <button
+                type="button"
+                onClick={() => setGroupByState((v) => !v)}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 border transition-colors ${
+                  groupByState
+                    ? 'bg-brand-50 border-brand-300 text-brand-700'
+                    : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h10M4 18h10" />
+                </svg>
+                {groupByState ? 'Agrupado por estado' : 'Sin agrupar'}
+              </button>
             </div>
             <div className="flex items-center gap-2">
               {/* Selector de columnas */}
@@ -824,45 +883,92 @@ export default function EstadosResultadosPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(sortCol
-                    ? [...detail.lines].sort((a, b) => {
-                        const av = a[sortCol];
-                        const bv = b[sortCol];
-                        const cmp =
-                          typeof av === 'string' && typeof bv === 'string'
-                            ? av.localeCompare(bv, 'es', { sensitivity: 'base' })
-                            : ((av as number) || 0) - ((bv as number) || 0);
-                        return sortDir === 'asc' ? cmp : -cmp;
-                      })
-                    : detail.lines
-                  ).map((line) => (
-                    <tr key={line.id} className="hover:bg-gray-50 transition-colors">
-                      {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
-                        const val = line[col.key];
-                        const isStr = typeof val === 'string' || col.key === 'year' || col.key === 'month';
-                        if (isStr) {
-                          return (
-                          <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'project_name' ? 'max-w-40 truncate' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}>
+                  {groupByState ? (
+                    groupedLines.map(({ state, lines: groupLines }) => {
+                      const isOpen = expandedGroups.has(state);
+                      const visibleColsList = COLUMNS.filter((c) => visibleCols.has(c.key));
+                      const totalFdoG = groupLines.reduce((s, l) => s + ((l.fdo_year as number) || 0), 0);
+                      const totalCteG = groupLines.reduce((s, l) => s + ((l.cte_year as number) || 0), 0);
+                      const totalApG  = groupLines.reduce((s, l) => s + ((l.ap_year  as number) || 0), 0);
+                      const mbrutG = totalFdoG !== 0 ? ((totalFdoG - totalCteG + totalApG) / totalFdoG) * 100 : 0;
+                      const mnetG  = mbrutG - 10;
+                      return (
+                        <Fragment key={state}>
+                          {/* Cabecera de grupo */}
+                          <tr
+                            onClick={() => toggleGroup(state)}
+                            className="cursor-pointer bg-slate-100 hover:bg-slate-200 transition-colors border-t border-slate-200"
+                          >
+                            {visibleColsList.map((col, idx) => {
+                              if (idx === 0) return (
+                                <td key={col.key} colSpan={1} className="px-3 py-2 text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                  <span className="text-slate-400">{isOpen ? '▼' : '▶'}</span>
+                                  {state}
+                                  <span className="ml-1 text-slate-400 font-normal">({groupLines.length})</span>
+                                </td>
+                              );
+                              const isStr = col.key === 'state_project' || col.key === 'nexecution_manager' || col.key === 'project_name' || col.key === 'year' || col.key === 'month';
+                              if (isStr) return <td key={col.key} className="px-3 py-2" />;
+                              if (col.key === 'mbrut_year') {
+                                const c = mbrutG >= 0 ? 'text-emerald-700' : 'text-rose-700';
+                                return <td key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${c}`}>{formatNumber(mbrutG)} %</td>;
+                              }
+                              if (col.key === 'mmnet_year') {
+                                const c = mnetG < 10 ? 'text-rose-700' : mnetG <= 20 ? 'text-orange-500' : 'text-emerald-700';
+                                return <td key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${c}`}>{formatNumber(mnetG)} %</td>;
+                              }
+                              if (col.isPct) return <td key={col.key} className="px-3 py-2" />;
+                              const tot = groupLines.reduce((s, l) => s + ((l[col.key] as number) || 0), 0);
+                              const c = col.isResult ? (tot >= 0 ? 'text-emerald-700' : 'text-rose-700') : '';
+                              return <td key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${c}`}>{formatNumber(tot)}</td>;
+                            })}
+                          </tr>
+                          {/* Filas del grupo */}
+                          {isOpen && groupLines.map((line) => (
+                            <tr key={line.id} className="hover:bg-gray-50 transition-colors">
+                              {visibleColsList.map((col) => {
+                                const val = line[col.key];
+                                const isStr = typeof val === 'string' || col.key === 'year' || col.key === 'month';
+                                if (isStr) return (
+                                  <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'project_name' ? 'max-w-40 truncate' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}>
+                                    {(val as string) || '—'}
+                                  </td>
+                                );
+                                const num = val as number;
+                                let colored = col.isResult ? (num >= 0 ? 'text-emerald-600' : 'text-rose-600') : '';
+                                if (col.key === 'mmnet_year') colored = num < 10 ? 'text-rose-600 font-semibold' : num <= 20 ? 'text-orange-500 font-semibold' : 'text-emerald-600 font-semibold';
+                                const fmt = col.isPct ? `${formatNumber(num)} %` : formatNumber(num);
+                                return (
+                                  <td key={col.key} className={`px-3 py-2 text-right font-mono ${col.isResult ? 'font-semibold ' : ''}${colored}`}>{fmt}</td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </Fragment>
+                      );
+                    })
+                  ) : (
+                    sortedLines.map((line) => (
+                      <tr key={line.id} className="hover:bg-gray-50 transition-colors">
+                        {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
+                          const val = line[col.key];
+                          const isStr = typeof val === 'string' || col.key === 'year' || col.key === 'month';
+                          if (isStr) return (
+                            <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'project_name' ? 'max-w-40 truncate' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}>
                               {(val as string) || '—'}
                             </td>
                           );
-                        }
-                        const num = val as number;
-                        let colored = col.isResult ? (num >= 0 ? 'text-emerald-600' : 'text-rose-600') : '';
-                        if (col.key === 'mmnet_year') {
-                          colored = num < 10 ? 'text-rose-600 font-semibold' : num <= 20 ? 'text-orange-500 font-semibold' : 'text-emerald-600 font-semibold';
-                        }
-                        const fmt = col.isPct
-                          ? `${formatNumber(num)} %`
-                          : formatNumber(num);
-                        return (
-                          <td key={col.key} className={`px-3 py-2 text-right font-mono ${col.isResult ? 'font-semibold ' : ''}${colored}`}>
-                            {fmt}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                          const num = val as number;
+                          let colored = col.isResult ? (num >= 0 ? 'text-emerald-600' : 'text-rose-600') : '';
+                          if (col.key === 'mmnet_year') colored = num < 10 ? 'text-rose-600 font-semibold' : num <= 20 ? 'text-orange-500 font-semibold' : 'text-emerald-600 font-semibold';
+                          const fmt = col.isPct ? `${formatNumber(num)} %` : formatNumber(num);
+                          return (
+                            <td key={col.key} className={`px-3 py-2 text-right font-mono ${col.isResult ? 'font-semibold ' : ''}${colored}`}>{fmt}</td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
