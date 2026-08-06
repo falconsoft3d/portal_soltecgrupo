@@ -965,11 +965,12 @@ export default function DashboardPage() {
                   <button
                     key={state}
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      setIsRefreshingIndicators(true);
                       setSelectedStateNames((prev) =>
                         active ? prev.filter((s) => s !== state) : [...prev, state]
-                      )
-                    }
+                      );
+                    }}
                     className={`rounded-full border px-3 py-0.5 text-xs font-medium transition-colors ${
                       active
                         ? 'border-blue-500 bg-blue-100 text-blue-700'
@@ -983,7 +984,7 @@ export default function DashboardPage() {
               {selectedStateNames.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setSelectedStateNames([])}
+                  onClick={() => { setIsRefreshingIndicators(true); setSelectedStateNames([]); }}
                   className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   Limpiar
