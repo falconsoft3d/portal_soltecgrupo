@@ -703,26 +703,49 @@ export default function EstadosResultadosPage() {
               <table className="w-full text-xs text-gray-700 whitespace-nowrap">
                 <thead>
                   <tr className="border-b-2 border-gray-300 bg-gray-50 font-semibold text-gray-800">
-                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col, idx) => {
-                      const isStr = col.key === 'state_project' || col.key === 'nexecution_manager' || col.key === 'project_name' || col.key === 'year' || col.key === 'month';
-                      if (isStr) {
+                    {(() => {
+                      const totalFdo = detail.lines.reduce((s, l) => s + ((l.fdo_year as number) || 0), 0);
+                      const totalCte = detail.lines.reduce((s, l) => s + ((l.cte_year as number) || 0), 0);
+                      const totalAp  = detail.lines.reduce((s, l) => s + ((l.ap_year  as number) || 0), 0);
+                      const mbrut = totalFdo !== 0 ? ((totalFdo - totalCte + totalAp) / totalFdo) * 100 : 0;
+                      const mnet  = mbrut - 10;
+                      return COLUMNS.filter((c) => visibleCols.has(c.key)).map((col, idx) => {
+                        const isStr = col.key === 'state_project' || col.key === 'nexecution_manager' || col.key === 'project_name' || col.key === 'year' || col.key === 'month';
+                        if (isStr) {
+                          return (
+                            <th key={col.key} className="px-3 py-2 text-xs text-gray-500 font-semibold text-left">
+                              {idx === 0 ? 'TOTAL' : ''}
+                            </th>
+                          );
+                        }
+                        if (col.key === 'mbrut_year') {
+                          const colored = mbrut >= 0 ? 'text-emerald-700' : 'text-rose-700';
+                          return (
+                            <th key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${colored}`}>
+                              {formatNumber(mbrut)} %
+                            </th>
+                          );
+                        }
+                        if (col.key === 'mmnet_year') {
+                          const colored = mnet >= 0 ? 'text-emerald-700' : 'text-rose-700';
+                          return (
+                            <th key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${colored}`}>
+                              {formatNumber(mnet)} %
+                            </th>
+                          );
+                        }
+                        if (col.isPct) {
+                          return <th key={col.key} className="px-3 py-2" />;
+                        }
+                        const total = detail.lines.reduce((sum, line) => sum + ((line[col.key] as number) || 0), 0);
+                        const colored = col.isResult ? (total >= 0 ? 'text-emerald-700' : 'text-rose-700') : '';
                         return (
-                          <th key={col.key} className="px-3 py-2 text-xs text-gray-500 font-semibold text-left">
-                            {idx === 0 ? 'TOTAL' : ''}
+                          <th key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${colored}`}>
+                            {formatNumber(total)}
                           </th>
                         );
-                      }
-                      if (col.isPct) {
-                        return <th key={col.key} className="px-3 py-2" />;
-                      }
-                      const total = detail.lines.reduce((sum, line) => sum + ((line[col.key] as number) || 0), 0);
-                      const colored = col.isResult ? (total >= 0 ? 'text-emerald-700' : 'text-rose-700') : '';
-                      return (
-                        <th key={col.key} className={`px-3 py-2 text-right font-mono text-xs font-semibold ${colored}`}>
-                          {formatNumber(total)}
-                        </th>
-                      );
-                    })}
+                      });
+                    })()}
                   </tr>
                   <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 uppercase tracking-wide">
                     {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
