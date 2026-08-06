@@ -9,6 +9,7 @@ import {
   apiProjects,
   apiSetPaidstateState,
   apiUpdatePaidstatePrice,
+  apiUpdatePaidstateDate,
   PaidstateItem,
   PortalProject,
   ProjectBudgetItem,
@@ -100,6 +101,10 @@ export default function EstadosPagoPage() {
   const [editingPriceValue, setEditingPriceValue] = useState<string>('');
   const [isSavingPrice, setIsSavingPrice] = useState(false);
   const editPriceInputRef = useRef<HTMLInputElement>(null);
+  const [editingDateId, setEditingDateId] = useState<number | null>(null);
+  const [editingDateValue, setEditingDateValue] = useState<string>('');
+  const [isSavingDate, setIsSavingDate] = useState(false);
+  const editDateInputRef = useRef<HTMLInputElement>(null);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [expandedStates, setExpandedStates] = useState<Set<string>>(new Set());
   const monthsInitialized = useRef(false);
@@ -302,6 +307,40 @@ export default function EstadosPagoPage() {
     setEditingPriceId(item.id);
     setEditingPriceValue(String(item.price ?? 0));
     setTimeout(() => editPriceInputRef.current?.select(), 0);
+  }
+
+  function startEditDate(item: PaidstateItem) {
+    setEditingDateId(item.id);
+    setEditingDateValue(typeof item.date === 'string' ? item.date : toIsoDate(new Date()));
+    setTimeout(() => editDateInputRef.current?.focus(), 0);
+  }
+
+  async function handleSaveDate(item: PaidstateItem) {
+    const token = getToken();
+    if (!token) return;
+
+    if (!editingDateValue) {
+      setError('Fecha no válida.');
+      return;
+    }
+
+    setIsSavingDate(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await apiUpdatePaidstateDate(token, item.id, editingDateValue);
+      if (!res.success || !res.paidstate) {
+        setError(errorToText(res.error, 'No se pudo actualizar la fecha.'));
+        return;
+      }
+      setPaidstates((current) => current.map((row) => (row.id === item.id ? res.paidstate as PaidstateItem : row)));
+      setSuccess(`Fecha actualizada en ${item.name}.`);
+    } catch {
+      setError('Error actualizando la fecha.');
+    } finally {
+      setIsSavingDate(false);
+      setEditingDateId(null);
+    }
   }
 
   async function handleSavePrice(item: PaidstateItem) {
@@ -573,7 +612,47 @@ export default function EstadosPagoPage() {
                       <td className="px-3 py-2 font-semibold">{item.name}</td>
                       <td className="px-3 py-2">{item.project_name || '—'}</td>
                       <td className="px-3 py-2">{item.budget_name || '—'}</td>
-                      <td className="px-3 py-2">{formatDate(item.date)}</td>
+                      <td className="px-3 py-2">
+                        {editingDateId === item.id ? (
+                          <span className="inline-flex items-center gap-1">
+                            <input
+                              ref={editDateInputRef}
+                              type="date"
+                              value={editingDateValue}
+                              onChange={(e) => setEditingDateValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveDate(item);
+                                if (e.key === 'Escape') setEditingDateId(null);
+                              }}
+                              className="rounded border border-brand-400 px-1.5 py-0.5 text-sm outline-none"
+                              disabled={isSavingDate}
+                            />
+                            <button
+                              type="button"
+                              disabled={isSavingDate}
+                              onClick={() => handleSaveDate(item)}
+                              className="rounded bg-brand-600 px-2 py-0.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                            >
+                              {isSavingDate ? '…' : '✓'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingDateId(null)}
+                              className="rounded bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-700 hover:bg-gray-300"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ) : (
+                          <span
+                            className={item.state === 'draft' ? 'cursor-pointer underline decoration-dotted hover:text-brand-600' : ''}
+                            title={item.state === 'draft' ? 'Haz clic para editar la fecha' : undefined}
+                            onClick={() => item.state === 'draft' && startEditDate(item)}
+                          >
+                            {formatDate(item.date)}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         {editingPriceId === item.id ? (
                           <span className="inline-flex items-center gap-1">

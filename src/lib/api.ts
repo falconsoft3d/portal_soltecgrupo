@@ -454,6 +454,13 @@ export const apiUpdatePaidstatePrice = async (
 ): Promise<CreatePaidstateResponse> =>
   post('/api/paidstates/update-price', { paidstate_id, price }, token) as Promise<CreatePaidstateResponse>;
 
+export const apiUpdatePaidstateDate = async (
+  token: string,
+  paidstate_id: number,
+  date: string,
+): Promise<CreatePaidstateResponse> =>
+  post('/api/paidstates/update-date', { paidstate_id, date }, token) as Promise<CreatePaidstateResponse>;
+
 // ------------------------------------------------------------------ //
 //  result.table                                                       //
 // ------------------------------------------------------------------ //
