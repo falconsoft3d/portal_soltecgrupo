@@ -370,6 +370,11 @@ export default function DashboardPage() {
     () => (selectedCompanyIds.length > 0 ? selectedCompanyIds : undefined),
     [selectedCompanyIds],
   );
+
+  const activeStateProjectIds = useMemo(
+    () => (selectedStateNames.length > 0 ? stateFilteredProjects.map((p) => p.id) : undefined),
+    [selectedStateNames, stateFilteredProjects],
+  );
   const totalCostAmount = useMemo(
     () =>
       materialData.totalAmount +
@@ -613,12 +618,12 @@ export default function DashboardPage() {
     refreshRequestRef.current = requestId;
 
     Promise.all([
-      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
-      apiMaterials(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
-      apiAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
-      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
-      apiShipments(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
-      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds),
+      apiInvoiced(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds, activeStateProjectIds),
+      apiMaterials(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds, activeStateProjectIds),
+      apiAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds, activeStateProjectIds),
+      apiPartnerAttendances(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds, activeStateProjectIds),
+      apiShipments(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds, activeStateProjectIds),
+      apiOtherExpenses(token, selectedProjectId, requestMonth, filterMode, undefined, selectedYear, activeCompanyIds, activeStateProjectIds),
     ])
       .then(([invoicedRes, materialsRes, attendanceRes, partnerAttendanceRes, shipmentsRes, otherExpensesRes]) => {
         if (refreshRequestRef.current !== requestId) return;
@@ -676,13 +681,13 @@ export default function DashboardPage() {
         if (refreshRequestRef.current !== requestId) return;
         setIsRefreshingIndicators(false);
       });
-  }, [selectedProjectId, requestMonth, filterMode, selectedYear, activeCompanyIds]);
+  }, [selectedProjectId, requestMonth, filterMode, selectedYear, activeCompanyIds, activeStateProjectIds]);
 
   useEffect(() => {
     const token = getToken();
     if (!token) return;
 
-    apiPickingAnalyses(token, selectedProjectId, requestMonth, 'month', undefined, selectedYear, activeCompanyIds)
+    apiPickingAnalyses(token, selectedProjectId, requestMonth, 'month', undefined, selectedYear, activeCompanyIds, activeStateProjectIds)
       .then((res) => {
         setAappData({
           rows: res.success ? res.analyses ?? [] : [],
@@ -694,7 +699,7 @@ export default function DashboardPage() {
       .catch(() => {
         setAappData({ rows: [], totalRecords: 0, totalAmount: 0, prevMonthTotal: 0 });
       });
-  }, [selectedProjectId, requestMonth, selectedYear, activeCompanyIds]);
+  }, [selectedProjectId, requestMonth, selectedYear, activeCompanyIds, activeStateProjectIds]);
 
   async function handleExportCostCentersXlsx() {
     const hasData =

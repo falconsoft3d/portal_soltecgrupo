@@ -304,8 +304,9 @@ export const apiAttendances = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<AttendancesResponse> =>
-  post('/api/attendances', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<AttendancesResponse>;
+  post('/api/attendances', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<AttendancesResponse>;
 
 export const apiPartnerAttendances = async (
   token: string,
@@ -315,8 +316,9 @@ export const apiPartnerAttendances = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<PartnerAttendancesResponse> =>
-  post('/api/partner-attendances', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<PartnerAttendancesResponse>;
+  post('/api/partner-attendances', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<PartnerAttendancesResponse>;
 
 export const apiShipments = async (
   token: string,
@@ -326,8 +328,9 @@ export const apiShipments = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<ShipmentsResponse> =>
-  post('/api/shipments', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<ShipmentsResponse>;
+  post('/api/shipments', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<ShipmentsResponse>;
 
 export const apiOtherExpenses = async (
   token: string,
@@ -337,8 +340,9 @@ export const apiOtherExpenses = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<OtherExpensesResponse> =>
-  post('/api/other-expenses', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<OtherExpensesResponse>;
+  post('/api/other-expenses', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<OtherExpensesResponse>;
 
 export const apiMaterials = async (
   token: string,
@@ -348,8 +352,9 @@ export const apiMaterials = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<MaterialsResponse> =>
-  post('/api/materials', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<MaterialsResponse>;
+  post('/api/materials', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<MaterialsResponse>;
 
 export const apiInvoiced = async (
   token: string,
@@ -359,8 +364,9 @@ export const apiInvoiced = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<InvoicedResponse> =>
-  post('/api/invoiced', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<InvoicedResponse>;
+  post('/api/invoiced', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<InvoicedResponse>;
 
 export const apiPickingAnalyses = async (
   token: string,
@@ -370,8 +376,9 @@ export const apiPickingAnalyses = async (
   months?: number[],
   year?: number,
   company_ids?: number[],
+  project_ids?: number[],
 ): Promise<PickingAnalysesResponse> =>
-  post('/api/picking-analyses', { project_id, month, months, filter_mode, year, company_ids }, token) as Promise<PickingAnalysesResponse>;
+  post('/api/picking-analyses', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<PickingAnalysesResponse>;
 
 export interface PickingAnalysisFormLine {
   note: string;
