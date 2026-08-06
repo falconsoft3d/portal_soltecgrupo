@@ -209,6 +209,7 @@ export interface PickingAnalysisItem {
   line_count: number;
   subtotal: number;
   state: string;
+  project_state: string;
   lines: PickingAnalysisLineItem[];
 }
 

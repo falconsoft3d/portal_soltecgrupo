@@ -144,7 +144,7 @@ export default function AnalisisAlbaranPage() {
       const monthItems = monthMap.get(key)!;
       const stateMap = new Map<string, PickingAnalysisItem[]>();
       for (const a of monthItems) {
-        const sk = a.state || 'unknown';
+        const sk = a.project_state || 'Sin estado';
         if (!stateMap.has(sk)) stateMap.set(sk, []);
         stateMap.get(sk)!.push(a);
       }
