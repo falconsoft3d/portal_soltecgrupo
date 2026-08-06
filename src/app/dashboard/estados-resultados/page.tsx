@@ -699,10 +699,10 @@ export default function EstadosResultadosPage() {
               Este estado de resultados no tiene líneas calculadas aún.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-[65vh]">
               <table className="w-full text-xs text-gray-700 whitespace-nowrap">
-                <thead>
-                  <tr className="border-b-2 border-gray-300 bg-gray-50 font-semibold text-gray-800">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b-2 border-gray-300 bg-gray-50 font-semibold text-gray-800 shadow-sm">
                     {(() => {
                       const totalFdo = detail.lines.reduce((s, l) => s + ((l.fdo_year as number) || 0), 0);
                       const totalCte = detail.lines.reduce((s, l) => s + ((l.cte_year as number) || 0), 0);
@@ -747,7 +747,7 @@ export default function EstadosResultadosPage() {
                       });
                     })()}
                   </tr>
-                  <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 uppercase tracking-wide">
+                  <tr className="border-b border-gray-200 bg-gray-50 text-gray-500 uppercase tracking-wide">
                     {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
                       const isActive = sortCol === col.key;
                       const arrow = isActive ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
