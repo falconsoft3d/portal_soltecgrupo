@@ -72,6 +72,19 @@ function monthLabel(key: string): string {
   return `${MONTH_NAMES[idx] ?? month} ${year}`;
 }
 
+function projectStateLabel(state: string): string {
+  const map: Record<string, string> = {
+    open: 'En curso',
+    close: 'Cerrado',
+    cancelled: 'Cancelado',
+    draft: 'Borrador',
+    done: 'Finalizado',
+    in_progress: 'En progreso',
+    pending: 'Pendiente',
+  };
+  return map[state] ?? (state.charAt(0).toUpperCase() + state.slice(1).replace(/_/g, ' '));
+}
+
 function errorToText(value: unknown, fallback: string): string {
   if (typeof value === 'string' && value.trim()) return value;
   if (value && typeof value === 'object') {
@@ -109,7 +122,9 @@ export default function AnalisisAlbaranPage() {
   const [editLines, setEditLines] = useState<PickingAnalysisEditLine[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const [expandedStates, setExpandedStates] = useState<Set<string>>(new Set());
   const monthsInitialized = useRef(false);
+  const statesInitialized = useRef(false);
 
   const selectedProjectName = useMemo(() => {
     if (!selectedProjectId) return '—';
@@ -118,14 +133,35 @@ export default function AnalisisAlbaranPage() {
 
   const groupedAnalyses = useMemo(() => {
     const filtered = analyses.filter((a) => showZero || a.subtotal !== 0);
-    const map = new Map<string, PickingAnalysisItem[]>();
+    const monthMap = new Map<string, PickingAnalysisItem[]>();
     for (const a of filtered) {
       const key = monthKeyFromDate(a.end_date);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(a);
+      if (!monthMap.has(key)) monthMap.set(key, []);
+      monthMap.get(key)!.push(a);
     }
-    const keys = [...map.keys()].sort((a, b) => b.localeCompare(a));
-    return keys.map((key) => ({ key, label: monthLabel(key), items: map.get(key)! }));
+    const monthKeys = [...monthMap.keys()].sort((a, b) => b.localeCompare(a));
+    return monthKeys.map((key) => {
+      const monthItems = monthMap.get(key)!;
+      const stateMap = new Map<string, PickingAnalysisItem[]>();
+      for (const a of monthItems) {
+        const sk = a.state || 'unknown';
+        if (!stateMap.has(sk)) stateMap.set(sk, []);
+        stateMap.get(sk)!.push(a);
+      }
+      const stateGroups = [...stateMap.keys()].sort().map((sk) => ({
+        stateKey: sk,
+        stateLbl: projectStateLabel(sk),
+        items: stateMap.get(sk)!,
+        subtotal: stateMap.get(sk)!.reduce((s, a) => s + a.subtotal, 0),
+      }));
+      return {
+        key,
+        label: monthLabel(key),
+        subtotal: monthItems.reduce((s, a) => s + a.subtotal, 0),
+        totalCount: monthItems.length,
+        stateGroups,
+      };
+    });
   }, [analyses, showZero]);
 
   function toggleMonth(key: string) {
@@ -133,6 +169,15 @@ export default function AnalisisAlbaranPage() {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleState(comboKey: string) {
+    setExpandedStates((prev) => {
+      const next = new Set(prev);
+      if (next.has(comboKey)) next.delete(comboKey);
+      else next.add(comboKey);
       return next;
     });
   }
@@ -175,6 +220,15 @@ export default function AnalisisAlbaranPage() {
     if (!monthsInitialized.current && groupedAnalyses.length > 0) {
       monthsInitialized.current = true;
       setExpandedMonths(new Set([groupedAnalyses[0].key]));
+    }
+  }, [groupedAnalyses]);
+
+  useEffect(() => {
+    if (!statesInitialized.current && groupedAnalyses.length > 0 && groupedAnalyses[0].stateGroups.length > 0) {
+      statesInitialized.current = true;
+      const firstMonth = groupedAnalyses[0].key;
+      const firstState = groupedAnalyses[0].stateGroups[0].stateKey;
+      setExpandedStates(new Set([`${firstMonth}::${firstState}`]));
     }
   }, [groupedAnalyses]);
 
@@ -529,7 +583,7 @@ export default function AnalisisAlbaranPage() {
                     </td>
                   </tr>
                 ) : (
-                  groupedAnalyses.map(({ key, label, items }) => (
+                  groupedAnalyses.map(({ key, label, subtotal, totalCount, stateGroups }) => (
                     <React.Fragment key={key}>
                       <tr
                         className="cursor-pointer select-none bg-gray-100 hover:bg-gray-200"
@@ -538,14 +592,32 @@ export default function AnalisisAlbaranPage() {
                         <td colSpan={9} className="px-3 py-2 font-bold text-gray-700 text-sm">
                           <span className="mr-2 text-gray-400">{expandedMonths.has(key) ? '▾' : '▸'}</span>
                           {label}
-                          <span className="ml-3 text-xs font-normal text-gray-500">({items.length} registros)</span>
+                          <span className="ml-3 text-xs font-normal text-gray-500">({totalCount} registros)</span>
                         </td>
                         <td className="px-3 py-2 text-right font-bold text-gray-700 text-sm whitespace-nowrap">
-                          {formatCurrency(items.reduce((sum, a) => sum + a.subtotal, 0))}
+                          {formatCurrency(subtotal)}
                         </td>
                         <td />
                       </tr>
-                      {expandedMonths.has(key) && items.map((analysis) => {
+                      {expandedMonths.has(key) && stateGroups.map(({ stateKey, stateLbl, subtotal: stateSubtotal, items: stateItems }) => {
+                        const comboKey = `${key}::${stateKey}`;
+                        return (
+                          <React.Fragment key={comboKey}>
+                            <tr
+                              className="cursor-pointer select-none bg-blue-50 hover:bg-blue-100"
+                              onClick={(e) => { e.stopPropagation(); toggleState(comboKey); }}
+                            >
+                              <td colSpan={9} className="pl-7 pr-3 py-1.5 text-xs font-bold text-blue-700">
+                                <span className="mr-2 text-blue-400">{expandedStates.has(comboKey) ? '▾' : '▸'}</span>
+                                {stateLbl}
+                                <span className="ml-3 font-normal text-blue-500">({stateItems.length} registros)</span>
+                              </td>
+                              <td className="px-3 py-1.5 text-right text-xs font-bold text-blue-700 whitespace-nowrap">
+                                {formatCurrency(stateSubtotal)}
+                              </td>
+                              <td />
+                            </tr>
+                            {expandedStates.has(comboKey) && stateItems.map((analysis) => {
                     const lines = analysis.lines ?? [];
                     const isEditing = editingAnalysisId === analysis.id;
                     const rowSpan = lines.length > 0 ? lines.length : undefined;
@@ -786,6 +858,9 @@ export default function AnalisisAlbaranPage() {
                         )}
                       </React.Fragment>
                     );
+                            })}
+                          </React.Fragment>
+                        );
                       })}
                     </React.Fragment>
                   ))
