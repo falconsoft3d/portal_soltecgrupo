@@ -6,6 +6,8 @@ import {
   apiResultTableDetail,
   apiCreateResultTable,
   apiUpdateAndCalcResultTable,
+  apiUpdateResultTableTitle,
+  apiDeleteResultTable,
   apiProjects,
   apiPortalPartners,
   apiMe,
@@ -169,6 +171,13 @@ export default function EstadosResultadosPage() {
   const [sortCol, setSortCol] = useState<ColKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Edición de título y eliminación (vista de lista)
+  const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
+  const [editingTitleValue, setEditingTitleValue] = useState('');
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+
   function handleSort(key: ColKey) {
     setSortCol((prev) => {
       if (prev === key) {
@@ -289,6 +298,46 @@ export default function EstadosResultadosPage() {
       setDetailError('Error al calcular.');
     } finally {
       setIsCalculating(false);
+    }
+  }
+
+  async function handleSaveTitle(tableId: number) {
+    const title = editingTitleValue.trim();
+    if (!title) return;
+    const token = getToken();
+    if (!token) return;
+    setIsSavingTitle(true);
+    try {
+      const res = await apiUpdateResultTableTitle(token, tableId, title);
+      if (res.success && res.result_table) {
+        setTables((prev) => prev.map((t) => t.id === tableId ? { ...t, title: res.result_table!.title } : t));
+        setEditingTitleId(null);
+      } else {
+        setError(errorToText(res.error, 'No se pudo actualizar el título.'));
+      }
+    } catch {
+      setError('Error al guardar el título.');
+    } finally {
+      setIsSavingTitle(false);
+    }
+  }
+
+  async function handleDelete(tableId: number) {
+    const token = getToken();
+    if (!token) return;
+    setIsDeletingId(tableId);
+    try {
+      const res = await apiDeleteResultTable(token, tableId);
+      if (res.success) {
+        setTables((prev) => prev.filter((t) => t.id !== tableId));
+        setConfirmDeleteId(null);
+      } else {
+        setError(errorToText(res.error, 'No se pudo eliminar.'));
+      }
+    } catch {
+      setError('Error al eliminar.');
+    } finally {
+      setIsDeletingId(null);
     }
   }
 
@@ -955,17 +1004,45 @@ export default function EstadosResultadosPage() {
                   <th className="px-4 py-3 text-left font-medium">Hasta</th>
                   <th className="px-4 py-3 text-center font-medium">Líneas</th>
                   <th className="px-4 py-3 text-left font-medium">Estados</th>
+                  <th className="px-4 py-3 text-center font-medium">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {tables.map((table) => (
                   <tr
                     key={table.id}
-                    onClick={() => !isLoadingDetail && handleViewDetail(table.id)}
-                    className={`hover:bg-brand-50 transition-colors ${isLoadingDetail ? 'opacity-50' : 'cursor-pointer'}`}
+                    onClick={() => !isLoadingDetail && editingTitleId !== table.id && confirmDeleteId !== table.id && handleViewDetail(table.id)}
+                    className={`hover:bg-brand-50 transition-colors ${isLoadingDetail || editingTitleId === table.id || confirmDeleteId === table.id ? 'opacity-100' : 'cursor-pointer'}`}
                   >
                     <td className="px-4 py-3 font-mono font-medium text-gray-700">{table.name}</td>
-                    <td className="px-4 py-3 text-gray-800 max-w-55 truncate">{table.title}</td>
+                    <td className="px-4 py-3 text-gray-800 max-w-55" onClick={(e) => e.stopPropagation()}>
+                      {editingTitleId === table.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editingTitleValue}
+                            onChange={(e) => setEditingTitleValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveTitle(table.id);
+                              if (e.key === 'Escape') setEditingTitleId(null);
+                            }}
+                            autoFocus
+                            className="flex-1 border border-brand-400 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-0"
+                          />
+                          <button
+                            onClick={() => handleSaveTitle(table.id)}
+                            disabled={isSavingTitle}
+                            className="text-emerald-600 hover:text-emerald-800 text-xs px-1 disabled:opacity-50"
+                          >✓</button>
+                          <button
+                            onClick={() => setEditingTitleId(null)}
+                            className="text-gray-400 hover:text-gray-600 text-xs px-1"
+                          >✕</button>
+                        </div>
+                      ) : (
+                        <span className="truncate block">{table.title}</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(table.from_date)}</td>
                     <td className="px-4 py-3 text-gray-600">{formatDate(table.to_date)}</td>
                     <td className="px-4 py-3 text-center">
@@ -983,6 +1060,43 @@ export default function EstadosResultadosPage() {
                           ))}
                         </div>
                       ) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      {confirmDeleteId === table.id ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-xs text-gray-500 mr-1">¿Eliminar?</span>
+                          <button
+                            onClick={() => handleDelete(table.id)}
+                            disabled={isDeletingId === table.id}
+                            className="text-xs text-rose-600 hover:text-rose-800 font-medium disabled:opacity-50"
+                          >{isDeletingId === table.id ? '...' : 'Sí'}</button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+                          >No</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            title="Editar título"
+                            onClick={() => { setEditingTitleId(table.id); setEditingTitleValue(table.title); }}
+                            className="text-gray-400 hover:text-brand-600 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
+                            </svg>
+                          </button>
+                          <button
+                            title="Eliminar"
+                            onClick={() => setConfirmDeleteId(table.id)}
+                            className="text-gray-400 hover:text-rose-600 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0a2 2 0 00-2-2H9a2 2 0 00-2 2m10 0H5" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

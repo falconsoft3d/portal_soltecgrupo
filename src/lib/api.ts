@@ -572,6 +572,19 @@ export const apiUpdateAndCalcResultTable = async (
 ): Promise<ResultTableDetailResponse> =>
   post('/api/result-tables/update-and-calc', { table_id, from_date, to_date, project_ids, manager_ids }, token) as Promise<ResultTableDetailResponse>;
 
+export const apiUpdateResultTableTitle = async (
+  token: string,
+  table_id: number,
+  title: string,
+): Promise<CreateResultTableResponse> =>
+  post('/api/result-tables/update-title', { table_id, title }, token) as Promise<CreateResultTableResponse>;
+
+export const apiDeleteResultTable = async (
+  token: string,
+  table_id: number,
+): Promise<ApiResponse> =>
+  post('/api/result-tables/delete', { table_id }, token) as Promise<ApiResponse>;
+
 export const apiPortalPartners = async (token: string): Promise<PortalPartnersResponse> =>
   post('/api/portal-partners', {}, token) as Promise<PortalPartnersResponse>;
 
