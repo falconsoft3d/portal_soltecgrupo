@@ -106,7 +106,10 @@ function formatDate(value: string | false): string {
 
 function formatNumber(value: number): string {
   if (value === 0) return '0,00';
-  return value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fixed = Math.abs(value).toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${value < 0 ? '-' : ''}${intFormatted},${decPart}`;
 }
 
 function errorToText(value: unknown, fallback: string): string {
