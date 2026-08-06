@@ -8,6 +8,7 @@ import {
   apiPickingAnalyses,
   apiProjects,
   apiUpdatePickingAnalysis,
+  PickingAnalysisEditLine,
   PickingAnalysisFormLine,
   PickingAnalysisItem,
   PortalProject,
@@ -87,7 +88,7 @@ export default function AnalisisAlbaranPage() {
   const [success, setSuccess] = useState<string>('');
   const [editingAnalysisId, setEditingAnalysisId] = useState<number | null>(null);
   const [editEndDate, setEditEndDate] = useState<string>('');
-  const [editLines, setEditLines] = useState<{ id: number; note: string; product_cost: number; oenc: boolean }[]>([]);
+  const [editLines, setEditLines] = useState<PickingAnalysisEditLine[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const selectedProjectName = useMemo(() => {
@@ -178,12 +179,28 @@ export default function AnalisisAlbaranPage() {
   function startEdit(analysis: PickingAnalysisItem) {
     setEditingAnalysisId(analysis.id);
     setEditEndDate(typeof analysis.end_date === 'string' ? analysis.end_date : toIsoDate(new Date()));
-    setEditLines((analysis.lines ?? []).map((l) => ({ id: l.id, note: l.note, product_cost: l.product_cost, oenc: l.oenc })));
+    setEditLines((analysis.lines ?? []).map((line) => ({
+      id: line.id,
+      note: line.note,
+      product_cost: line.product_cost,
+      assets_qty: line.assets_qty,
+      oenc: line.oenc,
+    })));
     setError('');
     setSuccess('');
   }
 
   async function handleSaveEdit(analysis: PickingAnalysisItem) {
+    if (editLines.length === 0) {
+      setError('Debes incluir al menos una línea.');
+      return;
+    }
+
+    if (editLines.some((line) => line.assets_qty < 0)) {
+      setError('La cantidad de activos no puede ser negativa.');
+      return;
+    }
+
     const token = getToken();
     if (!token) return;
     setIsSavingEdit(true);
@@ -531,18 +548,27 @@ export default function AnalisisAlbaranPage() {
                                       className="ml-2 rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
                                     />
                                   </label>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditLines((current) => [...current, EMPTY_LINE()])}
+                                    className="ml-auto rounded-md border border-brand-400 bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                                  >
+                                    + Añadir línea
+                                  </button>
                                 </div>
                                 <table className="w-full text-sm">
                                   <thead className="text-xs font-bold uppercase text-gray-500">
                                     <tr>
                                       <th className="pb-1 text-left">Nota</th>
                                       <th className="pb-1 text-right">Costo producto</th>
+                                      <th className="pb-1 text-right">Cant. activos</th>
                                       <th className="pb-1 text-center">OENC</th>
+                                      <th className="pb-1"></th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {editLines.map((el, i) => (
-                                      <tr key={el.id}>
+                                      <tr key={el.id ?? `new-${i}`}>
                                         <td className="pr-3 py-1">
                                           <input
                                             type="text"
@@ -560,6 +586,16 @@ export default function AnalisisAlbaranPage() {
                                             className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-right text-sm text-gray-800 outline-none focus:border-brand-400"
                                           />
                                         </td>
+                                        <td className="py-1 pl-3 w-32">
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={el.assets_qty}
+                                            onChange={(e) => setEditLines((prev) => prev.map((r, j) => j === i ? { ...r, assets_qty: Number(e.target.value || 0) } : r))}
+                                            className="w-full rounded border border-gray-300 bg-white px-2 py-1 text-right text-sm text-gray-800 outline-none focus:border-brand-400"
+                                          />
+                                        </td>
                                         <td className="py-1 w-16 text-center">
                                           <input
                                             type="checkbox"
@@ -568,6 +604,18 @@ export default function AnalisisAlbaranPage() {
                                             className="h-4 w-4 rounded border-gray-300 accent-brand-600"
                                             title="Obra en ejecución no certificada"
                                           />
+                                        </td>
+                                        <td className="py-1 w-16 text-center">
+                                          {editLines.length > 1 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setEditLines((current) => current.filter((_, index) => index !== i))}
+                                              className="rounded-md border border-rose-300 bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                                              aria-label="Eliminar línea"
+                                            >
+                                              ✕
+                                            </button>
+                                          )}
                                         </td>
                                       </tr>
                                     ))}
