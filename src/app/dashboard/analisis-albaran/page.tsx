@@ -486,7 +486,7 @@ export default function AnalisisAlbaranPage() {
                     .map((analysis) => {
                     const lines = analysis.lines ?? [];
                     const isEditing = editingAnalysisId === analysis.id;
-                    const rowSpan = lines.length > 0 ? lines.length + (isEditing ? 1 : 0) : undefined;
+                    const rowSpan = lines.length > 0 ? lines.length : undefined;
                     return lines.length > 0 ? (
                       <React.Fragment key={analysis.id}>
                         {lines.map((line, idx) => (
@@ -508,13 +508,15 @@ export default function AnalisisAlbaranPage() {
                             {idx === 0 ? (
                               <td className="px-3 py-2 text-right align-top" rowSpan={rowSpan}>
                                 <div className="flex flex-col items-end gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => isEditing ? setEditingAnalysisId(null) : startEdit(analysis)}
-                                    className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
-                                  >
-                                    {isEditing ? 'Cancelar' : 'Editar'}
-                                  </button>
+                                  {!isEditing && (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEdit(analysis)}
+                                      className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                                    >
+                                      Editar
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => handleDuplicate(analysis)}
@@ -658,13 +660,15 @@ export default function AnalisisAlbaranPage() {
                           <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(analysis.subtotal)}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex flex-col items-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => editingAnalysisId === analysis.id ? setEditingAnalysisId(null) : startEdit(analysis)}
-                                className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
-                              >
-                                {editingAnalysisId === analysis.id ? 'Cancelar' : 'Editar'}
-                              </button>
+                              {editingAnalysisId !== analysis.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEdit(analysis)}
+                                  className="rounded-md border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 hover:bg-brand-100"
+                                >
+                                  Editar
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => handleDuplicate(analysis)}
