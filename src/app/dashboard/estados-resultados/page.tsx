@@ -165,6 +165,21 @@ export default function EstadosResultadosPage() {
   const [showColPicker, setShowColPicker] = useState(false);
   const colPickerRef = useRef<HTMLDivElement>(null);
 
+  // Ordenación de líneas
+  const [sortCol, setSortCol] = useState<ColKey | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  function handleSort(key: ColKey) {
+    setSortCol((prev) => {
+      if (prev === key) {
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        return key;
+      }
+      setSortDir('asc');
+      return key;
+    });
+  }
+
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -710,15 +725,36 @@ export default function EstadosResultadosPage() {
                     })}
                   </tr>
                   <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 uppercase tracking-wide">
-                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => (
-                      <th key={col.key} className={`px-3 py-3 font-medium ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
-                        {col.label}
-                      </th>
-                    ))}
+                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
+                      const isActive = sortCol === col.key;
+                      const arrow = isActive ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+                      return (
+                        <th
+                          key={col.key}
+                          onClick={() => handleSort(col.key)}
+                          className={`px-3 py-3 font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors ${
+                            col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
+                          } ${isActive ? 'text-brand-600' : ''}`}
+                        >
+                          {col.label}{arrow}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {detail.lines.map((line) => (
+                  {(sortCol
+                    ? [...detail.lines].sort((a, b) => {
+                        const av = a[sortCol];
+                        const bv = b[sortCol];
+                        const cmp =
+                          typeof av === 'string' && typeof bv === 'string'
+                            ? av.localeCompare(bv, 'es', { sensitivity: 'base' })
+                            : ((av as number) || 0) - ((bv as number) || 0);
+                        return sortDir === 'asc' ? cmp : -cmp;
+                      })
+                    : detail.lines
+                  ).map((line) => (
                     <tr key={line.id} className="hover:bg-gray-50 transition-colors">
                       {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col) => {
                         const val = line[col.key];
