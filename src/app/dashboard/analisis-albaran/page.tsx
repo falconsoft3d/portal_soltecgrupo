@@ -120,7 +120,7 @@ export default function AnalisisAlbaranPage() {
     const filtered = analyses.filter((a) => showZero || a.subtotal !== 0);
     const map = new Map<string, PickingAnalysisItem[]>();
     for (const a of filtered) {
-      const key = monthKeyFromDate(a.create_date);
+      const key = monthKeyFromDate(a.end_date);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(a);
     }
