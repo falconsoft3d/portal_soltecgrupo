@@ -251,6 +251,7 @@ export interface PaidstateItem {
   state: 'draft' | 'validated' | 'invoiced' | 'cancel' | string;
   date: string | false;
   amount_total: number;
+  project_state: string;
 }
 
 export interface PaidstatesResponse extends ApiResponse {
