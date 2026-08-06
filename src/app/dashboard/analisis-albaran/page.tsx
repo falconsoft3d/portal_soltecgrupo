@@ -535,11 +535,15 @@ export default function AnalisisAlbaranPage() {
                         className="cursor-pointer select-none bg-gray-100 hover:bg-gray-200"
                         onClick={() => toggleMonth(key)}
                       >
-                        <td colSpan={11} className="px-3 py-2 font-bold text-gray-700 text-sm">
+                        <td colSpan={9} className="px-3 py-2 font-bold text-gray-700 text-sm">
                           <span className="mr-2 text-gray-400">{expandedMonths.has(key) ? '▾' : '▸'}</span>
                           {label}
                           <span className="ml-3 text-xs font-normal text-gray-500">({items.length} registros)</span>
                         </td>
+                        <td className="px-3 py-2 text-right font-bold text-gray-700 text-sm whitespace-nowrap">
+                          {formatCurrency(items.reduce((sum, a) => sum + a.subtotal, 0))}
+                        </td>
+                        <td />
                       </tr>
                       {expandedMonths.has(key) && items.map((analysis) => {
                     const lines = analysis.lines ?? [];
