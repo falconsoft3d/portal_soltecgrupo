@@ -280,6 +280,7 @@ export default function DashboardPage() {
     } catch { return []; }
   });
   const [companyDropdownOpen, setCompanyDropdownOpen] = useState(false);
+  const [selectedStateNames, setSelectedStateNames] = useState<string[]>([]);
 
   // ── Persistencia en localStorage ────────────────────────────────────
   useEffect(() => { localStorage.setItem('dash_filterMode', filterMode); }, [filterMode]);
@@ -345,6 +346,17 @@ export default function DashboardPage() {
     if (selectedCompanyIds.length === 0) return projects;
     return projects.filter((p) => p.company_id && selectedCompanyIds.includes(p.company_id));
   }, [projects, selectedCompanyIds]);
+
+  const availableStateNames = useMemo(() => {
+    const seen = new Set<string>();
+    companyFilteredProjects.forEach((p) => { if (p.state_name) seen.add(p.state_name); });
+    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+  }, [companyFilteredProjects]);
+
+  const stateFilteredProjects = useMemo(() => {
+    if (selectedStateNames.length === 0) return companyFilteredProjects;
+    return companyFilteredProjects.filter((p) => selectedStateNames.includes(p.state_name));
+  }, [companyFilteredProjects, selectedStateNames]);
 
   // Si el proyecto seleccionado ya no está en los proyectos filtrados, resetear a 'all'
   useEffect(() => {
@@ -939,6 +951,42 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
+          {/* Filtro de estados de obra */}
+          {availableStateNames.length > 0 && (
+            <div className="mb-1 flex flex-wrap gap-1.5">
+              {availableStateNames.map((state) => {
+                const active = selectedStateNames.includes(state);
+                return (
+                  <button
+                    key={state}
+                    type="button"
+                    onClick={() =>
+                      setSelectedStateNames((prev) =>
+                        active ? prev.filter((s) => s !== state) : [...prev, state]
+                      )
+                    }
+                    className={`rounded-full border px-3 py-0.5 text-xs font-medium transition-colors ${
+                      active
+                        ? 'border-blue-500 bg-blue-100 text-blue-700'
+                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {state}
+                  </button>
+                );
+              })}
+              {selectedStateNames.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStateNames([])}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+          )}
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
           <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
             <span className="sr-only">Obra</span>
             <select
@@ -952,12 +1000,12 @@ export default function DashboardPage() {
               className="w-full bg-transparent font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="all">Todas las obras</option>
-              {(companyFilteredProjects.length ? companyFilteredProjects : []).map((project) => (
+              {(stateFilteredProjects.length ? stateFilteredProjects : []).map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.is_manager ? '👑 ' : ''}{project.display_name}{project.state_name ? ` (${project.state_name})` : ''}
                 </option>
               ))}
-              {companyFilteredProjects.length === 0 && (
+              {stateFilteredProjects.length === 0 && (
                 projectOptionsFallback.map((project) => (
                   <option key={project} value="">
                     {project}
@@ -997,6 +1045,7 @@ export default function DashboardPage() {
           >
             Mes
           </button>
+          </div>
         </div>
 
       </article>
