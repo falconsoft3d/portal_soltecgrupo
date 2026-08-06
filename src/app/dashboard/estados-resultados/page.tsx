@@ -813,6 +813,22 @@ export default function EstadosResultadosPage() {
                       );
                     })}
                   </tr>
+                  <tr className="border-b-2 border-indigo-100 bg-indigo-50 text-indigo-700">
+                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col, idx) => {
+                      if (col.key === 'mmnet_year') {
+                        return (
+                          <th key={col.key} className="px-3 py-1.5 text-right font-mono text-xs font-semibold text-indigo-700">
+                            10,00 %
+                          </th>
+                        );
+                      }
+                      return (
+                        <th key={col.key} className="px-3 py-1.5 text-xs font-medium text-left text-indigo-600">
+                          {idx === 0 ? 'Objetivo %MNet-A' : ''}
+                        </th>
+                      );
+                    })}
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {(sortCol
