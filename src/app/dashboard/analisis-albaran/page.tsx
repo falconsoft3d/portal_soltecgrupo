@@ -1,6 +1,6 @@
 'use client';
 
-import React, { FormEvent, useEffect, useMemo, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import {
   apiCreatePickingAnalysis,
   apiDeletePickingAnalysis,
@@ -54,6 +54,24 @@ function formatCurrency(value: number): string {
   return `${sign}${intFormatted},${decPart} €`;
 }
 
+const MONTH_NAMES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+function monthKeyFromDate(value: string | false): string {
+  if (!value) return 'unknown';
+  const normalized = String(value).replace(' ', 'T') + 'Z';
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return 'unknown';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split('-');
+  const idx = parseInt(month, 10) - 1;
+  return `${MONTH_NAMES[idx] ?? month} ${year}`;
+}
+
 function errorToText(value: unknown, fallback: string): string {
   if (typeof value === 'string' && value.trim()) return value;
   if (value && typeof value === 'object') {
@@ -90,11 +108,34 @@ export default function AnalisisAlbaranPage() {
   const [editEndDate, setEditEndDate] = useState<string>('');
   const [editLines, setEditLines] = useState<PickingAnalysisEditLine[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const monthsInitialized = useRef(false);
 
   const selectedProjectName = useMemo(() => {
     if (!selectedProjectId) return '—';
     return projects.find((project) => project.id === selectedProjectId)?.display_name || '—';
   }, [projects, selectedProjectId]);
+
+  const groupedAnalyses = useMemo(() => {
+    const filtered = analyses.filter((a) => showZero || a.subtotal !== 0);
+    const map = new Map<string, PickingAnalysisItem[]>();
+    for (const a of filtered) {
+      const key = monthKeyFromDate(a.create_date);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    }
+    const keys = [...map.keys()].sort((a, b) => b.localeCompare(a));
+    return keys.map((key) => ({ key, label: monthLabel(key), items: map.get(key)! }));
+  }, [analyses, showZero]);
+
+  function toggleMonth(key: string) {
+    setExpandedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function loadAnalyses(projectId: number | 'all' = 'all') {
     const token = getToken();
@@ -129,6 +170,13 @@ export default function AnalisisAlbaranPage() {
         setIsLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (!monthsInitialized.current && groupedAnalyses.length > 0) {
+      monthsInitialized.current = true;
+      setExpandedMonths(new Set([groupedAnalyses[0].key]));
+    }
+  }, [groupedAnalyses]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -481,9 +529,19 @@ export default function AnalisisAlbaranPage() {
                     </td>
                   </tr>
                 ) : (
-                  analyses
-                    .filter((a) => showZero || a.subtotal !== 0)
-                    .map((analysis) => {
+                  groupedAnalyses.map(({ key, label, items }) => (
+                    <React.Fragment key={key}>
+                      <tr
+                        className="cursor-pointer select-none bg-gray-100 hover:bg-gray-200"
+                        onClick={() => toggleMonth(key)}
+                      >
+                        <td colSpan={11} className="px-3 py-2 font-bold text-gray-700 text-sm">
+                          <span className="mr-2 text-gray-400">{expandedMonths.has(key) ? '▾' : '▸'}</span>
+                          {label}
+                          <span className="ml-3 text-xs font-normal text-gray-500">({items.length} registros)</span>
+                        </td>
+                      </tr>
+                      {expandedMonths.has(key) && items.map((analysis) => {
                     const lines = analysis.lines ?? [];
                     const isEditing = editingAnalysisId === analysis.id;
                     const rowSpan = lines.length > 0 ? lines.length : undefined;
@@ -724,7 +782,9 @@ export default function AnalisisAlbaranPage() {
                         )}
                       </React.Fragment>
                     );
-                  })
+                      })}
+                    </React.Fragment>
+                  ))
                 )}
               </tbody>
             </table>
