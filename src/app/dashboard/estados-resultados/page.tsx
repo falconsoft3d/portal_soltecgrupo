@@ -682,10 +682,16 @@ export default function EstadosResultadosPage() {
         {/* Líneas */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-base font-semibold text-gray-800">
-              Líneas
-              <span className="ml-2 text-xs text-gray-400 font-normal">({detail.lines.length} registros)</span>
-            </h2>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-base font-semibold text-gray-800">
+                Líneas
+                <span className="ml-2 text-xs text-gray-400 font-normal">({detail.lines.length} registros)</span>
+              </h2>
+              <span className="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold rounded-full px-3 py-1">
+                <span className="text-indigo-400 font-normal">Objetivo %MNet-A</span>
+                10,00 %
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               {/* Selector de columnas */}
               <div className="relative" ref={colPickerRef}>
@@ -813,22 +819,6 @@ export default function EstadosResultadosPage() {
                       );
                     })}
                   </tr>
-                  <tr className="border-b-2 border-indigo-100 bg-indigo-50 text-indigo-700">
-                    {COLUMNS.filter((c) => visibleCols.has(c.key)).map((col, idx) => {
-                      if (col.key === 'mmnet_year') {
-                        return (
-                          <th key={col.key} className="px-3 py-1.5 text-right font-mono text-xs font-semibold text-indigo-700">
-                            10,00 %
-                          </th>
-                        );
-                      }
-                      return (
-                        <th key={col.key} className="px-3 py-1.5 text-xs font-medium text-left text-indigo-600">
-                          {idx === 0 ? 'Objetivo %MNet-A' : ''}
-                        </th>
-                      );
-                    })}
-                  </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {(sortCol
@@ -855,7 +845,10 @@ export default function EstadosResultadosPage() {
                           );
                         }
                         const num = val as number;
-                        const colored = col.isResult ? (num >= 0 ? 'text-emerald-600' : 'text-rose-600') : '';
+                        let colored = col.isResult ? (num >= 0 ? 'text-emerald-600' : 'text-rose-600') : '';
+                        if (col.key === 'mmnet_year') {
+                          colored = num < 10 ? 'text-rose-600 font-semibold' : num <= 20 ? 'text-orange-500 font-semibold' : 'text-emerald-600 font-semibold';
+                        }
                         const fmt = col.isPct
                           ? `${formatNumber(num)} %`
                           : formatNumber(num);
