@@ -154,6 +154,7 @@ export default function EstadosResultadosPage() {
   const [detailError, setDetailError] = useState<string>('');
   const [detailSuccess, setDetailSuccess] = useState<string>('');
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [projSearchQ, setProjSearchQ] = useState('');
   const [showAllObras, setShowAllObras] = useState(false);
   const OBRAS_VISIBLE_LIMIT = 6;
 
@@ -163,6 +164,25 @@ export default function EstadosResultadosPage() {
   const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>([]);
   const [showManagerPicker, setShowManagerPicker] = useState(false);
   const managerPickerRef = useRef<HTMLDivElement>(null);
+
+  const [projColWidth, setProjColWidth] = useState(180);
+  const projResizeRef = useRef<{ startX: number; startW: number } | null>(null);
+  function startProjResize(e: React.MouseEvent) {
+    e.preventDefault();
+    projResizeRef.current = { startX: e.clientX, startW: projColWidth };
+    const onMove = (ev: MouseEvent) => {
+      if (!projResizeRef.current) return;
+      const delta = ev.clientX - projResizeRef.current.startX;
+      setProjColWidth(Math.max(80, projResizeRef.current.startW + delta));
+    };
+    const onUp = () => {
+      projResizeRef.current = null;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
 
   // Visibilidad de columnas
   const defaultVisible = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
@@ -619,32 +639,29 @@ export default function EstadosResultadosPage() {
             </button>
 
             {showProjectPicker && (
-              <div className="mt-2 border border-gray-200 rounded-xl bg-white shadow-lg max-h-64 overflow-y-auto">
-                <div className="p-2 border-b border-gray-100 flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Tus obras como responsable</span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProjectIds(allowedProjects.map((p) => p.id))}
-                      className="text-xs text-brand-600 hover:text-brand-800"
-                    >
-                      Todas
-                    </button>
-                    <span className="text-gray-300">|</span>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedProjectIds([])}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      Ninguna
-                    </button>
+              <div className="mt-2 border border-gray-200 rounded-xl bg-white shadow-lg max-h-72 overflow-y-auto">
+                <div className="p-2 border-b border-gray-100 flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={projSearchQ}
+                    onChange={(e) => setProjSearchQ(e.target.value)}
+                    placeholder="Buscar por código o nombre..."
+                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-400 placeholder:text-gray-500"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Tus obras como responsable</span>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setSelectedProjectIds(allowedProjects.map((p) => p.id))} className="text-xs text-brand-600 hover:text-brand-800">Todas</button>
+                      <span className="text-gray-300">|</span>
+                      <button type="button" onClick={() => setSelectedProjectIds([])} className="text-xs text-gray-500 hover:text-gray-700">Ninguna</button>
+                    </div>
                   </div>
                 </div>
                 {allowedProjects.length === 0 ? (
                   <div className="p-4 text-center text-sm text-gray-400">No hay obras disponibles.</div>
                 ) : (
                   <ul className="divide-y divide-gray-50">
-                    {allowedProjects.map((project) => {
+                    {allowedProjects.filter((p) => { const q = projSearchQ.toLowerCase(); return !q || p.display_name.toLowerCase().includes(q); }).map((project) => {
                       const checked = selectedProjectIds.includes(project.id);
                       return (
                         <li key={project.id}>
@@ -655,8 +672,9 @@ export default function EstadosResultadosPage() {
                               onChange={() => toggleProject(project.id)}
                               className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
                             />
-                            <span className="text-sm text-gray-700">
+                            <span className="text-sm text-gray-700 flex items-center gap-1.5">
                               {project.is_manager ? '👑 ' : ''}{project.display_name}
+                              {project.state_name && <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">{project.state_name}</span>}
                             </span>
                           </label>
                         </li>
@@ -872,11 +890,19 @@ export default function EstadosResultadosPage() {
                         <th
                           key={col.key}
                           onClick={() => handleSort(col.key)}
+                          style={col.key === 'project_name' ? { width: projColWidth, minWidth: projColWidth, maxWidth: projColWidth, position: 'relative' } : undefined}
                           className={`px-3 py-3 font-medium cursor-pointer select-none hover:bg-gray-100 transition-colors ${
                             col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'
                           } ${isActive ? 'text-brand-600' : ''}`}
                         >
                           {col.label}{arrow}
+                          {col.key === 'project_name' && (
+                            <div
+                              onMouseDown={startProjResize}
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-0 h-full w-2 cursor-col-resize hover:bg-brand-300 opacity-0 hover:opacity-60"
+                            />
+                          )}
                         </th>
                       );
                     })}
@@ -930,7 +956,8 @@ export default function EstadosResultadosPage() {
                                 const val = line[col.key];
                                 const isStr = typeof val === 'string' || col.key === 'year' || col.key === 'month';
                                 if (isStr) return (
-                                  <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'project_name' ? 'max-w-40 truncate' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}>
+                                  <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}
+                                    style={col.key === 'project_name' ? { width: projColWidth, minWidth: projColWidth, maxWidth: projColWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : undefined}>
                                     {(val as string) || '—'}
                                   </td>
                                 );
@@ -954,7 +981,8 @@ export default function EstadosResultadosPage() {
                           const val = line[col.key];
                           const isStr = typeof val === 'string' || col.key === 'year' || col.key === 'month';
                           if (isStr) return (
-                            <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'project_name' ? 'max-w-40 truncate' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}>
+                            <td key={col.key} className={`px-3 py-2 ${col.align === 'center' ? 'text-center' : ''} ${col.key === 'nexecution_manager' ? 'max-w-32 truncate' : ''}`}
+                              style={col.key === 'project_name' ? { width: projColWidth, minWidth: projColWidth, maxWidth: projColWidth, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : undefined}>
                               {(val as string) || '—'}
                             </td>
                           );
@@ -1195,6 +1223,17 @@ export default function EstadosResultadosPage() {
                         </div>
                       ) : (
                         <div className="flex items-center justify-center gap-2">
+                          <button
+                            title="Ver detalle"
+                            onClick={() => handleViewDetail(table.id)}
+                            disabled={isLoadingDetail}
+                            className="text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
                           <button
                             title="Editar título"
                             onClick={() => { setEditingTitleId(table.id); setEditingTitleValue(table.title); }}

@@ -109,6 +109,8 @@ export default function AnalisisAlbaranPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [endDate, setEndDate] = useState<string>(toIsoDate(new Date()));
   const [formLines, setFormLines] = useState<PickingAnalysisFormLine[]>([EMPTY_LINE()]);
   const [analyses, setAnalyses] = useState<PickingAnalysisItem[]>([]);
@@ -405,22 +407,52 @@ export default function AnalisisAlbaranPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="text-sm font-medium text-gray-700">
                 Proyecto
-                <select
-                  value={selectedProjectId === '' ? '' : String(selectedProjectId)}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setSelectedProjectId(value ? Number(value) : '');
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                >
-                  <option value="">Selecciona un proyecto...</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.is_manager ? '👑 ' : ''}{project.display_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative mt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setProjectDropdownOpen((o) => !o); setProjectSearchQuery(''); }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-left text-sm flex items-center justify-between gap-2 bg-white focus:border-brand-400 outline-none"
+                  >
+                    <span className={selectedProjectId ? 'text-gray-800' : 'text-gray-400'}>
+                      {selectedProjectId
+                        ? (projects.find((p) => p.id === selectedProjectId)?.display_name ?? 'Selecciona un proyecto...')
+                        : 'Selecciona un proyecto...'}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-400">{projectDropdownOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {projectDropdownOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                      <div className="p-2 border-b border-gray-100">
+                        <input
+                          autoFocus
+                          type="text"
+                          value={projectSearchQuery}
+                          onChange={(e) => setProjectSearchQuery(e.target.value)}
+                          placeholder="Buscar por código o nombre..."
+                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-400 placeholder:text-gray-500"
+                        />
+                      </div>
+                      <ul className="max-h-60 overflow-y-auto py-1">
+                        {projects.filter((p) => {
+                          const q = projectSearchQuery.toLowerCase();
+                          return !q || p.display_name.toLowerCase().includes(q);
+                        }).map((project) => (
+                          <li key={project.id}>
+                            <button type="button"
+                              onClick={() => { setSelectedProjectId(project.id); setProjectDropdownOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${selectedProjectId === project.id ? 'font-semibold text-brand-700 bg-brand-50' : 'text-gray-700'}`}>
+                              {project.is_manager ? '👑 ' : ''}{project.display_name}
+                              {project.state_name && <span className="ml-1 text-xs text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">{project.state_name}</span>}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {projectDropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setProjectDropdownOpen(false)} />}
+                </div>
+                {/* campo oculto para validación required */}
+                <input type="text" required value={selectedProjectId || ''} onChange={() => {}} className="sr-only" tabIndex={-1} />
               </label>
 
               <label className="text-sm font-medium text-gray-700">
@@ -467,7 +499,7 @@ export default function AnalisisAlbaranPage() {
                             value={line.note}
                             onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, note: e.target.value } : l))}
                             placeholder="Nota de la línea"
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-brand-400 placeholder:text-gray-500"
                           />
                         </td>
                         <td className="px-2 py-1.5">
@@ -476,7 +508,8 @@ export default function AnalisisAlbaranPage() {
                             step="0.01"
                             value={line.product_cost}
                             onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, product_cost: Number(e.target.value || 0) } : l))}
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                            placeholder="0.00"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400 placeholder:text-gray-500"
                           />
                         </td>
                         <td className="px-2 py-1.5">
@@ -486,7 +519,8 @@ export default function AnalisisAlbaranPage() {
                             min="0"
                             value={line.assets_qty}
                             onChange={(e) => setFormLines((prev) => prev.map((l, i) => i === idx ? { ...l, assets_qty: Number(e.target.value || 0) } : l))}
-                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400"
+                            placeholder="0"
+                            className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm outline-none focus:border-brand-400 placeholder:text-gray-500"
                           />
                         </td>
                         <td className="px-2 py-1.5 text-center">

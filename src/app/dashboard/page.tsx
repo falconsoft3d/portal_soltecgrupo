@@ -273,6 +273,8 @@ export default function DashboardPage() {
     if (!v || v === 'all') return 'all';
     return Number(v);
   });
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<number[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -1099,33 +1101,55 @@ export default function DashboardPage() {
             </div>
           )}
           <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto]">
-          <label className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            <span className="sr-only">Obra</span>
-            <select
-              value={String(selectedProjectId)}
-              onChange={(event) => {
-                const value = event.target.value;
-                setIsRefreshingIndicators(true);
-                setSelectedProjectId(value === 'all' ? 'all' : Number(value));
-              }}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { if (!isRefreshingIndicators) { setProjectDropdownOpen((o) => !o); setProjectSearchQuery(''); } }}
               disabled={isRefreshingIndicators}
-              className="w-full bg-transparent font-semibold outline-none disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 text-left flex items-center justify-between gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <option value="all">Todas las obras</option>
-              {(stateFilteredProjects.length ? stateFilteredProjects : []).map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.is_manager ? '👑 ' : ''}{project.display_name}{project.state_name ? ` (${project.state_name})` : ''}
-                </option>
-              ))}
-              {stateFilteredProjects.length === 0 && (
-                projectOptionsFallback.map((project) => (
-                  <option key={project} value="">
-                    {project}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
+              <span className="truncate">
+                {selectedProjectId === 'all'
+                  ? 'Todas las obras'
+                  : (stateFilteredProjects.find((p) => p.id === selectedProjectId)?.display_name ?? 'Todas las obras')}
+              </span>
+              <span className="shrink-0 text-xs text-slate-400">{projectDropdownOpen ? '▲' : '▼'}</span>
+            </button>
+            {projectDropdownOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[260px] rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="p-2 border-b border-slate-100">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={projectSearchQuery}
+                    onChange={(e) => setProjectSearchQuery(e.target.value)}
+                    placeholder="Buscar por código o nombre..."
+                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-blue-400"
+                  />
+                </div>
+                <ul className="max-h-64 overflow-y-auto py-1">
+                  <li>
+                    <button type="button" onClick={() => { setIsRefreshingIndicators(true); setSelectedProjectId('all'); setProjectDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${selectedProjectId === 'all' ? 'font-semibold text-blue-700' : 'text-slate-700'}`}>
+                      Todas las obras
+                    </button>
+                  </li>
+                  {(stateFilteredProjects.length ? stateFilteredProjects : []).filter((p) => {
+                    const q = projectSearchQuery.toLowerCase();
+                    return !q || p.display_name.toLowerCase().includes(q);
+                  }).map((project) => (
+                    <li key={project.id}>
+                      <button type="button" onClick={() => { setIsRefreshingIndicators(true); setSelectedProjectId(project.id); setProjectDropdownOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${selectedProjectId === project.id ? 'font-semibold text-blue-700 bg-blue-50' : 'text-slate-700'}`}>
+                        {project.is_manager ? '👑 ' : ''}{project.display_name}{project.state_name ? ` (${project.state_name})` : ''}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {projectDropdownOpen && <div className="fixed inset-0 z-40" onClick={() => setProjectDropdownOpen(false)} />}
+          </div>
 
           <button
             type="button"

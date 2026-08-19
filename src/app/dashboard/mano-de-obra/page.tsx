@@ -21,8 +21,12 @@ function esNum(value: number, decimals = 2): string {
 export default function ManoDeObraPage() {
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<number | ''>('');
+  const [projSearchQ, setProjSearchQ] = useState('');
+  const [projDropOpen, setProjDropOpen] = useState(false);
   const [budgets, setBudgets] = useState<BudgetItem[]>([]);
   const [selectedBudget, setSelectedBudget] = useState<number | ''>('');
+  const [budgetSearchQ, setBudgetSearchQ] = useState('');
+  const [budgetDropOpen, setBudgetDropOpen] = useState(false);
   const [lines, setLines] = useState<LaborLineItem[]>([]);
   const [totals, setTotals] = useState({ labor: 0, material: 0, other: 0 });
   const [loading, setLoading] = useState(false);
@@ -92,30 +96,68 @@ export default function ManoDeObraPage() {
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
           <label className="block text-sm font-medium text-slate-600 mb-1">Obra</label>
-          <select
-            className="w-full rounded border border-slate-300 bg-white text-slate-800 px-3 py-2 text-sm"
-            value={selectedProject}
-            onChange={e => onProjectChange(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">Seleccionar obra...</option>
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.display_name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <button type="button" onClick={() => { setProjDropOpen((o) => !o); setProjSearchQ(''); }}
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-left flex items-center justify-between gap-2 outline-none">
+              <span className={selectedProject ? 'text-slate-800' : 'text-slate-400'}>
+                {selectedProject ? (projects.find((p) => p.id === selectedProject)?.display_name ?? 'Seleccionar obra...') : 'Seleccionar obra...'}
+              </span>
+              <span className="shrink-0 text-xs text-slate-400">{projDropOpen ? '▲' : '▼'}</span>
+            </button>
+            {projDropOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="p-2 border-b border-slate-100">
+                  <input autoFocus type="text" value={projSearchQ} onChange={(e) => setProjSearchQ(e.target.value)}
+                    placeholder="Buscar por código o nombre..." className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none placeholder:text-slate-500" />
+                </div>
+                <ul className="max-h-60 overflow-y-auto py-1">
+                  {projects.filter((p) => { const q = projSearchQ.toLowerCase(); return !q || p.display_name.toLowerCase().includes(q); }).map((p) => (
+                    <li key={p.id}>
+                      <button type="button" onClick={() => { onProjectChange(p.id); setProjDropOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 ${selectedProject === p.id ? 'font-semibold text-blue-700 bg-blue-50' : 'text-slate-700'}`}>
+                        {p.display_name}
+                        {p.state_name && <span className="ml-1 text-xs text-slate-400 bg-slate-100 rounded-full px-1.5 py-0.5">{p.state_name}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {projDropOpen && <div className="fixed inset-0 z-40" onClick={() => setProjDropOpen(false)} />}
+          </div>
         </div>
         <div className="flex-1">
           <label className="block text-sm font-medium text-slate-600 mb-1">Presupuesto</label>
-          <select
-            className="w-full rounded border border-slate-300 bg-white text-slate-800 px-3 py-2 text-sm"
-            value={selectedBudget}
-            onChange={e => onBudgetChange(e.target.value ? Number(e.target.value) : '')}
-            disabled={!selectedProject}
-          >
-            <option value="">Seleccionar presupuesto...</option>
-            {budgets.map(b => (
-              <option key={b.id} value={b.id}>{b.display_name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <button type="button" onClick={() => { if (selectedProject) { setBudgetDropOpen((o) => !o); setBudgetSearchQ(''); } }}
+              disabled={!selectedProject}
+              className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-left flex items-center justify-between gap-2 outline-none disabled:opacity-50">
+              <span className={selectedBudget ? 'text-slate-800' : 'text-slate-400'}>
+                {selectedBudget ? (budgets.find((b) => b.id === selectedBudget)?.display_name ?? 'Seleccionar presupuesto...') : 'Seleccionar presupuesto...'}
+              </span>
+              <span className="shrink-0 text-xs text-slate-400">{budgetDropOpen ? '▲' : '▼'}</span>
+            </button>
+            {budgetDropOpen && selectedProject && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="p-2 border-b border-slate-100">
+                  <input autoFocus type="text" value={budgetSearchQ} onChange={(e) => setBudgetSearchQ(e.target.value)}
+                    placeholder="Buscar presupuesto..." className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none placeholder:text-slate-500" />
+                </div>
+                <ul className="max-h-60 overflow-y-auto py-1">
+                  {budgets.filter((b) => { const q = budgetSearchQ.toLowerCase(); return !q || b.display_name.toLowerCase().includes(q); }).map((b) => (
+                    <li key={b.id}>
+                      <button type="button" onClick={() => { onBudgetChange(b.id); setBudgetDropOpen(false); setBudgetSearchQ(''); }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 flex items-center gap-1.5 ${selectedBudget === b.id ? 'font-semibold text-blue-700 bg-blue-50' : 'text-slate-700'}`}>
+                        {b.display_name}
+                        {b.state_name && <span className="ml-1 text-xs font-medium text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">{b.state_name}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {budgetDropOpen && selectedProject && <div className="fixed inset-0 z-40" onClick={() => setBudgetDropOpen(false)} />}
+          </div>
         </div>
       </div>
 

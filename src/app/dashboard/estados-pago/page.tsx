@@ -87,6 +87,8 @@ export default function EstadosPagoPage() {
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [budgets, setBudgets] = useState<ProjectBudgetItem[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
+  const [projSearchQ, setProjSearchQ] = useState('');
+  const [projDropOpen, setProjDropOpen] = useState(false);
   const [selectedBudgetId, setSelectedBudgetId] = useState<number | ''>('');
   const [price, setPrice] = useState<number>(0);
   const [date, setDate] = useState<string>(toIsoDate(new Date()));
@@ -438,36 +440,39 @@ export default function EstadosPagoPage() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="text-sm font-medium text-gray-700">
                 Proyecto
-                <select
-                  value={selectedProjectId === '' ? '' : String(selectedProjectId)}
-                  onChange={async (event) => {
-                    const value = event.target.value;
-                    const nextProjectId = value ? Number(value) : '';
-                    setSelectedProjectId(nextProjectId);
-                    setSelectedBudgetId('');
-
-                    if (!nextProjectId) {
-                      setBudgets([]);
-                      return;
-                    }
-
-                    try {
-                      await loadBudgets(nextProjectId);
-                    } catch {
-                      setBudgets([]);
-                      setError('No se pudieron cargar los presupuestos para el proyecto seleccionado.');
-                    }
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                >
-                  <option value="">Selecciona un proyecto...</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.is_manager ? '👑 ' : ''}{project.display_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative mt-1">
+                  <button type="button" onClick={() => { setProjDropOpen((o) => !o); setProjSearchQ(''); }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-left text-sm flex items-center justify-between gap-2 bg-white focus:border-brand-400 outline-none">
+                    <span className={selectedProjectId ? 'text-gray-800' : 'text-gray-400'}>
+                      {selectedProjectId ? (projects.find((p) => p.id === selectedProjectId)?.display_name ?? 'Selecciona un proyecto...') : 'Selecciona un proyecto...'}
+                    </span>
+                    <span className="shrink-0 text-xs text-gray-400">{projDropOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {projDropOpen && (
+                    <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                      <div className="p-2 border-b border-gray-100">
+                        <input autoFocus type="text" value={projSearchQ} onChange={(e) => setProjSearchQ(e.target.value)}
+                          placeholder="Buscar por código o nombre..." className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-400 placeholder:text-gray-500" />
+                      </div>
+                      <ul className="max-h-60 overflow-y-auto py-1">
+                        {projects.filter((p) => { const q = projSearchQ.toLowerCase(); return !q || p.display_name.toLowerCase().includes(q); }).map((project) => (
+                          <li key={project.id}>
+                            <button type="button" onClick={async () => {
+                              const id = project.id;
+                              setSelectedProjectId(id); setSelectedBudgetId(''); setProjDropOpen(false);
+                              try { await loadBudgets(id); } catch { setBudgets([]); }
+                            }} className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${selectedProjectId === project.id ? 'font-semibold text-brand-700 bg-brand-50' : 'text-gray-700'}`}>
+                              {project.is_manager ? '👑 ' : ''}{project.display_name}
+                              {project.state_name && <span className="ml-1 text-xs text-gray-400 bg-gray-100 rounded-full px-1.5 py-0.5">{project.state_name}</span>}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {projDropOpen && <div className="fixed inset-0 z-40" onClick={() => setProjDropOpen(false)} />}
+                </div>
+                <input type="text" required value={selectedProjectId || ''} onChange={() => {}} className="sr-only" tabIndex={-1} />
               </label>
 
               <label className="text-sm font-medium text-gray-700">

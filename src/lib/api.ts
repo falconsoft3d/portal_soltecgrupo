@@ -606,6 +606,7 @@ export interface BudgetItem {
   code: string;
   name: string;
   display_name: string;
+  state_name?: string;
 }
 export interface BudgetsResponse extends ApiResponse { budgets?: BudgetItem[]; }
 
