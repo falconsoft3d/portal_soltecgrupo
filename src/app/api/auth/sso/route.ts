@@ -41,34 +41,49 @@ export async function POST(req: NextRequest) {
     return Response.json({ success: false, error: 'Token JWT no proporcionado.' }, { status: 400 });
   }
 
-  const claims = verifyHS256(jwtToken, PLANNER_JWT_SECRET);
-  if (!claims) {
-    console.warn('[SSO-in] JWT con firma inválida recibido.');
-    return Response.json({ success: false, error: 'Token inválido.' }, { status: 401 });
+  // Log del header/payload sin verificar para diagnóstico
+  try {
+    const [, rawPayload] = jwtToken.split('.');
+    const preCheck = JSON.parse(Buffer.from(rawPayload, 'base64url').toString('utf8')) as Record<string, unknown>;
+    console.log('[SSO-in] JWT recibido (sin verificar):', JSON.stringify(preCheck));
+  } catch {
+    console.warn('[SSO-in] JWT con formato inválido.');
   }
 
-  console.log('[SSO-in] Claims recibidos:', JSON.stringify(claims));
+  const claims = verifyHS256(jwtToken, PLANNER_JWT_SECRET);
+  if (!claims) {
+    console.warn('[SSO-in] Verificación HS256 FALLIDA — firma inválida o secreto incorrecto.');
+    return Response.json({ success: false, error: 'Firma del token inválida.' }, { status: 401 });
+  }
+
+  console.log('[SSO-in] Firma válida. Claims:', JSON.stringify(claims));
 
   const now = Math.floor(Date.now() / 1000);
 
   if (typeof claims.exp === 'number' && claims.exp < now) {
-    console.warn('[SSO-in] JWT expirado (exp=%d, now=%d)', claims.exp, now);
+    console.warn('[SSO-in] JWT EXPIRADO (exp=%d, now=%d, desfase=%ds)', claims.exp, now, now - claims.exp);
     return Response.json({ success: false, error: 'Token expirado.' }, { status: 401 });
   }
   if (typeof claims.nbf === 'number' && claims.nbf > now + 30) {
+    console.warn('[SSO-in] JWT aún no válido (nbf=%d, now=%d)', claims.nbf, now);
     return Response.json({ success: false, error: 'Token aún no válido.' }, { status: 401 });
   }
   if (claims.iss !== 'planner') {
-    console.warn('[SSO-in] iss inesperado:', claims.iss);
+    console.warn('[SSO-in] iss incorrecto: "%s" (esperado "planner")', claims.iss);
     return Response.json({ success: false, error: 'Emisor no reconocido.' }, { status: 401 });
   }
-  if (claims.aud !== 'soltec_portal') {
-    console.warn('[SSO-in] aud inesperado:', claims.aud);
+
+  // aud puede ser string o array según la librería JWT del emisor
+  const aud = claims.aud;
+  const audValid = aud === 'soltec_portal' || (Array.isArray(aud) && (aud as string[]).includes('soltec_portal'));
+  if (!audValid) {
+    console.warn('[SSO-in] aud incorrecto: %s (esperado "soltec_portal")', JSON.stringify(aud));
     return Response.json({ success: false, error: 'Audiencia incorrecta.' }, { status: 401 });
   }
 
   const email = typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : '';
   if (!email) {
+    console.warn('[SSO-in] Email vacío o ausente en claims.');
     return Response.json({ success: false, error: 'Email no presente en el token.' }, { status: 401 });
   }
 
