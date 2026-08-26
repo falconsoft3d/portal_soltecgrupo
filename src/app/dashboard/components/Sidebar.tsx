@@ -86,14 +86,14 @@ const NAV_ITEMS = [
 export default function Sidebar({ open = true }: { open?: boolean }) {
   const pathname = usePathname();
   const [plannerLoading, setPlannerLoading] = useState(false);
+  const [altaLoading, setAltaLoading] = useState(false);
 
-  async function handlePlannerClick() {
+  async function handleSsoClick(apiPath: string, label: string, setLoading: (v: boolean) => void) {
     const token = getToken();
     if (!token) return;
-
-    setPlannerLoading(true);
+    setLoading(true);
     try {
-      const res = await fetch('/api/planner/sso', {
+      const res = await fetch(apiPath, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -101,12 +101,12 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
       if (data.success && data.url) {
         window.location.href = data.url;
       } else {
-        console.error('[Planner SSO] Error del servidor:', data.error);
+        console.error(`[${label} SSO] Error del servidor:`, data.error);
       }
     } catch (err) {
-      console.error('[Planner SSO] Error de red:', err);
+      console.error(`[${label} SSO] Error de red:`, err);
     } finally {
-      setPlannerLoading(false);
+      setLoading(false);
     }
   }
 
@@ -133,7 +133,7 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
 
         {/* Planner — redirige a app externa via SSO JWT */}
         <button
-          onClick={handlePlannerClick}
+          onClick={() => handleSsoClick('/api/planner/sso', 'Planner', setPlannerLoading)}
           disabled={plannerLoading}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
         >
@@ -141,6 +141,18 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
           </svg>
           {plannerLoading ? 'Abriendo...' : 'Planner'}
+        </button>
+
+        {/* Alta Odoo — redirige via SSO JWT con iss=soltec_portal, aud=soltec_alta */}
+        <button
+          onClick={() => handleSsoClick('/api/alta/sso', 'Alta', setAltaLoading)}
+          disabled={altaLoading}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
+        >
+          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          {altaLoading ? 'Abriendo...' : 'Alta Odoo'}
         </button>
       </nav>
     </aside>
