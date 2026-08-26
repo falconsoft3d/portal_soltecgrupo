@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState } from 'react';
+import { getToken } from '@/lib/auth';
 
 const NAV_ITEMS = [
   {
@@ -83,6 +85,30 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ open = true }: { open?: boolean }) {
   const pathname = usePathname();
+  const [plannerLoading, setPlannerLoading] = useState(false);
+
+  async function handlePlannerClick() {
+    const token = getToken();
+    if (!token) return;
+
+    setPlannerLoading(true);
+    try {
+      const res = await fetch('/api/planner/sso', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      if (data.success && data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error('[Planner SSO] Error del servidor:', data.error);
+      }
+    } catch (err) {
+      console.error('[Planner SSO] Error de red:', err);
+    } finally {
+      setPlannerLoading(false);
+    }
+  }
 
   return (
     <aside className={`fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-56 flex flex-col bg-white border-r border-gray-200 shadow-sm z-20 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -104,6 +130,18 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
             </Link>
           );
         })}
+
+        {/* Planner — redirige a app externa via SSO JWT */}
+        <button
+          onClick={handlePlannerClick}
+          disabled={plannerLoading}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
+        >
+          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+          </svg>
+          {plannerLoading ? 'Abriendo...' : 'Planner'}
+        </button>
       </nav>
     </aside>
   );
