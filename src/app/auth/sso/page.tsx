@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { setToken, setPartnerInfo, getToken } from '@/lib/auth';
 import { PartnerInfo } from '@/lib/api';
@@ -12,13 +12,12 @@ type SsoResponse = {
   error?: string;
 };
 
-export default function SsoPage() {
+function SsoContent() {
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Si ya hay sesión activa, ir directo al dashboard
     if (getToken()) {
       router.replace('/dashboard');
       return;
@@ -65,5 +64,19 @@ export default function SsoPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <p className="text-gray-500 text-sm">Iniciando sesión...</p>
     </div>
+  );
+}
+
+export default function SsoPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+          <p className="text-gray-500 text-sm">Iniciando sesión...</p>
+        </div>
+      }
+    >
+      <SsoContent />
+    </Suspense>
   );
 }
