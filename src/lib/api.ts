@@ -265,6 +265,58 @@ export interface CreatePaidstateResponse extends ApiResponse {
   paidstate?: PaidstateItem;
 }
 
+export interface CertificationItem {
+  id: number;
+  name: string;
+  project_id: number | false;
+  project_name: string;
+  budget_id: number | false;
+  budget_name: string;
+  stage_id: number | false;
+  stage_name: string;
+  state: 'draft' | 'loaded' | 'ready' | 'done' | 'cancelled' | string;
+  certification_date: string | false;
+  total_certif: number;
+  percent_certif: number;
+  paid_state_id: number | false;
+  invoice_state: 'pending' | 'invoiced' | string;
+}
+
+export interface CertificationLineItem {
+  id: number;
+  chapter: string;
+  concept: string;
+  stage_name: string;
+  budget_qty: number;
+  amount_budget: number;
+  qty_acc: number;
+  imp_ant: number;
+  quantity_to_cert_o: number;
+  imp_orig: number;
+  quantity_to_cert: number;
+  amount_certif: number;
+}
+
+export interface CertificationsResponse extends ApiResponse {
+  certifications?: CertificationItem[];
+  total_records?: number;
+}
+
+export interface CertificationResponse extends ApiResponse {
+  certification?: CertificationItem;
+  paidstate?: PaidstateItem | false;
+}
+
+export interface CertificationLinesResponse extends ApiResponse {
+  certification?: CertificationItem;
+  lines?: CertificationLineItem[];
+}
+
+export interface CertificationLineResponse extends ApiResponse {
+  line?: CertificationLineItem;
+  certification?: CertificationItem;
+}
+
 export interface InvoicedResponse extends ApiResponse {
   invoices?: InvoicedInvoiceItem[];
   total_records?: number;
@@ -469,6 +521,44 @@ export const apiUpdatePaidstateDate = async (
   date: string,
 ): Promise<CreatePaidstateResponse> =>
   post('/api/paidstates/update-date', { paidstate_id, date }, token) as Promise<CreatePaidstateResponse>;
+
+export const apiCertifications = async (
+  token: string,
+  project_id: number | 'all' = 'all',
+): Promise<CertificationsResponse> =>
+  post('/api/certifications', { project_id }, token) as Promise<CertificationsResponse>;
+
+export const apiCreateCertification = async (
+  token: string,
+  project_id: number,
+  budget_id: number,
+): Promise<CertificationResponse> =>
+  post('/api/certifications/create', { project_id, budget_id }, token) as Promise<CertificationResponse>;
+
+export const apiCertificationLines = async (
+  token: string,
+  certification_id: number,
+): Promise<CertificationLinesResponse> =>
+  post('/api/certifications/lines', { certification_id }, token) as Promise<CertificationLinesResponse>;
+
+export const apiUpdateCertificationLine = async (
+  token: string,
+  line_id: number,
+  quantity_to_cert: number,
+): Promise<CertificationLineResponse> =>
+  post('/api/certifications/update-line', { line_id, quantity_to_cert }, token) as Promise<CertificationLineResponse>;
+
+export const apiValidateCertification = async (
+  token: string,
+  certification_id: number,
+): Promise<CertificationResponse> =>
+  post('/api/certifications/validate', { certification_id }, token) as Promise<CertificationResponse>;
+
+export const apiCertifyCertification = async (
+  token: string,
+  certification_id: number,
+): Promise<CertificationResponse> =>
+  post('/api/certifications/certify', { certification_id }, token) as Promise<CertificationResponse>;
 
 // ------------------------------------------------------------------ //
 //  result.table                                                       //
