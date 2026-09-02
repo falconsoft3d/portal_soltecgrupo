@@ -28,6 +28,8 @@ export interface PortalProject {
   is_manager: boolean;
   manager_id: number | false;
   manager_name: string;
+  foreman_id: number | false;
+  foreman_name: string;
   state_name: string;
   company_id: number | false;
   company_name: string;
@@ -274,20 +276,35 @@ export interface CertificationItem {
   budget_name: string;
   stage_id: number | false;
   stage_name: string;
+  stage_date_start: string | false;
+  stage_date_stop: string | false;
+  stage_state: 'draft' | 'process' | 'approved' | 'cancel' | string;
   state: 'draft' | 'loaded' | 'ready' | 'done' | 'cancelled' | string;
   certification_date: string | false;
   total_certif: number;
   percent_certif: number;
   paid_state_id: number | false;
+  paid_state_name: string;
   invoice_state: 'pending' | 'invoiced' | string;
+}
+
+export interface LaborResourceHours {
+  id: number;
+  name: string;
+  hours_presup: number;
+  hours_act: number;
+  hours_ori: number;
+  hours_ant: number;
 }
 
 export interface CertificationLineItem {
   id: number;
   chapter: string;
+  chapter_path: string[];
   concept: string;
   stage_name: string;
   budget_qty: number;
+  sale_price: number;
   amount_budget: number;
   qty_acc: number;
   imp_ant: number;
@@ -295,6 +312,11 @@ export interface CertificationLineItem {
   imp_orig: number;
   quantity_to_cert: number;
   amount_certif: number;
+  hours_presup: number;
+  hours_act: number;
+  hours_ori: number;
+  hours_ant: number;
+  labor_resources: LaborResourceHours[];
 }
 
 export interface CertificationsResponse extends ApiResponse {
@@ -315,6 +337,29 @@ export interface CertificationLinesResponse extends ApiResponse {
 export interface CertificationLineResponse extends ApiResponse {
   line?: CertificationLineItem;
   certification?: CertificationItem;
+}
+
+export interface CertificationStageHistoryItem {
+  id: number;
+  chapter: string;
+  chapter_path: string[];
+  concept: string;
+  stage_id: number | false;
+  stage_name: string;
+  project_id: number | false;
+  project_name: string;
+  budget_id: number | false;
+  budget_name: string;
+  budget_qty: number;
+  amount_budget: number;
+  certif_qty: number;
+  certif_percent: number;
+  amount_certif: number;
+}
+
+export interface CertificationStagesHistoryResponse extends ApiResponse {
+  lines?: CertificationStageHistoryItem[];
+  total_records?: number;
 }
 
 export interface InvoicedResponse extends ApiResponse {
@@ -535,6 +580,12 @@ export const apiCreateCertification = async (
 ): Promise<CertificationResponse> =>
   post('/api/certifications/create', { project_id, budget_id }, token) as Promise<CertificationResponse>;
 
+export const apiDeleteCertification = async (
+  token: string,
+  certification_id: number,
+): Promise<ApiResponse> =>
+  post('/api/certifications/delete', { certification_id }, token) as Promise<ApiResponse>;
+
 export const apiCertificationLines = async (
   token: string,
   certification_id: number,
@@ -544,9 +595,10 @@ export const apiCertificationLines = async (
 export const apiUpdateCertificationLine = async (
   token: string,
   line_id: number,
-  quantity_to_cert: number,
+  field: 'quantity_to_cert' | 'quantity_to_cert_o',
+  value: number,
 ): Promise<CertificationLineResponse> =>
-  post('/api/certifications/update-line', { line_id, quantity_to_cert }, token) as Promise<CertificationLineResponse>;
+  post('/api/certifications/update-line', { line_id, [field]: value }, token) as Promise<CertificationLineResponse>;
 
 export const apiValidateCertification = async (
   token: string,
@@ -554,11 +606,23 @@ export const apiValidateCertification = async (
 ): Promise<CertificationResponse> =>
   post('/api/certifications/validate', { certification_id }, token) as Promise<CertificationResponse>;
 
+export const apiResetDraftCertification = async (
+  token: string,
+  certification_id: number,
+): Promise<CertificationResponse> =>
+  post('/api/certifications/reset-draft', { certification_id }, token) as Promise<CertificationResponse>;
+
 export const apiCertifyCertification = async (
   token: string,
   certification_id: number,
 ): Promise<CertificationResponse> =>
   post('/api/certifications/certify', { certification_id }, token) as Promise<CertificationResponse>;
+
+export const apiCertificationStagesHistory = async (
+  token: string,
+  project_id: number | 'all' = 'all',
+): Promise<CertificationStagesHistoryResponse> =>
+  post('/api/certification-stages-history', { project_id }, token) as Promise<CertificationStagesHistoryResponse>;
 
 // ------------------------------------------------------------------ //
 //  result.table                                                       //

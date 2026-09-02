@@ -291,6 +291,11 @@ export default function DashboardPage() {
   const [selectedManagerIds, setSelectedManagerIds] = useState<number[]>([]);
   const [managerDropdownOpen, setManagerDropdownOpen] = useState(false);
 
+  // Encargado de obra (disponible para todos los usuarios)
+  const [selectedForemanIds, setSelectedForemanIds] = useState<number[]>([]);
+  const [foremanDropdownOpen, setForemanDropdownOpen] = useState(false);
+  const [foremanSearchQuery, setForemanSearchQuery] = useState('');
+
   // ── Persistencia en localStorage ────────────────────────────────────
   useEffect(() => { localStorage.setItem('dash_filterMode', filterMode); }, [filterMode]);
   useEffect(() => { localStorage.setItem('dash_monthIndex', String(selectedMonthIndex)); }, [selectedMonthIndex]);
@@ -317,6 +322,8 @@ export default function DashboardPage() {
     totalHours: 0,
     totalAmount: 0,
   });
+  const [expandedAttendanceCompanies, setExpandedAttendanceCompanies] = useState<string[]>([]);
+  const [expandedAttendancePartners, setExpandedAttendancePartners] = useState<string[]>([]);
   const [shipmentExpanded, setShipmentExpanded] = useState(false);
   const [shipmentData, setShipmentData] = useState<ShipmentData>({ rows: [], totalRecords: 0, totalAmount: 0 });
   const [otherExpenseExpanded, setOtherExpenseExpanded] = useState(false);
@@ -377,10 +384,25 @@ export default function DashboardPage() {
     return companyFilteredProjects.filter((p) => p.manager_id && selectedManagerIds.includes(p.manager_id));
   }, [companyFilteredProjects, selectedManagerIds]);
 
+  const availableForemen = useMemo(() => {
+    const seen = new Map<number, string>();
+    companyFilteredProjects.forEach((p) => {
+      if (p.foreman_id && !seen.has(p.foreman_id)) seen.set(p.foreman_id, p.foreman_name);
+    });
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [companyFilteredProjects]);
+
+  const foremanFilteredProjects = useMemo(() => {
+    if (selectedForemanIds.length === 0) return managerFilteredProjects;
+    return managerFilteredProjects.filter((p) => p.foreman_id && selectedForemanIds.includes(p.foreman_id));
+  }, [managerFilteredProjects, selectedForemanIds]);
+
   const stateFilteredProjects = useMemo(() => {
-    if (selectedStateNames.length === 0) return managerFilteredProjects;
-    return managerFilteredProjects.filter((p) => selectedStateNames.includes(p.state_name));
-  }, [managerFilteredProjects, selectedStateNames]);
+    if (selectedStateNames.length === 0) return foremanFilteredProjects;
+    return foremanFilteredProjects.filter((p) => selectedStateNames.includes(p.state_name));
+  }, [foremanFilteredProjects, selectedStateNames]);
 
   // Si el proyecto seleccionado ya no está en los proyectos filtrados, resetear a 'all'
   useEffect(() => {
@@ -396,10 +418,10 @@ export default function DashboardPage() {
   );
 
   const activeStateProjectIds = useMemo(
-    () => (selectedStateNames.length > 0 || selectedManagerIds.length > 0
+    () => (selectedStateNames.length > 0 || selectedManagerIds.length > 0 || selectedForemanIds.length > 0
       ? stateFilteredProjects.map((p) => p.id)
       : undefined),
-    [selectedStateNames, selectedManagerIds, stateFilteredProjects],
+    [selectedStateNames, selectedManagerIds, selectedForemanIds, stateFilteredProjects],
   );
   const totalCostAmount = useMemo(
     () =>
@@ -533,9 +555,12 @@ export default function DashboardPage() {
 
     const addBucket = (nameRaw: string, key: 'material' | 'attendance' | 'partner' | 'shipment' | 'other', amount: number) => {
       const name = nameRaw || 'Sin proyecto';
-      const current = buckets.get(name) || { name, material: 0, attendance: 0, partner: 0, shipment: 0, other: 0 };
+      // Usar el código de obra como clave para que las 5 fuentes de coste
+      // se agrupen en la misma barra aunque el nombre completo difiera.
+      const bucketKey = extractProjectCode(name);
+      const current = buckets.get(bucketKey) || { name, material: 0, attendance: 0, partner: 0, shipment: 0, other: 0 };
       current[key] += amount;
-      buckets.set(name, current);
+      buckets.set(bucketKey, current);
     };
 
     materialData.rows.forEach((row) => addBucket(row.project_name, 'material', row.subtotal));
@@ -548,6 +573,16 @@ export default function DashboardPage() {
       .map((item) => ({ ...item, total: item.material + item.attendance + item.partner + item.shipment + item.other }))
       .sort((a, b) => b.total - a.total);
 
+    // Con una obra concreta seleccionada, mostrar solo su barra (no las de otras obras sin datos).
+    if (selectedProjectId !== 'all') {
+      const selectedProject = projects.find((project) => project.id === selectedProjectId);
+      const selectedCode = selectedProject ? extractProjectCode(selectedProject.code || selectedProject.display_name) : null;
+      const filteredBars = selectedCode
+        ? dynamicBars.filter((item) => extractProjectCode(item.name) === selectedCode)
+        : dynamicBars;
+      if (filteredBars.length > 0) return filteredBars;
+    }
+
     if (dynamicBars.length > 0) return dynamicBars;
 
     return projectBarsFallback.map((item) => ({
@@ -559,7 +594,7 @@ export default function DashboardPage() {
       other: 0,
       total: item.values[0] + item.values[1] + item.values[2],
     }));
-  }, [materialData.rows, attendanceData.rows, partnerAttendanceData.rows, shipmentData.rows, otherExpenseData.rows]);
+  }, [materialData.rows, attendanceData.rows, partnerAttendanceData.rows, shipmentData.rows, otherExpenseData.rows, selectedProjectId, projects]);
 
   const maxProjectTotal = useMemo(() => {
     if (projectBars.length === 0) return 1;
@@ -625,6 +660,56 @@ export default function DashboardPage() {
   }, [materialRowsView]);
 
   const groupedMaterialCountView = useMemo(() => groupedMaterialRows.length, [groupedMaterialRows]);
+
+  const groupedPartnerAttendanceRows = useMemo(() => {
+    type PartnerGroup = {
+      key: string;
+      partner: string;
+      hours: number;
+      amount: number;
+      rows: PartnerAttendanceItem[];
+    };
+    type CompanyGroup = {
+      key: string;
+      company: string;
+      hours: number;
+      amount: number;
+      partners: PartnerGroup[];
+    };
+
+    const companies = new Map<string, CompanyGroup>();
+
+    partnerAttendanceData.rows.forEach((row) => {
+      const company = row.partner_parent || 'Sin empresa';
+      const partner = row.partner_name || 'Sin partner';
+      const partnerKey = `${company}||${partner}`;
+
+      const companyGroup = companies.get(company) || {
+        key: company,
+        company,
+        hours: 0,
+        amount: 0,
+        partners: [],
+      };
+      companyGroup.hours += row.hours || 0;
+      companyGroup.amount += row.total || 0;
+
+      let partnerGroup = companyGroup.partners.find((p) => p.key === partnerKey);
+      if (!partnerGroup) {
+        partnerGroup = { key: partnerKey, partner, hours: 0, amount: 0, rows: [] };
+        companyGroup.partners.push(partnerGroup);
+      }
+      partnerGroup.hours += row.hours || 0;
+      partnerGroup.amount += row.total || 0;
+      partnerGroup.rows.push(row);
+
+      companies.set(company, companyGroup);
+    });
+
+    return Array.from(companies.values())
+      .map((c) => ({ ...c, partners: c.partners.sort((a, b) => b.amount - a.amount) }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [partnerAttendanceData.rows]);
 
   useEffect(() => {
     const token = getToken();
@@ -1021,6 +1106,86 @@ export default function DashboardPage() {
                 </svg>
                 <span className="truncate font-medium">{currentUserName || 'Mi responsable'}</span>
               </div>
+            )}
+          </div>
+
+          {/* ── Selector de encargado de obra (disponible para todos los usuarios) ── */}
+          <div className="relative flex-1">
+            <button
+              type="button"
+              onClick={() => { setForemanDropdownOpen((v) => !v); setForemanSearchQuery(''); }}
+              className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                selectedForemanIds.length > 0
+                  ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                  : 'border-slate-300 bg-white text-slate-600'
+              }`}
+            >
+              <span className="truncate">
+                {selectedForemanIds.length === 0
+                  ? 'Todos los encargados'
+                  : selectedForemanIds.length === 1
+                    ? (availableForemen.find((f) => f.id === selectedForemanIds[0])?.name ?? 'Encargado')
+                    : `${selectedForemanIds.length} encargados`}
+              </span>
+              <span className="shrink-0 text-xs text-slate-400">{foremanDropdownOpen ? '▲' : '▼'}</span>
+            </button>
+            {foremanDropdownOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-200 bg-white shadow-lg">
+                <div className="p-2 border-b border-slate-100 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Filtrar por encargado de obra</span>
+                  {selectedForemanIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedForemanIds([]); setIsRefreshingIndicators(true); }}
+                      className="text-xs text-emerald-600 hover:underline"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="p-2 border-b border-slate-100">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={foremanSearchQuery}
+                    onChange={(e) => setForemanSearchQuery(e.target.value)}
+                    placeholder="Buscar encargado..."
+                    className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-emerald-400"
+                  />
+                </div>
+                <ul className="max-h-64 overflow-y-auto py-1">
+                  {availableForemen.length === 0 && (
+                    <li className="px-3 py-2 text-sm text-slate-400">No hay encargados disponibles.</li>
+                  )}
+                  {availableForemen.filter((foreman) => {
+                    const q = foremanSearchQuery.toLowerCase();
+                    return !q || foreman.name.toLowerCase().includes(q);
+                  }).map((foreman) => {
+                    const checked = selectedForemanIds.includes(foreman.id);
+                    return (
+                      <li key={foreman.id}>
+                        <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              setIsRefreshingIndicators(true);
+                              setSelectedForemanIds((prev) =>
+                                checked ? prev.filter((id) => id !== foreman.id) : [...prev, foreman.id],
+                              );
+                            }}
+                            className="h-4 w-4 rounded accent-emerald-600"
+                          />
+                          <span className="truncate">{foreman.name}</span>
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            {foremanDropdownOpen && (
+              <div className="fixed inset-0 z-40" onClick={() => setForemanDropdownOpen(false)} />
             )}
           </div>
 
@@ -1938,70 +2103,108 @@ export default function DashboardPage() {
                       Resumen · {partnerAttendanceData.totalRecords} registros · {formatCurrency(partnerAttendanceData.totalAmount)}
                     </p>
 
-                    <div className="space-y-1 pb-2">
-                      {partnerAttendanceData.summary.map((item) => (
-                        <div key={item.partner_name} className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm">
-                          <span className="text-slate-500 text-xs w-28 truncate" title={item.partner_parent}>{item.partner_parent || '—'}</span>
-                          <span className="font-semibold text-slate-700 flex-1 px-2">{item.partner_name}</span>
-                          <span className="text-slate-600 whitespace-nowrap">{formatHours(item.hours)} · {formatCurrency(item.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <div className="space-y-1.5">
+                      {groupedPartnerAttendanceRows.map((companyGroup) => {
+                        const companyExpanded = expandedAttendanceCompanies.includes(companyGroup.key);
+                        return (
+                          <div key={companyGroup.key} className="rounded border border-slate-200 bg-slate-50">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedAttendanceCompanies((current) =>
+                                  current.includes(companyGroup.key)
+                                    ? current.filter((key) => key !== companyGroup.key)
+                                    : [...current, companyGroup.key],
+                                )
+                              }
+                              className="flex w-full items-center justify-between px-2 py-1.5 text-left text-sm hover:bg-slate-100"
+                            >
+                              <span className="font-semibold text-slate-700">{companyExpanded ? '⌄' : '›'} {companyGroup.company}</span>
+                              <span className="text-slate-600 whitespace-nowrap">{formatHours(companyGroup.hours)} · {formatCurrency(companyGroup.amount)}</span>
+                            </button>
 
-                    <div className="overflow-x-auto rounded border border-slate-200">
-                      <table className="min-w-full text-xs">
-                        <thead className="bg-slate-100 text-slate-600">
-                          <tr>
-                            <th className="px-2 py-1.5 text-left">Empresa</th>
-                            <th className="px-2 py-1.5 text-left">Partner</th>
-                            <th className="px-2 py-1.5 text-left" style={{maxWidth:'100px'}}>Proyecto</th>
-                            <th className="px-2 py-1.5 text-left">Nº Contrato</th>
-                            <th className="px-2 py-1.5 text-left">Entrada</th>
-                            <th className="px-2 py-1.5 text-left">Salida</th>
-                            <th className="px-2 py-1.5 text-right">H.Ent(C)</th>
-                            <th className="px-2 py-1.5 text-right">H.Sal(C)</th>
-                            <th className="px-2 py-1.5 text-left">Ent.Calc.</th>
-                            <th className="px-2 py-1.5 text-left">Sal.Calc.</th>
-                            <th className="px-2 py-1.5 text-right">€/H</th>
-                            <th className="px-2 py-1.5 text-right">T.Total</th>
-                            <th className="px-2 py-1.5 text-right">T.Calc.</th>
-                            <th className="px-2 py-1.5 text-left">Notas</th>
-                            <th className="px-2 py-1.5 text-right">Importe</th>
-                            <th className="px-2 py-1.5 text-center">Imp.Calc</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {partnerAttendanceData.rows.map((attendance) => (
-                            <tr key={attendance.id} className="border-t border-slate-200">
-                              <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={attendance.partner_parent}>{attendance.partner_parent || '—'}</td>
-                              <td className="px-2 py-1.5 text-slate-700">{attendance.partner_name}</td>
-                              <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={attendance.project_name || ''}>{attendance.project_name || '—'}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{attendance.contract_name || '—'}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
-                              <td className="px-2 py-1.5 text-right text-slate-600">{attendance.contract_check_in_time ? formatFloatTime(attendance.contract_check_in_time) : '—'}</td>
-                              <td className="px-2 py-1.5 text-right text-slate-600">{attendance.contract_check_out_time ? formatFloatTime(attendance.contract_check_out_time) : '—'}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in_calculated)}</td>
-                              <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out_calculated)}</td>
-                              <td className="px-2 py-1.5 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
-                              <td className="px-2 py-1.5 text-right text-slate-700">{attendance.tiempo_total.toFixed(2)} h</td>
-                              <td className="px-2 py-1.5 text-right text-slate-700">{attendance.tiempo_total_calculado.toFixed(2)} h</td>
-                              <td className="px-2 py-1.5 text-slate-600 max-w-35 truncate" title={attendance.note}>{attendance.note || '—'}</td>
-                              <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
-                              <td className="px-2 py-1.5 text-center">{attendance.use_calculated_time ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" title="Importe con tiempo calculado" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="border-t border-slate-300 bg-slate-100">
-                          <tr>
-                            <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={12}>TOTAL</td>
-                            <td className="px-2 py-1.5 text-right font-bold text-slate-700">{partnerAttendanceData.totalHours.toFixed(2)} h</td>
-                            <td className="px-2 py-1.5" colSpan={1} />
-                            <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(partnerAttendanceData.totalAmount)}</td>
-                            <td className="px-2 py-1.5" />
-                          </tr>
-                        </tfoot>
-                      </table>
+                            {companyExpanded && (
+                              <div className="space-y-1 border-t border-slate-200 px-2 py-1.5">
+                                {companyGroup.partners.map((partnerGroup) => {
+                                  const partnerExpanded = expandedAttendancePartners.includes(partnerGroup.key);
+                                  return (
+                                    <div key={partnerGroup.key} className="rounded border border-slate-200 bg-white">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setExpandedAttendancePartners((current) =>
+                                            current.includes(partnerGroup.key)
+                                              ? current.filter((key) => key !== partnerGroup.key)
+                                              : [...current, partnerGroup.key],
+                                          )
+                                        }
+                                        className="flex w-full items-center justify-between px-2 py-1.5 text-left text-sm hover:bg-slate-50"
+                                      >
+                                        <span className="font-semibold text-slate-700">{partnerExpanded ? '⌄' : '›'} {partnerGroup.partner}</span>
+                                        <span className="text-slate-600 whitespace-nowrap">{formatHours(partnerGroup.hours)} · {formatCurrency(partnerGroup.amount)}</span>
+                                      </button>
+
+                                      {partnerExpanded && (
+                                        <div className="overflow-x-auto border-t border-slate-200">
+                                          <table className="min-w-full text-xs">
+                                            <thead className="bg-slate-100 text-slate-600">
+                                              <tr>
+                                                <th className="px-2 py-1.5 text-left" style={{maxWidth:'100px'}}>Proyecto</th>
+                                                <th className="px-2 py-1.5 text-left">Nº Contrato</th>
+                                                <th className="px-2 py-1.5 text-left">Entrada</th>
+                                                <th className="px-2 py-1.5 text-left">Salida</th>
+                                                <th className="px-2 py-1.5 text-right">H.Ent(C)</th>
+                                                <th className="px-2 py-1.5 text-right">H.Sal(C)</th>
+                                                <th className="px-2 py-1.5 text-left">Ent.Calc.</th>
+                                                <th className="px-2 py-1.5 text-left">Sal.Calc.</th>
+                                                <th className="px-2 py-1.5 text-right">€/H</th>
+                                                <th className="px-2 py-1.5 text-right">T.Total</th>
+                                                <th className="px-2 py-1.5 text-right">T.Calc.</th>
+                                                <th className="px-2 py-1.5 text-left">Notas</th>
+                                                <th className="px-2 py-1.5 text-right">Importe</th>
+                                                <th className="px-2 py-1.5 text-center">Imp.Calc</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {partnerGroup.rows.map((attendance) => (
+                                                <tr key={attendance.id} className="border-t border-slate-200">
+                                                  <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={attendance.project_name || ''}>{attendance.project_name || '—'}</td>
+                                                  <td className="px-2 py-1.5 text-slate-600">{attendance.contract_name || '—'}</td>
+                                                  <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in)}</td>
+                                                  <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out)}</td>
+                                                  <td className="px-2 py-1.5 text-right text-slate-600">{attendance.contract_check_in_time ? formatFloatTime(attendance.contract_check_in_time) : '—'}</td>
+                                                  <td className="px-2 py-1.5 text-right text-slate-600">{attendance.contract_check_out_time ? formatFloatTime(attendance.contract_check_out_time) : '—'}</td>
+                                                  <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_in_calculated)}</td>
+                                                  <td className="px-2 py-1.5 text-slate-600">{formatDateTime(attendance.check_out_calculated)}</td>
+                                                  <td className="px-2 py-1.5 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
+                                                  <td className="px-2 py-1.5 text-right text-slate-700">{attendance.tiempo_total.toFixed(2)} h</td>
+                                                  <td className="px-2 py-1.5 text-right text-slate-700">{attendance.tiempo_total_calculado.toFixed(2)} h</td>
+                                                  <td className="px-2 py-1.5 text-slate-600 max-w-35 truncate" title={attendance.note}>{attendance.note || '—'}</td>
+                                                  <td className="px-2 py-1.5 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
+                                                  <td className="px-2 py-1.5 text-center">{attendance.use_calculated_time ? <span className="inline-block h-3 w-3 rounded-sm bg-brand-500" title="Importe con tiempo calculado" /> : <span className="inline-block h-3 w-3 rounded-sm border border-slate-300" />}</td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                            <tfoot className="border-t border-slate-300 bg-slate-100">
+                                              <tr>
+                                                <td className="px-2 py-1.5 font-bold text-slate-700" colSpan={9}>TOTAL</td>
+                                                <td className="px-2 py-1.5 text-right font-bold text-slate-700">{formatHours(partnerGroup.hours)}</td>
+                                                <td className="px-2 py-1.5" colSpan={2} />
+                                                <td className="px-2 py-1.5 text-right font-bold text-slate-800">{formatCurrency(partnerGroup.amount)}</td>
+                                                <td className="px-2 py-1.5" />
+                                              </tr>
+                                            </tfoot>
+                                          </table>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

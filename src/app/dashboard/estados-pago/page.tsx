@@ -1,6 +1,7 @@
 'use client';
 
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   apiCreatePaidstate,
   apiDeletePaidstate,
@@ -83,6 +84,7 @@ function stateBadge(state: string): string {
 }
 
 export default function EstadosPagoPage() {
+  const searchParams = useSearchParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [budgets, setBudgets] = useState<ProjectBudgetItem[]>([]);
@@ -111,6 +113,8 @@ export default function EstadosPagoPage() {
   const [expandedStates, setExpandedStates] = useState<Set<string>>(new Set());
   const monthsInitialized = useRef(false);
   const statesInitialized = useRef(false);
+  const [highlightId, setHighlightId] = useState<number | null>(null);
+  const deepLinkHandled = useRef(false);
 
   const selectedProjectName = useMemo(() => {
     if (!selectedProjectId) return '—';
@@ -234,6 +238,26 @@ export default function EstadosPagoPage() {
       setExpandedStates(new Set([`${firstMonth}::${firstState}`]));
     }
   }, [groupedPaidstates]);
+
+  useEffect(() => {
+    const paidstateIdParam = searchParams.get('paidstate_id');
+    if (deepLinkHandled.current || !paidstateIdParam || groupedPaidstates.length === 0) return;
+    const targetId = Number(paidstateIdParam);
+    for (const month of groupedPaidstates) {
+      for (const stateGroup of month.stateGroups) {
+        if (stateGroup.items.some((item) => item.id === targetId)) {
+          deepLinkHandled.current = true;
+          setExpandedMonths((prev) => new Set(prev).add(month.key));
+          setExpandedStates((prev) => new Set(prev).add(`${month.key}::${stateGroup.stateKey}`));
+          setHighlightId(targetId);
+          setTimeout(() => {
+            document.getElementById(`paidstate-row-${targetId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 150);
+          return;
+        }
+      }
+    }
+  }, [searchParams, groupedPaidstates]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -613,7 +637,11 @@ export default function EstadosPagoPage() {
                               <td colSpan={2} />
                             </tr>
                             {expandedStates.has(comboKey) && stateItems.map((item) => (
-                    <tr key={item.id} className="border-t border-gray-100 text-gray-700">
+                    <tr
+                      key={item.id}
+                      id={`paidstate-row-${item.id}`}
+                      className={`border-t border-gray-100 text-gray-700 ${highlightId === item.id ? 'bg-yellow-100' : ''}`}
+                    >
                       <td className="px-3 py-2 font-semibold">{item.name}</td>
                       <td className="px-3 py-2">{item.project_name || '—'}</td>
                       <td className="px-3 py-2">{item.budget_name || '—'}</td>
