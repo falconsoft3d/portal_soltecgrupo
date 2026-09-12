@@ -1,0 +1,12 @@
+services:
+  portal-soltecgrupo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: portal-soltecgrupo:latest
+    container_name: portal-soltecgrupo
+    env_file:
+      - .env
+    ports:
+      - "${HOST_PORT:-3001}:3000"
+    restart: unless-stopped
