@@ -28,7 +28,6 @@ export default function ManoDeObraPage() {
   const [budgetSearchQ, setBudgetSearchQ] = useState('');
   const [budgetDropOpen, setBudgetDropOpen] = useState(false);
   const [lines, setLines] = useState<LaborLineItem[]>([]);
-  const [totals, setTotals] = useState({ labor: 0, material: 0, other: 0 });
   const [loading, setLoading] = useState(false);
   const [computing, setComputing] = useState(false);
   const [msg, setMsg] = useState('');
@@ -60,7 +59,6 @@ export default function ManoDeObraPage() {
     const res = await apiBudgetLabor(token, bid);
     if (res.success) {
       setLines(res.lines || []);
-      setTotals({ labor: res.total_labor || 0, material: res.total_material || 0, other: res.total_other || 0 });
     }
     setLoading(false);
   }
@@ -205,20 +203,6 @@ export default function ManoDeObraPage() {
                   <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-400 text-sm">Sin datos. Pulsa ACTUALIZAR para calcular.</td></tr>
                 )}
               </tbody>
-              <tfoot className="border-t-2 border-slate-300 bg-slate-50 text-xs font-semibold text-slate-600">
-                <tr>
-                  <td className="px-3 py-2">Total mano obra:</td>
-                  <td className="px-3 py-2 text-right" colSpan={4}>{esNum(totals.labor)}</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2">Total materiales:</td>
-                  <td className="px-3 py-2 text-right" colSpan={4}>{esNum(totals.material)}</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-2">Total otros:</td>
-                  <td className="px-3 py-2 text-right" colSpan={4}>{esNum(totals.other)}</td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </>

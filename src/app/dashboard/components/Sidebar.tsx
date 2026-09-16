@@ -97,7 +97,12 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [altaLoading, setAltaLoading] = useState(false);
 
-  async function handleSsoClick(apiPath: string, label: string, setLoading: (v: boolean) => void) {
+  async function handleSsoClick(
+    apiPath: string,
+    label: string,
+    setLoading: (v: boolean) => void,
+    openInNewTab = false,
+  ) {
     const token = getToken();
     if (!token) return;
     setLoading(true);
@@ -108,7 +113,11 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
       });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (data.success && data.url) {
-        window.location.href = data.url;
+        if (openInNewTab) {
+          window.open(data.url, '_blank', 'noopener,noreferrer');
+        } else {
+          window.location.href = data.url;
+        }
       } else {
         console.error(`[${label} SSO] Error del servidor:`, data.error);
       }
@@ -142,7 +151,7 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
 
         {/* Planner — redirige a app externa via SSO JWT */}
         <button
-          onClick={() => handleSsoClick('/api/planner/sso', 'Planner', setPlannerLoading)}
+          onClick={() => handleSsoClick('/api/planner/sso', 'Planner', setPlannerLoading, true)}
           disabled={plannerLoading}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
         >
