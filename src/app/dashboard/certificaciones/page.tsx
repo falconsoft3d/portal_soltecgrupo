@@ -46,9 +46,14 @@ function formatProjectedQty(periodHours: number, budgetQty: number, hoursPresup:
   return formatQty((budgetQty / hoursPresup) * periodHours);
 }
 
+function projectedAmountValue(periodHours: number, budgetQty: number, hoursPresup: number, price: number): number {
+  if (!hoursPresup) return 0;
+  return (budgetQty / hoursPresup) * periodHours * price;
+}
+
 function formatProjectedAmount(periodHours: number, budgetQty: number, hoursPresup: number, price: number): string {
   if (!hoursPresup) return '—';
-  return formatCurrency((budgetQty / hoursPresup) * periodHours * price);
+  return formatCurrency(projectedAmountValue(periodHours, budgetQty, hoursPresup, price));
 }
 
 function formatProgressPercent(periodHours: number, budgetQty: number, hoursPresup: number): string {
@@ -97,6 +102,13 @@ interface ChapterNode {
   children: ChapterNode[];
   lines: CertificationLineItem[];
   subtotal: number;
+  impPresupTotal: number;
+  eurTAntTotal: number;
+  impAntTotal: number;
+  eurTOriTotal: number;
+  impOriTotal: number;
+  eurTActTotal: number;
+  impActTotal: number;
   hasQuantity: boolean;
 }
 
@@ -112,7 +124,21 @@ function buildChapterTree(lines: CertificationLineItem[]): ChapterNode[] {
       keyPrefix = `${keyPrefix}/${name}`;
       node = siblings.find((n) => n.key === keyPrefix);
       if (!node) {
-        node = { key: keyPrefix, name, children: [], lines: [], subtotal: 0, hasQuantity: false };
+        node = {
+          key: keyPrefix,
+          name,
+          children: [],
+          lines: [],
+          subtotal: 0,
+          impPresupTotal: 0,
+          eurTAntTotal: 0,
+          impAntTotal: 0,
+          eurTOriTotal: 0,
+          impOriTotal: 0,
+          eurTActTotal: 0,
+          impActTotal: 0,
+          hasQuantity: false,
+        };
         siblings.push(node);
       }
       siblings = node.children;
@@ -121,15 +147,44 @@ function buildChapterTree(lines: CertificationLineItem[]): ChapterNode[] {
   }
 
   function computeSubtotal(node: ChapterNode): number {
-    let total = node.lines.reduce((s, l) => s + (l.amount_certif || 0), 0);
+    let impActTotal = node.lines.reduce((s, l) => s + (l.amount_certif || 0), 0);
+    let impPresupTotal = node.lines.reduce((s, l) => s + (l.amount_budget || 0), 0);
+    let impAntTotal = node.lines.reduce((s, l) => s + (l.imp_ant || 0), 0);
+    let impOriTotal = node.lines.reduce((s, l) => s + (l.imp_orig || 0), 0);
+    let eurTAntTotal = node.lines.reduce(
+      (s, l) => s + projectedAmountValue(l.hours_ant, l.budget_qty, l.hours_presup, l.sale_price),
+      0,
+    );
+    let eurTOriTotal = node.lines.reduce(
+      (s, l) => s + projectedAmountValue(l.hours_ori, l.budget_qty, l.hours_presup, l.sale_price),
+      0,
+    );
+    let eurTActTotal = node.lines.reduce(
+      (s, l) => s + projectedAmountValue(l.hours_act, l.budget_qty, l.hours_presup, l.sale_price),
+      0,
+    );
     let hasQuantity = node.lines.some((l) => (l.quantity_to_cert || 0) > 0);
     for (const child of node.children) {
-      total += computeSubtotal(child);
+      computeSubtotal(child);
+      impActTotal += child.impActTotal;
+      impPresupTotal += child.impPresupTotal;
+      impAntTotal += child.impAntTotal;
+      impOriTotal += child.impOriTotal;
+      eurTAntTotal += child.eurTAntTotal;
+      eurTOriTotal += child.eurTOriTotal;
+      eurTActTotal += child.eurTActTotal;
       hasQuantity = hasQuantity || child.hasQuantity;
     }
-    node.subtotal = total;
+    node.impActTotal = impActTotal;
+    node.impPresupTotal = impPresupTotal;
+    node.impAntTotal = impAntTotal;
+    node.impOriTotal = impOriTotal;
+    node.eurTAntTotal = eurTAntTotal;
+    node.eurTOriTotal = eurTOriTotal;
+    node.eurTActTotal = eurTActTotal;
+    node.subtotal = impActTotal;
     node.hasQuantity = hasQuantity;
-    return total;
+    return impActTotal;
   }
   roots.forEach(computeSubtotal);
 
@@ -249,28 +304,28 @@ export default function CertificacionesPage() {
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impPresupTotal)}</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.eurTAntTotal)}</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impAntTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.eurTOriTotal)}</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impOriTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.eurTActTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impActTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.subtotal)}</td>
         </tr>
         {isOpen && node.children.map((child) => renderChapterNode(child, depth + 1))}
         {isOpen && node.lines.map((line) => (
