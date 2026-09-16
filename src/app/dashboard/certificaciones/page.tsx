@@ -41,6 +41,11 @@ function formatCurrencyRatio(amount: number, hours: number): string {
   return formatCurrency(amount / hours);
 }
 
+function formatProjectedQty(periodHours: number, budgetQty: number, hoursPresup: number): string {
+  if (!hoursPresup) return '—';
+  return formatQty((budgetQty / hoursPresup) * periodHours);
+}
+
 function formatStageDate(value: string | false): string {
   if (!value) return '—';
   const [year, month, day] = value.split('-');
@@ -237,6 +242,7 @@ export default function CertificacionesPage() {
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.subtotal)}</td>
         </tr>
         {isOpen && node.children.map((child) => renderChapterNode(child, depth + 1))}
@@ -251,6 +257,7 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.sale_price)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.amount_budget)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_ant)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.qty_acc)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_ant)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_ori)}</td>
@@ -300,6 +307,7 @@ export default function CertificacionesPage() {
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_ant)}</td>
+                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_ori)}</td>
@@ -819,6 +827,7 @@ export default function CertificacionesPage() {
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_ant)}</td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_ori)}</td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
@@ -835,6 +844,7 @@ export default function CertificacionesPage() {
                     <th className="px-3 py-2 text-right">Precio</th>
                     <th className="px-3 py-2 text-right">Imp. Presup.</th>
                     <th className="px-3 py-2 text-right">H Ant.</th>
+                    <th className="px-3 py-2 text-right">UD/Prev.</th>
                     <th className="px-3 py-2 text-right">Cant. Ant.</th>
                     <th className="px-3 py-2 text-right">Imp. Ant.</th>
                     <th className="px-3 py-2 text-right">H Ori.</th>
