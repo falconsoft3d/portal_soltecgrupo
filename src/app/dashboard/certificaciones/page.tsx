@@ -243,6 +243,8 @@ export default function CertificacionesPage() {
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.subtotal)}</td>
         </tr>
         {isOpen && node.children.map((child) => renderChapterNode(child, depth + 1))}
@@ -261,6 +263,7 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.qty_acc)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_ant)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_ori)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right">
                 <input
                   key={`canorig-${line.id}-${line.quantity_to_cert_o}`}
@@ -278,6 +281,7 @@ export default function CertificacionesPage() {
               </td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_orig)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_act)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_act, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right">
                 <input
                   key={`canact-${line.id}-${line.quantity_to_cert}`}
@@ -313,7 +317,9 @@ export default function CertificacionesPage() {
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_ori)}</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_act)}</td>
+                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
               </tr>
@@ -831,7 +837,9 @@ export default function CertificacionesPage() {
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_ori)}</td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_act)}</td>
+                    <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                   </tr>
@@ -844,13 +852,15 @@ export default function CertificacionesPage() {
                     <th className="px-3 py-2 text-right">Precio</th>
                     <th className="px-3 py-2 text-right">Imp. Presup.</th>
                     <th className="px-3 py-2 text-right">H Ant.</th>
-                    <th className="px-3 py-2 text-right">UD/Prev.</th>
+                    <th className="px-3 py-2 text-right">UD T.</th>
                     <th className="px-3 py-2 text-right">Cant. Ant.</th>
                     <th className="px-3 py-2 text-right">Imp. Ant.</th>
                     <th className="px-3 py-2 text-right">H Ori.</th>
+                    <th className="px-3 py-2 text-right">UD T.</th>
                     <th className="px-3 py-2 text-right">Cant. Ori.</th>
                     <th className="px-3 py-2 text-right">Imp. Ori.</th>
                     <th className="px-3 py-2 text-right">H Act.</th>
+                    <th className="px-3 py-2 text-right">UD T.</th>
                     <th className="px-3 py-2 text-right">Cant. Act.</th>
                     <th className="px-3 py-2 text-right">Imp. Act.</th>
                   </tr>
