@@ -57,6 +57,11 @@ function formatProgressPercent(periodHours: number, budgetQty: number, hoursPres
   return `${Math.round((udT / budgetQty) * 100)}%`;
 }
 
+function formatRealProgressPercent(periodQty: number, budgetQty: number): string {
+  if (!budgetQty) return '—';
+  return `${Math.round((periodQty / budgetQty) * 100)}%`;
+}
+
 function formatStageDate(value: string | false): string {
   if (!value) return '—';
   const [year, month, day] = value.split('-');
@@ -262,6 +267,9 @@ export default function CertificacionesPage() {
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.subtotal)}</td>
         </tr>
         {isOpen && node.children.map((child) => renderChapterNode(child, depth + 1))}
@@ -281,6 +289,7 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatProgressPercent(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.qty_acc)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_ant)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.qty_acc, line.budget_qty)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_ori)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatProjectedAmount(line.hours_ori, line.budget_qty, line.hours_presup, line.sale_price)}</td>
@@ -301,6 +310,7 @@ export default function CertificacionesPage() {
                 />
               </td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_orig)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.quantity_to_cert_o, line.budget_qty)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_act)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_act, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatProjectedAmount(line.hours_act, line.budget_qty, line.hours_presup, line.sale_price)}</td>
@@ -321,6 +331,7 @@ export default function CertificacionesPage() {
                 />
               </td>
               <td className="px-3 py-2 text-right text-gray-900 font-medium">{formatCurrency(line.amount_certif)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.quantity_to_cert, line.budget_qty)}</td>
             </tr>
             {line.labor_resources.map((labor) => (
               <tr key={`labor-${labor.id}`} className="bg-sky-50/60">
@@ -339,13 +350,16 @@ export default function CertificacionesPage() {
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_ori)}</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_act)}</td>
+                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
@@ -865,13 +879,16 @@ export default function CertificacionesPage() {
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_ori)}</td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_act)}</td>
+                    <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
@@ -892,18 +909,21 @@ export default function CertificacionesPage() {
                     <th className="px-3 py-2 text-right">Avance T.</th>
                     <th className="px-3 py-2 text-right">Cant. Ant.</th>
                     <th className="px-3 py-2 text-right">Imp. Ant.</th>
+                    <th className="px-3 py-2 text-right">Avance R.</th>
                     <th className="px-3 py-2 text-right">H Ori.</th>
                     <th className="px-3 py-2 text-right">UD T.</th>
                     <th className="px-3 py-2 text-right">Eur T.</th>
                     <th className="px-3 py-2 text-right">Avance T.</th>
                     <th className="px-3 py-2 text-right">Cant. Ori.</th>
                     <th className="px-3 py-2 text-right">Imp. Ori.</th>
+                    <th className="px-3 py-2 text-right">Avance R.</th>
                     <th className="px-3 py-2 text-right">H Act.</th>
                     <th className="px-3 py-2 text-right">UD T.</th>
                     <th className="px-3 py-2 text-right">Eur T.</th>
                     <th className="px-3 py-2 text-right">Avance T.</th>
                     <th className="px-3 py-2 text-right">Cant. Act.</th>
                     <th className="px-3 py-2 text-right">Imp. Act.</th>
+                    <th className="px-3 py-2 text-right">Avance R.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
