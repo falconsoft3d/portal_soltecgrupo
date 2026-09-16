@@ -74,6 +74,11 @@ function formatDeviationPercent(realQty: number, periodHours: number, budgetQty:
   return `${Math.round(((realQty - udT) / udT) * 100)}%`;
 }
 
+function formatAggregateDeviationPercent(realTotal: number, teoricalTotal: number): string {
+  if (!teoricalTotal) return '—';
+  return `${Math.round(((realTotal - teoricalTotal) / teoricalTotal) * 100)}%`;
+}
+
 function formatStageDate(value: string | false): string {
   if (!value) return '—';
   const [year, month, day] = value.split('-');
@@ -250,6 +255,7 @@ export default function CertificacionesPage() {
   const [isResettingDraft, setIsResettingDraft] = useState(false);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [onlyHoursAct, setOnlyHoursAct] = useState(false);
+  const [hideTheory, setHideTheory] = useState(false);
 
   const filteredLines = useMemo(
     () => (onlyHoursAct ? lines.filter((l) => l.hours_act > 0) : lines),
@@ -338,25 +344,37 @@ export default function CertificacionesPage() {
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900 border-r border-gray-300">{formatCurrency(node.impPresupTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
+          {!hideTheory && (
+          <>
           <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-yellow-50">{formatCurrency(node.eurTAntTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
+          </>
+          )}
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impAntTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400 border-l border-gray-300">—</td>
+          {!hideTheory && (
+          <>
           <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-yellow-50">{formatCurrency(node.eurTOriTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
+          </>
+          )}
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impOriTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400 border-l border-gray-300">—</td>
+          {!hideTheory && (
+          <>
           <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-yellow-50">{formatCurrency(node.eurTActTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
+          </>
+          )}
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impActTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
@@ -374,17 +392,25 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.sale_price)}</td>
               <td className="px-3 py-2 text-right text-gray-600 border-r border-gray-300">{formatCurrency(line.amount_budget)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_ant)}</td>
+              {!hideTheory && (
+              <>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedQty(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedAmount(line.hours_ant, line.budget_qty, line.hours_presup, line.sale_price)}</td>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProgressPercent(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
+              </>
+              )}
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.qty_acc)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_ant)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.qty_acc, line.budget_qty)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatDeviationPercent(line.qty_acc, line.hours_ant, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 border-l border-gray-300">{formatQty(line.hours_ori)}</td>
+              {!hideTheory && (
+              <>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedQty(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedAmount(line.hours_ori, line.budget_qty, line.hours_presup, line.sale_price)}</td>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProgressPercent(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
+              </>
+              )}
               <td className="px-3 py-2 text-right">
                 <input
                   key={`canorig-${line.id}-${line.quantity_to_cert_o}`}
@@ -404,9 +430,13 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.quantity_to_cert_o, line.budget_qty)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatDeviationPercent(line.quantity_to_cert_o, line.hours_ori, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 border-l border-gray-300">{formatQty(line.hours_act)}</td>
+              {!hideTheory && (
+              <>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedQty(line.hours_act, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedAmount(line.hours_act, line.budget_qty, line.hours_presup, line.sale_price)}</td>
               <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProgressPercent(line.hours_act, line.budget_qty, line.hours_presup)}</td>
+              </>
+              )}
               <td className="px-3 py-2 text-right">
                 <input
                   key={`canact-${line.id}-${line.quantity_to_cert}`}
@@ -438,25 +468,37 @@ export default function CertificacionesPage() {
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 border-r border-gray-300">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_ant)}</td>
+                {!hideTheory && (
+                <>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                </>
+                )}
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium border-l border-gray-300">{formatQty(labor.hours_ori)}</td>
+                {!hideTheory && (
+                <>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                </>
+                )}
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium border-l border-gray-300">{formatQty(labor.hours_act)}</td>
+                {!hideTheory && (
+                <>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                </>
+                )}
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
@@ -943,6 +985,17 @@ export default function CertificacionesPage() {
               </button>
               <button
                 type="button"
+                onClick={() => setHideTheory((v) => !v)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                  hideTheory
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
+                }`}
+              >
+                {hideTheory ? '✓ ' : ''}Ocultar teoría
+              </button>
+              <button
+                type="button"
                 onClick={() => setOnlyHoursAct((v) => !v)}
                 className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
                   onlyHoursAct
@@ -970,29 +1023,41 @@ export default function CertificacionesPage() {
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 border-r border-gray-300">{formatCurrency(amountTotals.impPresupTotal)}</td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_ant)}</td>
+                    {!hideTheory && (
+                    <>
                     <td className="px-3 py-1.5 bg-yellow-50"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 bg-yellow-50">{formatCurrency(amountTotals.eurTAntTotal)}</td>
                     <td className="px-3 py-1.5 bg-yellow-50"></td>
+                    </>
+                    )}
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.impAntTotal)}</td>
                     <td className="px-3 py-1.5"></td>
-                    <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatAggregateDeviationPercent(amountTotals.impAntTotal, amountTotals.eurTAntTotal)}</td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 border-l border-gray-300">{formatQty(hoursTotals.hours_ori)}</td>
+                    {!hideTheory && (
+                    <>
                     <td className="px-3 py-1.5 bg-yellow-50"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 bg-yellow-50">{formatCurrency(amountTotals.eurTOriTotal)}</td>
                     <td className="px-3 py-1.5 bg-yellow-50"></td>
+                    </>
+                    )}
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.impOriTotal)}</td>
                     <td className="px-3 py-1.5"></td>
-                    <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatAggregateDeviationPercent(amountTotals.impOriTotal, amountTotals.eurTOriTotal)}</td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 border-l border-gray-300">{formatQty(hoursTotals.hours_act)}</td>
+                    {!hideTheory && (
+                    <>
                     <td className="px-3 py-1.5 bg-yellow-50"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 bg-yellow-50">{formatCurrency(amountTotals.eurTActTotal)}</td>
                     <td className="px-3 py-1.5 bg-yellow-50"></td>
+                    </>
+                    )}
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.impActTotal)}</td>
                     <td className="px-3 py-1.5"></td>
-                    <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatAggregateDeviationPercent(amountTotals.impActTotal, amountTotals.eurTActTotal)}</td>
                   </tr>
                   <tr>
                     <th className="px-3 py-2 text-left">Capítulo / Partida</th>
@@ -1003,25 +1068,37 @@ export default function CertificacionesPage() {
                     <th className="px-3 py-2 text-right">Precio</th>
                     <th className="px-3 py-2 text-right border-r border-gray-300">Imp. Presup.</th>
                     <th className="px-3 py-2 text-right">H Ant.</th>
+                    {!hideTheory && (
+                    <>
                     <th className="px-3 py-2 text-right bg-yellow-50">UD T.</th>
                     <th className="px-3 py-2 text-right bg-yellow-50">Eur T.</th>
                     <th className="px-3 py-2 text-right bg-yellow-50">Avance T.</th>
+                    </>
+                    )}
                     <th className="px-3 py-2 text-right">Cant. Ant.</th>
                     <th className="px-3 py-2 text-right">Imp. Ant.</th>
                     <th className="px-3 py-2 text-right">Avance R.</th>
                     <th className="px-3 py-2 text-right">Desvío.</th>
                     <th className="px-3 py-2 text-right border-l border-gray-300">H Ori.</th>
+                    {!hideTheory && (
+                    <>
                     <th className="px-3 py-2 text-right bg-yellow-50">UD T.</th>
                     <th className="px-3 py-2 text-right bg-yellow-50">Eur T.</th>
                     <th className="px-3 py-2 text-right bg-yellow-50">Avance T.</th>
+                    </>
+                    )}
                     <th className="px-3 py-2 text-right">Cant. Ori.</th>
                     <th className="px-3 py-2 text-right">Imp. Ori.</th>
                     <th className="px-3 py-2 text-right">Avance R.</th>
                     <th className="px-3 py-2 text-right">Desvío.</th>
                     <th className="px-3 py-2 text-right border-l border-gray-300">H Act.</th>
+                    {!hideTheory && (
+                    <>
                     <th className="px-3 py-2 text-right bg-yellow-50">UD T.</th>
                     <th className="px-3 py-2 text-right bg-yellow-50">Eur T.</th>
                     <th className="px-3 py-2 text-right bg-yellow-50">Avance T.</th>
+                    </>
+                    )}
                     <th className="px-3 py-2 text-right">Cant. Act.</th>
                     <th className="px-3 py-2 text-right">Imp. Act.</th>
                     <th className="px-3 py-2 text-right">Avance R.</th>
