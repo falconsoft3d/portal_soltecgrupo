@@ -326,7 +326,7 @@ export default function CertificacionesPage() {
     return (
       <React.Fragment key={node.key}>
         <tr onClick={() => toggleChapter(node.key)} className={rowClass}>
-          <td className={`py-2 ${nameClass}`} style={{ paddingLeft: indent, paddingRight: 12 }}>
+          <td className={`py-2 whitespace-normal ${nameClass}`} style={{ paddingLeft: indent, paddingRight: 12 }}>
             <span className="inline-block w-4 text-gray-400">{isOpen ? '▼' : '▶'}</span>
             {node.name}
             <span className="ml-2 text-xs font-normal text-gray-400">({countLines(node)} partidas)</span>
@@ -338,25 +338,25 @@ export default function CertificacionesPage() {
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900 border-r border-gray-300">{formatCurrency(node.impPresupTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.eurTAntTotal)}</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-yellow-50">{formatCurrency(node.eurTAntTotal)}</td>
+          <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impAntTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400 border-l border-gray-300">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.eurTOriTotal)}</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-yellow-50">{formatCurrency(node.eurTOriTotal)}</td>
+          <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impOriTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right text-gray-400 border-l border-gray-300">—</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
-          <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.eurTActTotal)}</td>
-          <td className="px-3 py-2 text-right text-gray-400">—</td>
+          <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
+          <td className="px-3 py-2 text-right font-semibold text-gray-900 bg-yellow-50">{formatCurrency(node.eurTActTotal)}</td>
+          <td className="px-3 py-2 text-right text-gray-400 bg-yellow-50">—</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
           <td className="px-3 py-2 text-right font-semibold text-gray-900">{formatCurrency(node.impActTotal)}</td>
           <td className="px-3 py-2 text-right text-gray-400">—</td>
@@ -366,7 +366,7 @@ export default function CertificacionesPage() {
         {isOpen && node.lines.map((line) => (
           <React.Fragment key={line.id}>
             <tr>
-              <td className="py-2 text-gray-900" style={{ paddingLeft: indent + 20, paddingRight: 12 }}>{line.concept}</td>
+              <td className="py-2 text-gray-900 whitespace-normal" style={{ paddingLeft: indent + 20, paddingRight: 12 }}>{line.concept}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatRatio(line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrencyRatio(line.amount_budget, line.hours_presup)}</td>
@@ -374,17 +374,17 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.sale_price)}</td>
               <td className="px-3 py-2 text-right text-gray-600 border-r border-gray-300">{formatCurrency(line.amount_budget)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.hours_ant)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedAmount(line.hours_ant, line.budget_qty, line.hours_presup, line.sale_price)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProgressPercent(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedQty(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedAmount(line.hours_ant, line.budget_qty, line.hours_presup, line.sale_price)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProgressPercent(line.hours_ant, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatQty(line.qty_acc)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatCurrency(line.imp_ant)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.qty_acc, line.budget_qty)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatDeviationPercent(line.qty_acc, line.hours_ant, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 border-l border-gray-300">{formatQty(line.hours_ori)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedAmount(line.hours_ori, line.budget_qty, line.hours_presup, line.sale_price)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProgressPercent(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedQty(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedAmount(line.hours_ori, line.budget_qty, line.hours_presup, line.sale_price)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProgressPercent(line.hours_ori, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right">
                 <input
                   key={`canorig-${line.id}-${line.quantity_to_cert_o}`}
@@ -404,9 +404,9 @@ export default function CertificacionesPage() {
               <td className="px-3 py-2 text-right text-gray-600">{formatRealProgressPercent(line.quantity_to_cert_o, line.budget_qty)}</td>
               <td className="px-3 py-2 text-right text-gray-600">{formatDeviationPercent(line.quantity_to_cert_o, line.hours_ori, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right text-gray-600 border-l border-gray-300">{formatQty(line.hours_act)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedQty(line.hours_act, line.budget_qty, line.hours_presup)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProjectedAmount(line.hours_act, line.budget_qty, line.hours_presup, line.sale_price)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{formatProgressPercent(line.hours_act, line.budget_qty, line.hours_presup)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedQty(line.hours_act, line.budget_qty, line.hours_presup)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProjectedAmount(line.hours_act, line.budget_qty, line.hours_presup, line.sale_price)}</td>
+              <td className="px-3 py-2 text-right text-gray-600 bg-yellow-50">{formatProgressPercent(line.hours_act, line.budget_qty, line.hours_presup)}</td>
               <td className="px-3 py-2 text-right">
                 <input
                   key={`canact-${line.id}-${line.quantity_to_cert}`}
@@ -428,7 +428,7 @@ export default function CertificacionesPage() {
             </tr>
             {line.labor_resources.map((labor) => (
               <tr key={`labor-${labor.id}`} className="bg-sky-50/60">
-                <td className="py-1.5 text-xs text-sky-800" style={{ paddingLeft: indent + 36, paddingRight: 12 }}>
+                <td className="py-1.5 text-xs text-sky-800 whitespace-normal" style={{ paddingLeft: indent + 36, paddingRight: 12 }}>
                   ↳ {labor.name}
                 </td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_presup)}</td>
@@ -438,25 +438,25 @@ export default function CertificacionesPage() {
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 border-r border-gray-300">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium">{formatQty(labor.hours_ant)}</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium border-l border-gray-300">{formatQty(labor.hours_ori)}</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-sky-800 font-medium border-l border-gray-300">{formatQty(labor.hours_act)}</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
-                <td className="px-3 py-1.5 text-right text-gray-400">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 bg-yellow-50">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
                 <td className="px-3 py-1.5 text-right text-gray-400">—</td>
@@ -957,7 +957,7 @@ export default function CertificacionesPage() {
               <div className="text-gray-500 text-sm">Cargando líneas...</div>
             ) : (
               <div className="max-h-[70vh] overflow-auto rounded border border-gray-200">
-              <table className="min-w-full text-sm">
+              <table className="min-w-full text-sm whitespace-nowrap">
                 <thead className="sticky top-0 z-20 bg-gray-50 text-gray-500 text-xs uppercase shadow-sm">
                   <tr className="border-b border-gray-200 bg-slate-100 normal-case">
                     <td className="px-3 py-1.5 text-left font-semibold text-slate-600">
@@ -970,25 +970,25 @@ export default function CertificacionesPage() {
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 border-r border-gray-300">{formatCurrency(amountTotals.impPresupTotal)}</td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatQty(hoursTotals.hours_ant)}</td>
-                    <td className="px-3 py-1.5"></td>
-                    <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.eurTAntTotal)}</td>
-                    <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5 bg-yellow-50"></td>
+                    <td className="px-3 py-1.5 text-right font-bold text-sky-700 bg-yellow-50">{formatCurrency(amountTotals.eurTAntTotal)}</td>
+                    <td className="px-3 py-1.5 bg-yellow-50"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.impAntTotal)}</td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 border-l border-gray-300">{formatQty(hoursTotals.hours_ori)}</td>
-                    <td className="px-3 py-1.5"></td>
-                    <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.eurTOriTotal)}</td>
-                    <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5 bg-yellow-50"></td>
+                    <td className="px-3 py-1.5 text-right font-bold text-sky-700 bg-yellow-50">{formatCurrency(amountTotals.eurTOriTotal)}</td>
+                    <td className="px-3 py-1.5 bg-yellow-50"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.impOriTotal)}</td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700 border-l border-gray-300">{formatQty(hoursTotals.hours_act)}</td>
-                    <td className="px-3 py-1.5"></td>
-                    <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.eurTActTotal)}</td>
-                    <td className="px-3 py-1.5"></td>
+                    <td className="px-3 py-1.5 bg-yellow-50"></td>
+                    <td className="px-3 py-1.5 text-right font-bold text-sky-700 bg-yellow-50">{formatCurrency(amountTotals.eurTActTotal)}</td>
+                    <td className="px-3 py-1.5 bg-yellow-50"></td>
                     <td className="px-3 py-1.5"></td>
                     <td className="px-3 py-1.5 text-right font-bold text-sky-700">{formatCurrency(amountTotals.impActTotal)}</td>
                     <td className="px-3 py-1.5"></td>
@@ -1003,25 +1003,25 @@ export default function CertificacionesPage() {
                     <th className="px-3 py-2 text-right">Precio</th>
                     <th className="px-3 py-2 text-right border-r border-gray-300">Imp. Presup.</th>
                     <th className="px-3 py-2 text-right">H Ant.</th>
-                    <th className="px-3 py-2 text-right">UD T.</th>
-                    <th className="px-3 py-2 text-right">Eur T.</th>
-                    <th className="px-3 py-2 text-right">Avance T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">UD T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">Eur T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">Avance T.</th>
                     <th className="px-3 py-2 text-right">Cant. Ant.</th>
                     <th className="px-3 py-2 text-right">Imp. Ant.</th>
                     <th className="px-3 py-2 text-right">Avance R.</th>
                     <th className="px-3 py-2 text-right">Desvío.</th>
                     <th className="px-3 py-2 text-right border-l border-gray-300">H Ori.</th>
-                    <th className="px-3 py-2 text-right">UD T.</th>
-                    <th className="px-3 py-2 text-right">Eur T.</th>
-                    <th className="px-3 py-2 text-right">Avance T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">UD T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">Eur T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">Avance T.</th>
                     <th className="px-3 py-2 text-right">Cant. Ori.</th>
                     <th className="px-3 py-2 text-right">Imp. Ori.</th>
                     <th className="px-3 py-2 text-right">Avance R.</th>
                     <th className="px-3 py-2 text-right">Desvío.</th>
                     <th className="px-3 py-2 text-right border-l border-gray-300">H Act.</th>
-                    <th className="px-3 py-2 text-right">UD T.</th>
-                    <th className="px-3 py-2 text-right">Eur T.</th>
-                    <th className="px-3 py-2 text-right">Avance T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">UD T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">Eur T.</th>
+                    <th className="px-3 py-2 text-right bg-yellow-50">Avance T.</th>
                     <th className="px-3 py-2 text-right">Cant. Act.</th>
                     <th className="px-3 py-2 text-right">Imp. Act.</th>
                     <th className="px-3 py-2 text-right">Avance R.</th>
