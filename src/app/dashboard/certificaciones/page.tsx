@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
+import ExcelJS from 'exceljs';
 import {
   apiCertifications,
   apiCertificationLines,
@@ -11,10 +12,12 @@ import {
   apiProjectBudgets,
   apiProjects,
   apiResetDraftCertification,
+  apiUpdateCertificationAdjustment,
   apiUpdateCertificationLine,
   apiValidateCertification,
   CertificationItem,
   CertificationLineItem,
+  LaborResourceHours,
   PortalProject,
   ProjectBudgetItem,
 } from '@/lib/api';
@@ -31,19 +34,34 @@ function formatQty(value: number): string {
   return (value || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function ratioValue(quantity: number, hours: number): number | null {
+  if (!hours) return null;
+  return quantity / hours;
+}
+
 function formatRatio(quantity: number, hours: number): string {
-  if (!hours) return '—';
-  return formatQty(quantity / hours);
+  const v = ratioValue(quantity, hours);
+  return v === null ? '—' : formatQty(v);
+}
+
+function currencyRatioValue(amount: number, hours: number): number | null {
+  if (!hours) return null;
+  return amount / hours;
 }
 
 function formatCurrencyRatio(amount: number, hours: number): string {
-  if (!hours) return '—';
-  return formatCurrency(amount / hours);
+  const v = currencyRatioValue(amount, hours);
+  return v === null ? '—' : formatCurrency(v);
+}
+
+function projectedQtyValue(periodHours: number, budgetQty: number, hoursPresup: number): number | null {
+  if (!hoursPresup) return null;
+  return (budgetQty / hoursPresup) * periodHours;
 }
 
 function formatProjectedQty(periodHours: number, budgetQty: number, hoursPresup: number): string {
-  if (!hoursPresup) return '—';
-  return formatQty((budgetQty / hoursPresup) * periodHours);
+  const v = projectedQtyValue(periodHours, budgetQty, hoursPresup);
+  return v === null ? '—' : formatQty(v);
 }
 
 function projectedAmountValue(periodHours: number, budgetQty: number, hoursPresup: number, price: number): number {
@@ -56,27 +74,162 @@ function formatProjectedAmount(periodHours: number, budgetQty: number, hoursPres
   return formatCurrency(projectedAmountValue(periodHours, budgetQty, hoursPresup, price));
 }
 
-function formatProgressPercent(periodHours: number, budgetQty: number, hoursPresup: number): string {
-  if (!hoursPresup || !budgetQty) return '—';
+function progressPercentValue(periodHours: number, budgetQty: number, hoursPresup: number): number | null {
+  if (!hoursPresup || !budgetQty) return null;
   const udT = (budgetQty / hoursPresup) * periodHours;
-  return `${Math.round((udT / budgetQty) * 100)}%`;
+  return (udT / budgetQty) * 100;
+}
+
+function formatProgressPercent(periodHours: number, budgetQty: number, hoursPresup: number): string {
+  const v = progressPercentValue(periodHours, budgetQty, hoursPresup);
+  return v === null ? '—' : `${Math.round(v)}%`;
+}
+
+function realProgressPercentValue(periodQty: number, budgetQty: number): number | null {
+  if (!budgetQty) return null;
+  return (periodQty / budgetQty) * 100;
 }
 
 function formatRealProgressPercent(periodQty: number, budgetQty: number): string {
-  if (!budgetQty) return '—';
-  return `${Math.round((periodQty / budgetQty) * 100)}%`;
+  const v = realProgressPercentValue(periodQty, budgetQty);
+  return v === null ? '—' : `${Math.round(v)}%`;
+}
+
+function deviationPercentValue(realQty: number, periodHours: number, budgetQty: number, hoursPresup: number): number | null {
+  if (!hoursPresup) return null;
+  const udT = (budgetQty / hoursPresup) * periodHours;
+  if (!udT) return null;
+  return ((realQty - udT) / udT) * 100;
 }
 
 function formatDeviationPercent(realQty: number, periodHours: number, budgetQty: number, hoursPresup: number): string {
-  if (!hoursPresup) return '—';
-  const udT = (budgetQty / hoursPresup) * periodHours;
-  if (!udT) return '—';
-  return `${Math.round(((realQty - udT) / udT) * 100)}%`;
+  const v = deviationPercentValue(realQty, periodHours, budgetQty, hoursPresup);
+  return v === null ? '—' : `${formatQty(v)}%`;
+}
+
+function aggregateDeviationPercentValue(realTotal: number, teoricalTotal: number): number | null {
+  if (!teoricalTotal) return null;
+  return ((realTotal - teoricalTotal) / teoricalTotal) * 100;
 }
 
 function formatAggregateDeviationPercent(realTotal: number, teoricalTotal: number): string {
-  if (!teoricalTotal) return '—';
-  return `${Math.round(((realTotal - teoricalTotal) / teoricalTotal) * 100)}%`;
+  const v = aggregateDeviationPercentValue(realTotal, teoricalTotal);
+  return v === null ? '—' : `${formatQty(v)}%`;
+}
+
+type ExportCellType = 'text' | 'qty' | 'currency' | 'percent';
+
+interface ExportColumnDef {
+  header: string;
+  type: ExportCellType;
+  yellow?: boolean;
+  borderRight?: boolean;
+  borderLeft?: boolean;
+}
+
+const EXPORT_COLUMNS: ExportColumnDef[] = [
+  { header: 'Capítulo / Partida', type: 'text' },
+  { header: 'H Presup.', type: 'qty' },
+  { header: 'UD/H', type: 'qty' },
+  { header: 'Eur/H', type: 'currency' },
+  { header: 'Cant. Presup.', type: 'qty' },
+  { header: 'Precio', type: 'currency' },
+  { header: 'Imp. Presup.', type: 'currency', borderRight: true },
+  { header: 'H Ant.', type: 'qty' },
+  { header: 'UD T.', type: 'qty', yellow: true },
+  { header: 'Eur T.', type: 'currency', yellow: true },
+  { header: 'Avance T.', type: 'percent', yellow: true },
+  { header: 'Cant. Ant.', type: 'qty' },
+  { header: 'Imp. Ant.', type: 'currency' },
+  { header: 'Avance R.', type: 'percent' },
+  { header: 'Desvío.', type: 'percent' },
+  { header: 'H Ori.', type: 'qty', borderLeft: true },
+  { header: 'UD T.', type: 'qty', yellow: true },
+  { header: 'Eur T.', type: 'currency', yellow: true },
+  { header: 'Avance T.', type: 'percent', yellow: true },
+  { header: 'Cant. Ori.', type: 'qty' },
+  { header: 'Imp. Ori.', type: 'currency' },
+  { header: 'Avance R.', type: 'percent' },
+  { header: 'Desvío.', type: 'percent' },
+  { header: 'H Act.', type: 'qty', borderLeft: true },
+  { header: 'UD T.', type: 'qty', yellow: true },
+  { header: 'Eur T.', type: 'currency', yellow: true },
+  { header: 'Avance T.', type: 'percent', yellow: true },
+  { header: 'Cant. Act.', type: 'qty' },
+  { header: 'Imp. Act.', type: 'currency' },
+  { header: 'Avance R.', type: 'percent' },
+  { header: 'Desvío.', type: 'percent' },
+];
+
+const EXPORT_COL = {
+  LABEL: 0,
+  H_PRESUP: 1,
+  UD_H: 2,
+  EUR_H: 3,
+  CANT_PRESUP: 4,
+  PRECIO: 5,
+  IMP_PRESUP: 6,
+  H_ANT: 7,
+  UDT_ANT: 8,
+  EURT_ANT: 9,
+  AVANCET_ANT: 10,
+  CANT_ANT: 11,
+  IMP_ANT: 12,
+  AVANCER_ANT: 13,
+  DESVIO_ANT: 14,
+  H_ORI: 15,
+  UDT_ORI: 16,
+  EURT_ORI: 17,
+  AVANCET_ORI: 18,
+  CANT_ORI: 19,
+  IMP_ORI: 20,
+  AVANCER_ORI: 21,
+  DESVIO_ORI: 22,
+  H_ACT: 23,
+  UDT_ACT: 24,
+  EURT_ACT: 25,
+  AVANCET_ACT: 26,
+  CANT_ACT: 27,
+  IMP_ACT: 28,
+  AVANCER_ACT: 29,
+  DESVIO_ACT: 30,
+} as const;
+
+const EXPORT_FILL_YELLOW: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEFCE8' } };
+const EXPORT_FILL_HEADER: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+const EXPORT_FILL_TOTALS: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+const EXPORT_FILL_CHAPTER_QTY: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
+const EXPORT_FILL_CHAPTER: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } };
+const EXPORT_FILL_LABOR: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } };
+const EXPORT_BORDER_COLOR = { argb: 'FFCBD5E1' };
+
+function newExportRowValues(): (number | string | null)[] {
+  return new Array(EXPORT_COLUMNS.length).fill(null);
+}
+
+function setExportCell(
+  row: ExcelJS.Row,
+  colIndex: number,
+  value: number | string | null,
+  fillOverride?: ExcelJS.Fill,
+) {
+  const def = EXPORT_COLUMNS[colIndex];
+  const cell = row.getCell(colIndex + 1);
+  if (def.type === 'text') {
+    if (value !== null) cell.value = value;
+  } else {
+    if (value !== null) cell.value = value as number;
+    cell.numFmt = def.type === 'currency' ? '#,##0.00" €"' : def.type === 'percent' ? '0.00"%"' : '#,##0.00';
+    cell.alignment = { horizontal: 'right' };
+  }
+  const fill = fillOverride ?? (def.yellow ? EXPORT_FILL_YELLOW : undefined);
+  if (fill) cell.fill = fill;
+  if (def.borderRight) {
+    cell.border = { ...cell.border, right: { style: 'medium', color: EXPORT_BORDER_COLOR } };
+  }
+  if (def.borderLeft) {
+    cell.border = { ...cell.border, left: { style: 'medium', color: EXPORT_BORDER_COLOR } };
+  }
 }
 
 function formatStageDate(value: string | false): string {
@@ -250,12 +403,14 @@ export default function CertificacionesPage() {
   const [lines, setLines] = useState<CertificationLineItem[]>([]);
   const [isLoadingLines, setIsLoadingLines] = useState(false);
   const [savingLineId, setSavingLineId] = useState<number | null>(null);
+  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isCertifying, setIsCertifying] = useState(false);
   const [isResettingDraft, setIsResettingDraft] = useState(false);
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [onlyHoursAct, setOnlyHoursAct] = useState(false);
   const [hideTheory, setHideTheory] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const filteredLines = useMemo(
     () => (onlyHoursAct ? lines.filter((l) => l.hours_act > 0) : lines),
@@ -320,6 +475,179 @@ export default function CertificacionesPage() {
 
   function countLines(node: ChapterNode): number {
     return node.lines.length + node.children.reduce((s, c) => s + countLines(c), 0);
+  }
+
+  async function handleExportExcel() {
+    setIsExporting(true);
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Certificación');
+      sheet.columns = EXPORT_COLUMNS.map((def, i) => ({
+        width: i === EXPORT_COL.LABEL ? 42 : 12,
+      }));
+
+      const totalsValues = newExportRowValues();
+      totalsValues[EXPORT_COL.LABEL] = `Total horas (${filteredLines.length} partidas)`;
+      totalsValues[EXPORT_COL.H_PRESUP] = hoursTotals.hours_presup;
+      totalsValues[EXPORT_COL.IMP_PRESUP] = amountTotals.impPresupTotal;
+      totalsValues[EXPORT_COL.H_ANT] = hoursTotals.hours_ant;
+      totalsValues[EXPORT_COL.EURT_ANT] = amountTotals.eurTAntTotal;
+      totalsValues[EXPORT_COL.IMP_ANT] = amountTotals.impAntTotal;
+      totalsValues[EXPORT_COL.DESVIO_ANT] = aggregateDeviationPercentValue(
+        amountTotals.impAntTotal,
+        amountTotals.eurTAntTotal,
+      );
+      totalsValues[EXPORT_COL.H_ORI] = hoursTotals.hours_ori;
+      totalsValues[EXPORT_COL.EURT_ORI] = amountTotals.eurTOriTotal;
+      totalsValues[EXPORT_COL.IMP_ORI] = amountTotals.impOriTotal;
+      totalsValues[EXPORT_COL.DESVIO_ORI] = aggregateDeviationPercentValue(
+        amountTotals.impOriTotal,
+        amountTotals.eurTOriTotal,
+      );
+      totalsValues[EXPORT_COL.H_ACT] = hoursTotals.hours_act;
+      totalsValues[EXPORT_COL.EURT_ACT] = amountTotals.eurTActTotal;
+      totalsValues[EXPORT_COL.IMP_ACT] = amountTotals.impActTotal;
+      totalsValues[EXPORT_COL.DESVIO_ACT] = aggregateDeviationPercentValue(
+        amountTotals.impActTotal,
+        amountTotals.eurTActTotal,
+      );
+      const totalsRow = sheet.addRow([]);
+      totalsValues.forEach((v, i) => setExportCell(totalsRow, i, v, EXPORT_FILL_TOTALS));
+      totalsRow.font = { bold: true };
+      totalsRow.getCell(EXPORT_COL.LABEL + 1).alignment = { horizontal: 'left' };
+
+      const headerRow = sheet.addRow(EXPORT_COLUMNS.map((d) => d.header));
+      headerRow.eachCell((cell, colNumber) => {
+        const def = EXPORT_COLUMNS[colNumber - 1];
+        cell.font = { bold: true };
+        cell.fill = def.yellow ? EXPORT_FILL_YELLOW : EXPORT_FILL_HEADER;
+        cell.alignment = { horizontal: colNumber === EXPORT_COL.LABEL + 1 ? 'left' : 'right' };
+        if (def.borderRight) cell.border = { ...cell.border, right: { style: 'medium', color: EXPORT_BORDER_COLOR } };
+        if (def.borderLeft) cell.border = { ...cell.border, left: { style: 'medium', color: EXPORT_BORDER_COLOR } };
+      });
+
+      const writeLaborRow = (labor: LaborResourceHours, depth: number) => {
+        const values = newExportRowValues();
+        values[EXPORT_COL.LABEL] = `↳ ${labor.name}`;
+        values[EXPORT_COL.H_PRESUP] = labor.hours_presup;
+        values[EXPORT_COL.H_ANT] = labor.hours_ant;
+        values[EXPORT_COL.H_ORI] = labor.hours_ori;
+        values[EXPORT_COL.H_ACT] = labor.hours_act;
+        const row = sheet.addRow([]);
+        values.forEach((v, i) => setExportCell(row, i, v, EXPORT_FILL_LABOR));
+        row.getCell(EXPORT_COL.LABEL + 1).font = { italic: true, size: 9 };
+        row.getCell(EXPORT_COL.LABEL + 1).alignment = { indent: depth };
+      };
+
+      const writeLineRow = (line: CertificationLineItem, depth: number) => {
+        const values = newExportRowValues();
+        values[EXPORT_COL.LABEL] = line.concept;
+        values[EXPORT_COL.H_PRESUP] = line.hours_presup;
+        values[EXPORT_COL.UD_H] = ratioValue(line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.EUR_H] = currencyRatioValue(line.amount_budget, line.hours_presup);
+        values[EXPORT_COL.CANT_PRESUP] = line.budget_qty;
+        values[EXPORT_COL.PRECIO] = line.sale_price;
+        values[EXPORT_COL.IMP_PRESUP] = line.amount_budget;
+        values[EXPORT_COL.H_ANT] = line.hours_ant;
+        values[EXPORT_COL.UDT_ANT] = projectedQtyValue(line.hours_ant, line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.EURT_ANT] = projectedAmountValue(
+          line.hours_ant,
+          line.budget_qty,
+          line.hours_presup,
+          line.sale_price,
+        );
+        values[EXPORT_COL.AVANCET_ANT] = progressPercentValue(line.hours_ant, line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.CANT_ANT] = line.qty_acc;
+        values[EXPORT_COL.IMP_ANT] = line.imp_ant;
+        values[EXPORT_COL.AVANCER_ANT] = realProgressPercentValue(line.qty_acc, line.budget_qty);
+        values[EXPORT_COL.DESVIO_ANT] = deviationPercentValue(
+          line.qty_acc,
+          line.hours_ant,
+          line.budget_qty,
+          line.hours_presup,
+        );
+        values[EXPORT_COL.H_ORI] = line.hours_ori;
+        values[EXPORT_COL.UDT_ORI] = projectedQtyValue(line.hours_ori, line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.EURT_ORI] = projectedAmountValue(
+          line.hours_ori,
+          line.budget_qty,
+          line.hours_presup,
+          line.sale_price,
+        );
+        values[EXPORT_COL.AVANCET_ORI] = progressPercentValue(line.hours_ori, line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.CANT_ORI] = line.quantity_to_cert_o;
+        values[EXPORT_COL.IMP_ORI] = line.imp_orig;
+        values[EXPORT_COL.AVANCER_ORI] = realProgressPercentValue(line.quantity_to_cert_o, line.budget_qty);
+        values[EXPORT_COL.DESVIO_ORI] = deviationPercentValue(
+          line.quantity_to_cert_o,
+          line.hours_ori,
+          line.budget_qty,
+          line.hours_presup,
+        );
+        values[EXPORT_COL.H_ACT] = line.hours_act;
+        values[EXPORT_COL.UDT_ACT] = projectedQtyValue(line.hours_act, line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.EURT_ACT] = projectedAmountValue(
+          line.hours_act,
+          line.budget_qty,
+          line.hours_presup,
+          line.sale_price,
+        );
+        values[EXPORT_COL.AVANCET_ACT] = progressPercentValue(line.hours_act, line.budget_qty, line.hours_presup);
+        values[EXPORT_COL.CANT_ACT] = line.quantity_to_cert;
+        values[EXPORT_COL.IMP_ACT] = line.amount_certif;
+        values[EXPORT_COL.AVANCER_ACT] = realProgressPercentValue(line.quantity_to_cert, line.budget_qty);
+        values[EXPORT_COL.DESVIO_ACT] = deviationPercentValue(
+          line.quantity_to_cert,
+          line.hours_act,
+          line.budget_qty,
+          line.hours_presup,
+        );
+        const row = sheet.addRow([]);
+        values.forEach((v, i) => setExportCell(row, i, v));
+        row.getCell(EXPORT_COL.LABEL + 1).alignment = { indent: depth };
+
+        line.labor_resources.forEach((labor) => writeLaborRow(labor, depth + 1));
+      };
+
+      const writeChapterRow = (node: ChapterNode, depth: number) => {
+        const fill = node.hasQuantity ? EXPORT_FILL_CHAPTER_QTY : EXPORT_FILL_CHAPTER;
+        const values = newExportRowValues();
+        values[EXPORT_COL.LABEL] = `${node.name} (${countLines(node)} partidas)`;
+        values[EXPORT_COL.IMP_PRESUP] = node.impPresupTotal;
+        values[EXPORT_COL.EURT_ANT] = node.eurTAntTotal;
+        values[EXPORT_COL.IMP_ANT] = node.impAntTotal;
+        values[EXPORT_COL.EURT_ORI] = node.eurTOriTotal;
+        values[EXPORT_COL.IMP_ORI] = node.impOriTotal;
+        values[EXPORT_COL.EURT_ACT] = node.eurTActTotal;
+        values[EXPORT_COL.IMP_ACT] = node.impActTotal;
+        const row = sheet.addRow([]);
+        values.forEach((v, i) => setExportCell(row, i, v, fill));
+        row.getCell(EXPORT_COL.LABEL + 1).font = { bold: true };
+        row.getCell(EXPORT_COL.LABEL + 1).alignment = { indent: depth };
+
+        node.children.forEach((child) => writeChapterRow(child, depth + 1));
+        node.lines.forEach((line) => writeLineRow(line, depth + 1));
+      };
+
+      groupedLines.forEach((node) => writeChapterRow(node, 0));
+
+      sheet.views = [{ state: 'frozen', ySplit: 2 }];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${openCertification?.name || 'certificacion'}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   function renderChapterNode(node: ChapterNode, depth: number) {
@@ -665,6 +993,31 @@ export default function CertificacionesPage() {
     }
   }
 
+  async function handleSaveAdjustment(value: string) {
+    if (!openCertification) return;
+    const totalFit = parseFloat(value.replace(',', '.'));
+    if (Number.isNaN(totalFit)) {
+      setError('Ajuste no válido.');
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+
+    setIsSavingAdjustment(true);
+    setError('');
+    try {
+      const res = await apiUpdateCertificationAdjustment(token, openCertification.id, totalFit);
+      if (!res.success || !res.certification) {
+        setError(errorToText(res.error, 'No se pudo actualizar el ajuste.'));
+        return;
+      }
+      setOpenCertification(res.certification);
+      setCertifications((prev) => prev.map((c) => (c.id === res.certification!.id ? res.certification! : c)));
+    } finally {
+      setIsSavingAdjustment(false);
+    }
+  }
+
   async function handleValidate() {
     if (!openCertification) return;
     const token = getToken();
@@ -953,6 +1306,23 @@ export default function CertificacionesPage() {
               <span className={`px-2 py-0.5 rounded-full text-xs border ${stateBadge(openCertification.state)}`}>
                 {STATE_LABELS[openCertification.state] || openCertification.state}
               </span>
+              <div className="flex items-center justify-end gap-2 mt-1">
+                <label className="text-sm text-gray-500" htmlFor="certification-adjustment">Ajuste:</label>
+                <input
+                  id="certification-adjustment"
+                  key={`adjustment-${openCertification.id}-${openCertification.total_fit}`}
+                  type="number"
+                  step="0.01"
+                  defaultValue={openCertification.total_fit}
+                  disabled={isSavingAdjustment || !['draft', 'loaded', 'ready'].includes(openCertification.state)}
+                  onBlur={(e) => {
+                    if (e.target.value !== String(openCertification.total_fit)) {
+                      handleSaveAdjustment(e.target.value);
+                    }
+                  }}
+                  className="w-24 text-right border border-gray-300 rounded-md px-2 py-1 text-sm bg-white text-gray-900 disabled:bg-gray-100 disabled:text-gray-400"
+                />
+              </div>
               <p className="text-sm text-gray-900 mt-1">Total: {formatCurrency(openCertification.total_certif)}</p>
             </div>
           </div>
@@ -978,8 +1348,16 @@ export default function CertificacionesPage() {
               )}
               <button
                 type="button"
+                onClick={handleExportExcel}
+                disabled={isExporting}
+                className="ml-auto px-3 py-1 rounded-full text-xs font-semibold border bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50"
+              >
+                {isExporting ? 'Exportando...' : 'Exportar a Excel'}
+              </button>
+              <button
+                type="button"
                 onClick={toggleExpandAll}
-                className="ml-auto px-3 py-1 rounded-full text-xs font-semibold border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 transition"
+                className="px-3 py-1 rounded-full text-xs font-semibold border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 transition"
               >
                 {allChaptersExpanded ? 'Recoger todo' : 'Desplegar todo'}
               </button>

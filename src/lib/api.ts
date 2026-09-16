@@ -281,6 +281,7 @@ export interface CertificationItem {
   stage_state: 'draft' | 'process' | 'approved' | 'cancel' | string;
   state: 'draft' | 'loaded' | 'ready' | 'done' | 'cancelled' | string;
   certification_date: string | false;
+  total_fit: number;
   total_certif: number;
   percent_certif: number;
   paid_state_id: number | false;
@@ -599,6 +600,13 @@ export const apiUpdateCertificationLine = async (
   value: number,
 ): Promise<CertificationLineResponse> =>
   post('/api/certifications/update-line', { line_id, [field]: value }, token) as Promise<CertificationLineResponse>;
+
+export const apiUpdateCertificationAdjustment = async (
+  token: string,
+  certification_id: number,
+  total_fit: number,
+): Promise<CertificationResponse> =>
+  post('/api/certifications/update-adjustment', { certification_id, total_fit }, token) as Promise<CertificationResponse>;
 
 export const apiValidateCertification = async (
   token: string,
