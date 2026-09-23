@@ -11,11 +11,14 @@ import {
   ProductOption,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { readSavedFilter, saveFilter } from '@/lib/savedFilter';
 import { apiProjects, PortalProject } from '@/lib/api';
 
 function today(): string {
   return new Date().toISOString().split('T')[0];
 }
+
+const FILTER_STORAGE_KEY = 'objetivos_filter';
 
 export default function ObjetivosPage() {
   const [projects, setProjects] = useState<PortalProject[]>([]);
@@ -35,13 +38,47 @@ export default function ObjetivosPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    Promise.all([apiProjects(token), apiBudgetObjectiveProducts(token)]).then(([pr, prod]) => {
-      if (pr.success) setProjects(pr.projects || []);
+    let cancelled = false;
+    (async () => {
+      const [pr, prod] = await Promise.all([apiProjects(token), apiBudgetObjectiveProducts(token)]);
+      if (cancelled) return;
       if (prod.success) setProducts(prod.products || []);
-    });
+      if (!pr.success) return;
+      const loadedProjects = pr.projects || [];
+      setProjects(loadedProjects);
+
+      // Restaurar el último filtro si la obra sigue disponible
+      const saved = readSavedFilter(FILTER_STORAGE_KEY);
+      if (!saved?.project || !loadedProjects.some((p) => p.id === saved.project)) return;
+      setSelectedProject(saved.project);
+      const budgetsRes = await apiBudgets(token, saved.project);
+      if (cancelled || !budgetsRes.success) return;
+      const loadedBudgets = budgetsRes.budgets || [];
+      setBudgets(loadedBudgets);
+      if (!saved.budget || !loadedBudgets.some((b) => b.id === saved.budget)) return;
+      setSelectedBudget(saved.budget);
+      setLoading(true);
+      const objRes = await apiBudgetObjectives(token, saved.budget);
+      if (cancelled) return;
+      if (objRes.success) setObjectives(objRes.objectives || []);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  function clearFilter() {
+    saveFilter(FILTER_STORAGE_KEY, null);
+    setSelectedProject('');
+    setSelectedBudget('');
+    setBudgets([]);
+    setObjectives([]);
+    setMsg('');
+  }
+
   async function onProjectChange(pid: number | '') {
+    saveFilter(FILTER_STORAGE_KEY, { project: pid, budget: '' });
     setSelectedProject(pid);
     setSelectedBudget('');
     setObjectives([]);
@@ -54,6 +91,7 @@ export default function ObjetivosPage() {
   }
 
   async function onBudgetChange(bid: number | '') {
+    saveFilter(FILTER_STORAGE_KEY, { project: selectedProject, budget: bid });
     setSelectedBudget(bid);
     setObjectives([]);
     if (!bid) return;
@@ -97,7 +135,18 @@ export default function ObjetivosPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto text-slate-800">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Objetivos</h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">Objetivos</h1>
+        {selectedProject && (
+          <button
+            type="button"
+            onClick={clearFilter}
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Limpiar filtro
+          </button>
+        )}
+      </div>
 
       {/* Selectores */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">

@@ -9,6 +9,7 @@ import {
   LaborLineItem,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { readSavedFilter, saveFilter } from '@/lib/savedFilter';
 import { apiProjects, PortalProject } from '@/lib/api';
 
 function esNum(value: number, decimals = 2): string {
@@ -18,36 +19,7 @@ function esNum(value: number, decimals = 2): string {
   return decimals > 0 ? `${sign}${intFormatted},${decPart}` : `${sign}${intFormatted}`;
 }
 
-// Filtro Obra/Presupuesto recordado entre menús hasta que se limpie
 const FILTER_STORAGE_KEY = 'mano_de_obra_filter';
-
-interface SavedFilter {
-  project: number | '';
-  budget: number | '';
-}
-
-function readSavedFilter(): SavedFilter | null {
-  try {
-    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as Partial<SavedFilter>;
-    return {
-      project: typeof data.project === 'number' ? data.project : '',
-      budget: typeof data.budget === 'number' ? data.budget : '',
-    };
-  } catch {
-    return null;
-  }
-}
-
-function saveFilter(filter: SavedFilter | null) {
-  try {
-    if (filter && filter.project) localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filter));
-    else localStorage.removeItem(FILTER_STORAGE_KEY);
-  } catch {
-    // localStorage no disponible: el filtro simplemente no se recuerda
-  }
-}
 
 export default function ManoDeObraPage() {
   const [projects, setProjects] = useState<PortalProject[]>([]);
@@ -74,7 +46,7 @@ export default function ManoDeObraPage() {
       setProjects(loadedProjects);
 
       // Restaurar el último filtro si la obra sigue disponible
-      const saved = readSavedFilter();
+      const saved = readSavedFilter(FILTER_STORAGE_KEY);
       if (!saved?.project || !loadedProjects.some((p) => p.id === saved.project)) return;
       setSelectedProject(saved.project);
       const budgetsRes = await apiBudgets(token, saved.project);
@@ -95,7 +67,7 @@ export default function ManoDeObraPage() {
   }, []);
 
   function clearFilter() {
-    saveFilter(null);
+    saveFilter(FILTER_STORAGE_KEY, null);
     setSelectedProject('');
     setSelectedBudget('');
     setBudgets([]);
@@ -104,7 +76,7 @@ export default function ManoDeObraPage() {
   }
 
   async function onProjectChange(pid: number | '') {
-    saveFilter({ project: pid, budget: '' });
+    saveFilter(FILTER_STORAGE_KEY, { project: pid, budget: '' });
     setSelectedProject(pid);
     setSelectedBudget('');
     setLines([]);
@@ -128,7 +100,7 @@ export default function ManoDeObraPage() {
   }
 
   async function onBudgetChange(bid: number | '') {
-    saveFilter({ project: selectedProject, budget: bid });
+    saveFilter(FILTER_STORAGE_KEY, { project: selectedProject, budget: bid });
     setSelectedBudget(bid);
     setLines([]);
     if (!bid) return;
