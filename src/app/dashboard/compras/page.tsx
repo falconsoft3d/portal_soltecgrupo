@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiProjects, apiPurchases, PortalProject, PurchaseItem } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { formatCurrency, formatDate, purchaseStateBadge, receiptStatusBadge } from './utils';
+import { formatCurrency, formatDate, monthKey, monthLabel, purchaseStateBadge, receiptStatusBadge } from './utils';
 
 const STATE_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
@@ -27,6 +27,35 @@ export default function ComprasPage() {
   const [totals, setTotals] = useState({ records: 0, untaxed: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [groupByMonth, setGroupByMonth] = useState(true);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // Agrupación mensual por fecha de pedido (las filas ya vienen ordenadas por fecha desc)
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; rows: PurchaseItem[]; untaxed: number; total: number }>();
+    for (const row of rows) {
+      const key = monthKey(row.date_order);
+      let group = map.get(key);
+      if (!group) {
+        group = { key, rows: [], untaxed: 0, total: 0 };
+        map.set(key, group);
+      }
+      group.rows.push(row);
+      group.untaxed += row.amount_untaxed;
+      group.total += row.amount_total;
+    }
+    return [...map.values()];
+  }, [rows]);
+
+  function toggleGroup(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   // Solo obras donde el usuario es responsable de ejecución
   const managedProjects = useMemo(() => projects.filter((p) => p.is_manager), [projects]);
@@ -81,6 +110,36 @@ export default function ComprasPage() {
     };
   }, [projectId, state, search]);
 
+  const renderRow = (row: PurchaseItem) => (
+    <tr
+      key={row.id}
+      onClick={() => router.push(`/dashboard/compras/${row.id}`)}
+      className="cursor-pointer border-t border-slate-100 text-slate-700 hover:bg-blue-50/50"
+    >
+      <td className="px-3 py-2 font-semibold whitespace-nowrap">{row.name}</td>
+      <td className="px-3 py-2">{row.partner_name || '—'}</td>
+      <td className="px-3 py-2">{row.project_name || '—'}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.date_order)}</td>
+      <td className="px-3 py-2">{row.user_name || '—'}</td>
+      <td className="px-3 py-2 whitespace-nowrap">
+        {row.receipt_status_label ? (
+          <span className={`rounded-full border px-2 py-0.5 text-xs ${receiptStatusBadge(row.receipt_status)}`}>
+            {row.receipt_status_label}
+          </span>
+        ) : (
+          '—'
+        )}
+      </td>
+      <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(row.amount_untaxed)}</td>
+      <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(row.amount_total)}</td>
+      <td className="px-3 py-2 whitespace-nowrap">
+        <span className={`rounded-full border px-2 py-0.5 text-xs ${purchaseStateBadge(row.state)}`}>
+          {row.state_label}
+        </span>
+      </td>
+    </tr>
+  );
+
   return (
     <div className="p-4 md:p-6 text-slate-800">
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -133,6 +192,17 @@ export default function ComprasPage() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setGroupByMonth((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm whitespace-nowrap ${
+              groupByMonth
+                ? 'border-blue-300 bg-blue-50 font-semibold text-blue-700'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Agrupar por mes
+          </button>
         </div>
       </div>
 
@@ -171,35 +241,31 @@ export default function ComprasPage() {
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => router.push(`/dashboard/compras/${row.id}`)}
-                  className="cursor-pointer border-t border-slate-100 text-slate-700 hover:bg-blue-50/50"
-                >
-                  <td className="px-3 py-2 font-semibold whitespace-nowrap">{row.name}</td>
-                  <td className="px-3 py-2">{row.partner_name || '—'}</td>
-                  <td className="px-3 py-2">{row.project_name || '—'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.date_order)}</td>
-                  <td className="px-3 py-2">{row.user_name || '—'}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {row.receipt_status_label ? (
-                      <span className={`rounded-full border px-2 py-0.5 text-xs ${receiptStatusBadge(row.receipt_status)}`}>
-                        {row.receipt_status_label}
-                      </span>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(row.amount_untaxed)}</td>
-                  <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(row.amount_total)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <span className={`rounded-full border px-2 py-0.5 text-xs ${purchaseStateBadge(row.state)}`}>
-                      {row.state_label}
-                    </span>
-                  </td>
-                </tr>
-              ))
+              groupByMonth ? (
+                groups.map((group) => {
+                  const isCollapsed = collapsed.has(group.key);
+                  return (
+                    <Fragment key={group.key}>
+                      <tr
+                        onClick={() => toggleGroup(group.key)}
+                        className="cursor-pointer border-t border-slate-200 bg-slate-100 font-semibold text-slate-700 hover:bg-slate-200/70"
+                      >
+                        <td colSpan={6} className="px-3 py-2">
+                          <span className="mr-2 inline-block w-3 text-slate-500">{isCollapsed ? '▸' : '▾'}</span>
+                          {monthLabel(group.key)}
+                          <span className="ml-2 text-xs font-normal text-slate-500">({group.rows.length})</span>
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(group.untaxed)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(group.total)}</td>
+                        <td className="px-3 py-2" />
+                      </tr>
+                      {!isCollapsed && group.rows.map(renderRow)}
+                    </Fragment>
+                  );
+                })
+              ) : (
+                rows.map(renderRow)
+              )
             )}
           </tbody>
         </table>

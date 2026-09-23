@@ -38,3 +38,22 @@ export function receiptStatusBadge(status: string): string {
   if (status === 'partial') return 'bg-amber-50 text-amber-700 border-amber-200';
   return 'bg-slate-50 text-slate-600 border-slate-200';
 }
+
+const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+/** Clave "YYYY-MM" en hora local a partir de un datetime UTC de Odoo. */
+export function monthKey(value: string | false): string {
+  if (!value) return 'none';
+  const date = new Date(`${String(value).replace(' ', 'T')}Z`);
+  if (Number.isNaN(date.getTime())) return 'none';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function monthLabel(key: string): string {
+  if (key === 'none') return 'Sin fecha';
+  const [year, month] = key.split('-');
+  return `${MONTH_NAMES[parseInt(month, 10) - 1] ?? month} ${year}`;
+}
