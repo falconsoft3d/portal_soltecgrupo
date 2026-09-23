@@ -12,6 +12,16 @@ function parseAmount(value: string): number {
   return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw);
 }
 
+/** Color del estado según su nombre (sin tildes ni mayúsculas). */
+function projectStateBadge(stateName: string): string {
+  const name = stateName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (name.includes('licitacion')) return 'bg-blue-50 text-blue-700 border-blue-200';
+  if (name.includes('garantia')) return 'bg-yellow-50 text-yellow-800 border-yellow-300';
+  if (name.includes('ejecucion')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (name.includes('finalizado')) return 'bg-red-50 text-red-700 border-red-200';
+  return 'bg-slate-50 text-slate-600 border-slate-200';
+}
+
 function ReadOnly({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div>
@@ -399,7 +409,7 @@ export default function ProyectosPage() {
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {p.state_name ? (
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                      <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${projectStateBadge(p.state_name)}`}>
                         {p.state_name}
                       </span>
                     ) : (
