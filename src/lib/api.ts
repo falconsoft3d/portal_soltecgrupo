@@ -989,3 +989,20 @@ export const apiCreateMyExpense = async (
   lines: NewExpenseLine[],
 ): Promise<MyExpenseDetailResponse> =>
   post('/api/my-expenses/create', { date, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<MyExpenseDetailResponse>;
+
+export const apiSetMyExpenseState = async (
+  token: string,
+  expense_id: number,
+  state: 'draft' | 'done',
+): Promise<MyExpenseDetailResponse> =>
+  post('/api/my-expenses/set-state', { expense_id, state }, token) as Promise<MyExpenseDetailResponse>;
+
+export const apiDeleteMyExpense = async (token: string, expense_id: number): Promise<ApiResponse> =>
+  post('/api/my-expenses/delete', { expense_id }, token);
+
+export const apiAddMyExpenseLines = async (
+  token: string,
+  expense_id: number,
+  lines: NewExpenseLine[],
+): Promise<MyExpenseDetailResponse> =>
+  post('/api/my-expenses/add-lines', { expense_id, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<MyExpenseDetailResponse>;

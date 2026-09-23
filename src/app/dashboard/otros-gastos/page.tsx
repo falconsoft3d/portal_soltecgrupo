@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiMyExpenses, MyExpense } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { expenseStateBadge, formatCurrency, formatDay } from './utils';
+import { dayMonthKey, expenseStateBadge, formatCurrency, formatDay, monthLabel } from './utils';
 
 const STATE_OPTIONS = [
   { value: 'all', label: 'Todos los estados' },
@@ -23,6 +23,51 @@ export default function OtrosGastosPage() {
   const [totals, setTotals] = useState({ records: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [groupByMonth, setGroupByMonth] = useState(true);
+  // Los meses arrancan plegados; se despliegan al hacer clic
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const groups = useMemo(() => {
+    const map = new Map<string, { key: string; rows: MyExpense[]; total: number }>();
+    for (const row of rows) {
+      const key = dayMonthKey(row.date);
+      let group = map.get(key);
+      if (!group) {
+        group = { key, rows: [], total: 0 };
+        map.set(key, group);
+      }
+      group.rows.push(row);
+      group.total += row.total;
+    }
+    return [...map.values()];
+  }, [rows]);
+
+  function toggleGroup(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  const renderRow = (row: MyExpense) => (
+    <tr
+      key={row.id}
+      onClick={() => router.push(`/dashboard/otros-gastos/${row.id}`)}
+      className="cursor-pointer border-t border-slate-100 text-slate-700 hover:bg-blue-50/50"
+    >
+      <td className="px-3 py-2 font-semibold whitespace-nowrap">{row.name}</td>
+      <td className="px-3 py-2 whitespace-nowrap">{formatDay(row.date)}</td>
+      <td className="px-3 py-2">{row.company_name || '—'}</td>
+      <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(row.total)}</td>
+      <td className="px-3 py-2 whitespace-nowrap">
+        <span className={`rounded-full border px-2 py-0.5 text-xs ${expenseStateBadge(row.state)}`}>
+          {row.state_label}
+        </span>
+      </td>
+    </tr>
+  );
 
   // Debounce de la búsqueda
   useEffect(() => {
@@ -106,6 +151,17 @@ export default function OtrosGastosPage() {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setGroupByMonth((v) => !v)}
+            className={`rounded-lg border px-3 py-2 text-sm whitespace-nowrap ${
+              groupByMonth
+                ? 'border-blue-300 bg-blue-50 font-semibold text-blue-700'
+                : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Agrupar por mes
+          </button>
         </div>
       </div>
 
@@ -115,7 +171,6 @@ export default function OtrosGastosPage() {
             <tr>
               <th className="px-3 py-2">Código</th>
               <th className="px-3 py-2">Fecha</th>
-              <th className="px-3 py-2">Obras</th>
               <th className="px-3 py-2">Compañía</th>
               <th className="px-3 py-2 text-right">Total</th>
               <th className="px-3 py-2">Estado</th>
@@ -124,41 +179,47 @@ export default function OtrosGastosPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
                   Cargando gastos...
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-red-600">
+                <td colSpan={5} className="px-3 py-6 text-center text-red-600">
                   {error}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
                   No hay gastos para el filtro actual.
                 </td>
               </tr>
             ) : (
-              rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => router.push(`/dashboard/otros-gastos/${row.id}`)}
-                  className="cursor-pointer border-t border-slate-100 text-slate-700 hover:bg-blue-50/50"
-                >
-                  <td className="px-3 py-2 font-semibold whitespace-nowrap">{row.name}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{formatDay(row.date)}</td>
-                  <td className="px-3 py-2">{row.project_names || '—'}</td>
-                  <td className="px-3 py-2">{row.company_name || '—'}</td>
-                  <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(row.total)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <span className={`rounded-full border px-2 py-0.5 text-xs ${expenseStateBadge(row.state)}`}>
-                      {row.state_label}
-                    </span>
-                  </td>
-                </tr>
-              ))
+              groupByMonth ? (
+                groups.map((group) => {
+                  const isOpen = expanded.has(group.key);
+                  return (
+                    <Fragment key={group.key}>
+                      <tr
+                        onClick={() => toggleGroup(group.key)}
+                        className="cursor-pointer border-t border-slate-200 bg-slate-100 font-semibold text-slate-700 hover:bg-slate-200/70"
+                      >
+                        <td colSpan={3} className="px-3 py-2">
+                          <span className="mr-2 inline-block w-3 text-slate-500">{isOpen ? '▾' : '▸'}</span>
+                          {monthLabel(group.key)}
+                          <span className="ml-2 text-xs font-normal text-slate-500">({group.rows.length})</span>
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(group.total)}</td>
+                        <td className="px-3 py-2" />
+                      </tr>
+                      {isOpen && group.rows.map(renderRow)}
+                    </Fragment>
+                  );
+                })
+              ) : (
+                rows.map(renderRow)
+              )
             )}
           </tbody>
         </table>
