@@ -906,3 +906,86 @@ export const apiPurchases = async (
 
 export const apiPurchaseDetail = async (token: string, purchase_id: number): Promise<PurchaseDetailResponse> =>
   post('/api/purchases/detail', { purchase_id }, token) as Promise<PurchaseDetailResponse>;
+
+// ------------------------------------------------------------------ //
+//  Otros gastos propios (other.expense) — el usuario es el proveedor  //
+// ------------------------------------------------------------------ //
+
+export interface MyExpenseLine {
+  id: number;
+  product_name: string;
+  name: string;
+  project_name: string;
+  qty: number;
+  price_unit: number;
+  total: number;
+}
+
+export interface MyExpense {
+  id: number;
+  name: string;
+  date: string | false;
+  partner_name: string;
+  user_name: string;
+  company_name: string;
+  state: string;
+  state_label: string;
+  project_names: string;
+  total: number;
+  lines?: MyExpenseLine[];
+}
+
+export interface MyExpensesResponse extends ApiResponse {
+  expenses?: MyExpense[];
+  total_records?: number;
+  total_amount?: number;
+}
+
+export interface MyExpenseDetailResponse extends ApiResponse {
+  expense?: MyExpense;
+}
+
+export interface ExpenseProductOption {
+  id: number;
+  code: string;
+  name: string;
+  display_name: string;
+  price_unit: number;
+}
+
+export interface ExpenseProjectOption {
+  id: number;
+  display_name: string;
+  company_id: number;
+  company_name: string;
+  state_name: string;
+}
+
+export interface MyExpenseOptionsResponse extends ApiResponse {
+  partner_name?: string;
+  products?: ExpenseProductOption[];
+  projects?: ExpenseProjectOption[];
+}
+
+export interface NewExpenseLine {
+  product_id: number;
+  project_id: number;
+  name: string;
+  qty: number;
+}
+
+export const apiMyExpenses = async (token: string, state = 'all', search?: string): Promise<MyExpensesResponse> =>
+  post('/api/my-expenses', { state, search }, token) as Promise<MyExpensesResponse>;
+
+export const apiMyExpenseDetail = async (token: string, expense_id: number): Promise<MyExpenseDetailResponse> =>
+  post('/api/my-expenses/detail', { expense_id }, token) as Promise<MyExpenseDetailResponse>;
+
+export const apiMyExpenseOptions = async (token: string): Promise<MyExpenseOptionsResponse> =>
+  post('/api/my-expenses/options', {}, token) as Promise<MyExpenseOptionsResponse>;
+
+export const apiCreateMyExpense = async (
+  token: string,
+  date: string,
+  lines: NewExpenseLine[],
+): Promise<MyExpenseDetailResponse> =>
+  post('/api/my-expenses/create', { date, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<MyExpenseDetailResponse>;
