@@ -176,6 +176,7 @@ export default function ComprasPage() {
             {managedProjects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.display_name}
+                {p.state_name ? ` (${p.state_name})` : ''}
               </option>
             ))}
           </select>
