@@ -1056,6 +1056,13 @@ export const apiMyProjects = async (token: string, search?: string): Promise<MyP
 
 export const apiCreateMyProject = async (
   token: string,
-  values: { company_id: number; name: string; expansion_contract: number },
+  values: { company_id: number; name: string; contracted_sale: number; contracted_cost: number },
 ): Promise<MyProjectCreateResponse> =>
   post('/api/my-projects/create', values, token) as Promise<MyProjectCreateResponse>;
+
+export const apiUpdateMyProject = async (
+  token: string,
+  project_id: number,
+  values: { name: string; expansion_contract: number },
+): Promise<MyProjectCreateResponse> =>
+  post('/api/my-projects/update', { project_id, ...values }, token) as Promise<MyProjectCreateResponse>;

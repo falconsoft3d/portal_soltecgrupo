@@ -1,9 +1,16 @@
 'use client';
 
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
-import { apiCreateMyProject, apiMyProjects, MyProject } from '@/lib/api';
+import { apiCreateMyProject, apiMyProjects, apiUpdateMyProject, MyProject } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { formatCurrency, formatNumber } from '../compras/utils';
+
+/** Acepta "1.234,56" (formato español) y "1234.56". Devuelve NaN si no es un número. */
+function parseAmount(value: string): number {
+  const raw = value.trim();
+  if (!raw) return NaN;
+  return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw);
+}
 
 function ReadOnly({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
@@ -31,10 +38,61 @@ export default function ProyectosPage() {
   const [showForm, setShowForm] = useState(false);
   const [companyId, setCompanyId] = useState<number | ''>('');
   const [name, setName] = useState('');
-  const [expansion, setExpansion] = useState('');
+  const [sale, setSale] = useState('');
+  const [cost, setCost] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [message, setMessage] = useState('');
+
+  // Edición en línea (solo nombre y expansión de contrato)
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editExpansion, setEditExpansion] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  function startEdit(p: MyProject) {
+    setEditingId(p.id);
+    setEditName(p.name);
+    setEditExpansion(p.expansion_contract ? String(p.expansion_contract).replace('.', ',') : '');
+    setEditError('');
+    setMessage('');
+  }
+
+  async function saveEdit() {
+    if (editingId === null) return;
+    if (!editName.trim()) {
+      setEditError('El nombre es obligatorio.');
+      return;
+    }
+    const expansionValue = editExpansion.trim() ? parseAmount(editExpansion) : 0;
+    if (!Number.isFinite(expansionValue)) {
+      setEditError('La expansión de contrato debe ser un número.');
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+    setSavingEdit(true);
+    setEditError('');
+    try {
+      const res = await apiUpdateMyProject(token, editingId, {
+        name: editName.trim(),
+        expansion_contract: expansionValue,
+      });
+      if (res.success && res.project) {
+        const updated = res.project;
+        setRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        setEditingId(null);
+        setMessage(`Proyecto ${updated.code} actualizado.`);
+      } else {
+        setEditError(res.error || 'No se pudo guardar el proyecto.');
+      }
+    } catch {
+      setEditError('Error de conexión al guardar el proyecto.');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   // Debounce de la búsqueda
   useEffect(() => {
@@ -78,10 +136,19 @@ export default function ProyectosPage() {
 
   const selectedCompany = companies.find((c) => c.id === companyId);
 
+  // Mismo cálculo que Odoo: (venta - coste) / venta * 100
+  const previewSale = parseAmount(sale);
+  const previewCost = parseAmount(cost);
+  const coefficientPreview =
+    Number.isFinite(previewSale) && Number.isFinite(previewCost)
+      ? `${formatNumber(previewSale > 0 ? ((previewSale - previewCost) / previewSale) * 100 : 0)} %`
+      : '';
+
   function openForm() {
     setCompanyId(defaultCompanyId);
     setName('');
-    setExpansion('');
+    setSale('');
+    setCost('');
     setFormError('');
     setMessage('');
     setShowForm(true);
@@ -98,11 +165,14 @@ export default function ProyectosPage() {
       setFormError('El nombre es obligatorio.');
       return;
     }
-    // Acepta "1.234,56" (formato español) y "1234.56"
-    const raw = expansion.trim();
-    const expansionValue = !raw ? 0 : Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw);
-    if (!Number.isFinite(expansionValue)) {
-      setFormError('La expansión de contrato debe ser un número.');
+    const saleValue = parseAmount(sale);
+    const costValue = parseAmount(cost);
+    if (!Number.isFinite(saleValue) || !Number.isFinite(costValue)) {
+      setFormError('Contratado venta y Contratado coste son obligatorios y deben ser números.');
+      return;
+    }
+    if (saleValue < 0 || costValue < 0) {
+      setFormError('Los importes contratados no pueden ser negativos.');
       return;
     }
 
@@ -113,7 +183,8 @@ export default function ProyectosPage() {
       const res = await apiCreateMyProject(token, {
         company_id: companyId,
         name: name.trim(),
-        expansion_contract: expansionValue,
+        contracted_sale: saleValue,
+        contracted_cost: costValue,
       });
       if (res.success && res.project) {
         setShowForm(false);
@@ -197,18 +268,34 @@ export default function ProyectosPage() {
             </div>
             <ReadOnly label="Cliente" value={selectedCompany?.name} hint="La compañía" />
             <ReadOnly label="Responsable ejecución" value={partnerName} />
+            <ReadOnly label="Estado" value="" />
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-600">Expansión contrato (€)</label>
+              <label className="mb-1 block text-sm font-medium text-slate-600">
+                Contratado venta (€) <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 inputMode="decimal"
-                value={expansion}
-                onChange={(e) => setExpansion(e.target.value)}
+                value={sale}
+                onChange={(e) => setSale(e.target.value)}
                 placeholder="0,00"
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-right text-sm outline-none focus:border-blue-400"
               />
             </div>
-            <ReadOnly label="Estado" value="" />
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-600">
+                Contratado coste (€) <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                placeholder="0,00"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-right text-sm outline-none focus:border-blue-400"
+              />
+            </div>
+            <ReadOnly label="Coeficiente contratación" value={coefficientPreview} />
           </div>
           {formError && <p className="mt-3 text-sm text-red-600">{formError}</p>}
           <div className="mt-4 flex justify-end gap-2">
@@ -247,24 +334,25 @@ export default function ProyectosPage() {
               <th className="px-3 py-2 text-right">Coef. contratación</th>
               <th className="px-3 py-2 text-right">Expansión contrato</th>
               <th className="px-3 py-2">Estado</th>
+              <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={13} className="px-3 py-6 text-center text-slate-400">
                   Cargando proyectos...
                 </td>
               </tr>
             ) : error ? (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-red-600">
+                <td colSpan={13} className="px-3 py-6 text-center text-red-600">
                   {error}
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-slate-400">
+                <td colSpan={13} className="px-3 py-6 text-center text-slate-400">
                   No hay proyectos para el filtro actual.
                 </td>
               </tr>
@@ -273,7 +361,20 @@ export default function ProyectosPage() {
                 <tr key={p.id} className="border-t border-slate-100 text-slate-700">
                   <td className="px-3 py-2">{p.company_name || '—'}</td>
                   <td className="px-3 py-2 font-semibold whitespace-nowrap">{p.code}</td>
-                  <td className="px-3 py-2">{p.name || '—'}</td>
+                  <td className="px-3 py-2">
+                    {editingId === p.id ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        autoFocus
+                        disabled={savingEdit}
+                        className="w-56 rounded border border-slate-300 px-2 py-1 text-sm outline-none focus:border-blue-400"
+                      />
+                    ) : (
+                      p.name || '—'
+                    )}
+                  </td>
                   <td className="px-3 py-2">{p.customer_name || '—'}</td>
                   <td className="px-3 py-2">{p.manager_name || '—'}</td>
                   <td className="px-3 py-2">{p.foreman_name || '—'}</td>
@@ -281,7 +382,21 @@ export default function ProyectosPage() {
                   <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(p.contracted_sale)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(p.contracted_cost)}</td>
                   <td className="px-3 py-2 text-right whitespace-nowrap">{formatNumber(p.contracted_coefficient)} %</td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(p.expansion_contract)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    {editingId === p.id ? (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={editExpansion}
+                        onChange={(e) => setEditExpansion(e.target.value)}
+                        disabled={savingEdit}
+                        placeholder="0,00"
+                        className="w-28 rounded border border-slate-300 px-2 py-1 text-right text-sm outline-none focus:border-blue-400"
+                      />
+                    ) : (
+                      formatCurrency(p.expansion_contract)
+                    )}
+                  </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     {p.state_name ? (
                       <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
@@ -289,6 +404,40 @@ export default function ProyectosPage() {
                       </span>
                     ) : (
                       '—'
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap">
+                    {editingId === p.id ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            disabled={savingEdit}
+                            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={saveEdit}
+                            disabled={savingEdit}
+                            className="rounded bg-brand-600 px-2 py-1 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+                          >
+                            {savingEdit ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                        {editError && <span className="text-xs text-red-600">{editError}</span>}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(p)}
+                        disabled={editingId !== null}
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                      >
+                        Editar
+                      </button>
                     )}
                   </td>
                 </tr>
