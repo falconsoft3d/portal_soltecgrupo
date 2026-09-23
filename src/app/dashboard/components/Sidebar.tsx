@@ -63,6 +63,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/compras',
+    label: 'Compras',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/objetivos',
     label: 'Objetivos',
     icon: (
@@ -132,7 +141,7 @@ export default function Sidebar({ open = true }: { open?: boolean }) {
     <aside className={`fixed top-14 left-0 h-[calc(100vh-3.5rem)] w-56 flex flex-col bg-white border-r border-gray-200 shadow-sm z-20 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
       <nav className="flex flex-col p-3 gap-1 mt-2">
         {NAV_ITEMS.map(({ href, label, icon }) => {
-          const active = pathname === href;
+          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`));
           return (
             <Link
               key={href}

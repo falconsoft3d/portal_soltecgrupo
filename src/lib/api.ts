@@ -817,3 +817,92 @@ export const apiBudgetLabor = (token: string, budget_id: number): Promise<LaborR
 
 export const apiBudgetLaborCompute = (token: string, budget_id: number): Promise<LaborResponse> =>
   post('/api/budget-labor/compute', { budget_id }, token) as Promise<LaborResponse>;
+
+// ------------------------------------------------------------------ //
+//  Compras (purchase.order) — solo lectura                            //
+// ------------------------------------------------------------------ //
+
+export interface PurchaseItem {
+  id: number;
+  name: string;
+  partner_name: string;
+  project_name: string;
+  company_name: string;
+  user_name: string;
+  date_order: string | false;
+  date_approve: string | false;
+  receipt_status: string;
+  receipt_status_label: string;
+  invoice_status: string;
+  invoice_status_label: string;
+  state: string;
+  state_label: string;
+  amount_untaxed: number;
+  amount_total: number;
+}
+
+export interface PurchasesResponse extends ApiResponse {
+  purchases?: PurchaseItem[];
+  total_records?: number;
+  total_untaxed?: number;
+  total_amount?: number;
+}
+
+export interface PurchaseLineItem {
+  id: number;
+  display_type: 'line_section' | 'line_note' | false;
+  name: string;
+  product_name?: string;
+  product_qty?: number;
+  qty_received?: number;
+  qty_invoiced?: number;
+  uom_name?: string;
+  price_unit?: number;
+  discount?: number;
+  taxes?: string;
+  price_subtotal?: number;
+  price_total?: number;
+}
+
+export interface PurchaseDetail {
+  id: number;
+  name: string;
+  partner_name: string;
+  partner_vat: string;
+  partner_ref: string;
+  project_name: string;
+  company_name: string;
+  user_name: string;
+  currency_name: string;
+  origin: string;
+  date_order: string | false;
+  date_approve: string | false;
+  date_planned: string | false;
+  picking_type_name: string;
+  payment_term_name: string;
+  receipt_status_label: string;
+  invoice_status_label: string;
+  state: string;
+  state_label: string;
+  notes: string;
+  amount_untaxed: number;
+  amount_tax: number;
+  amount_total: number;
+  invoices: { id: number; name: string; state: string }[];
+  lines: PurchaseLineItem[];
+}
+
+export interface PurchaseDetailResponse extends ApiResponse {
+  purchase?: PurchaseDetail;
+}
+
+export const apiPurchases = async (
+  token: string,
+  project_id: number | 'all' = 'all',
+  state: string = 'all',
+  search?: string,
+): Promise<PurchasesResponse> =>
+  post('/api/purchases', { project_id, state, search }, token) as Promise<PurchasesResponse>;
+
+export const apiPurchaseDetail = async (token: string, purchase_id: number): Promise<PurchaseDetailResponse> =>
+  post('/api/purchases/detail', { purchase_id }, token) as Promise<PurchaseDetailResponse>;
