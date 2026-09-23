@@ -927,6 +927,7 @@ export interface MyExpense {
   date: string | false;
   partner_name: string;
   user_name: string;
+  company_id: number;
   company_name: string;
   state: string;
   state_label: string;
@@ -963,6 +964,8 @@ export interface ExpenseProjectOption {
 
 export interface MyExpenseOptionsResponse extends ApiResponse {
   partner_name?: string;
+  companies?: { id: number; name: string }[];
+  default_company_id?: number | false;
   products?: ExpenseProductOption[];
   projects?: ExpenseProjectOption[];
 }
@@ -986,9 +989,10 @@ export const apiMyExpenseOptions = async (token: string): Promise<MyExpenseOptio
 export const apiCreateMyExpense = async (
   token: string,
   date: string,
+  company_id: number,
   lines: NewExpenseLine[],
 ): Promise<MyExpenseDetailResponse> =>
-  post('/api/my-expenses/create', { date, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<MyExpenseDetailResponse>;
+  post('/api/my-expenses/create', { date, company_id, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<MyExpenseDetailResponse>;
 
 export const apiSetMyExpenseState = async (
   token: string,
@@ -1006,3 +1010,10 @@ export const apiAddMyExpenseLines = async (
   lines: NewExpenseLine[],
 ): Promise<MyExpenseDetailResponse> =>
   post('/api/my-expenses/add-lines', { expense_id, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<MyExpenseDetailResponse>;
+
+export const apiUpdateMyExpense = async (
+  token: string,
+  expense_id: number,
+  values: { date?: string; company_id?: number },
+): Promise<MyExpenseDetailResponse> =>
+  post('/api/my-expenses/update', { expense_id, ...values }, token) as Promise<MyExpenseDetailResponse>;

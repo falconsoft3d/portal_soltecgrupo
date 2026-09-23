@@ -19,16 +19,14 @@ export function parseQty(value: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Valida las líneas en cliente. Devuelve el mensaje de error o null. */
-export function validateDraftLines(lines: DraftLine[], projects: ExpenseProjectOption[]): string | null {
+/** Valida las líneas en cliente (las obras ya vienen filtradas por compañía). Devuelve el error o null. */
+export function validateDraftLines(lines: DraftLine[]): string | null {
   if (lines.length === 0) return 'Añade al menos una línea.';
   for (const [i, l] of lines.entries()) {
     if (!l.product_id || !l.project_id || parseQty(l.qty) <= 0) {
       return `Línea ${i + 1}: completa producto, obra y una cantidad mayor que 0.`;
     }
   }
-  const companies = new Set(lines.map((l) => projects.find((p) => p.id === l.project_id)?.company_id));
-  if (companies.size > 1) return 'Todas las obras del gasto deben ser de la misma compañía.';
   return null;
 }
 

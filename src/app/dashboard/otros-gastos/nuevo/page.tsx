@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -34,6 +34,25 @@ export default function NuevoOtroGastoPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [partnerName, setPartnerName] = useState('');
+  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
+  const [companyId, setCompanyId] = useState<number | ''>('');
+
+  // Solo obras de la compañía elegida (donde el usuario es responsable)
+  const companyProjects = useMemo(
+    () => (companyId ? projects.filter((p) => p.company_id === companyId) : []),
+    [projects, companyId],
+  );
+
+  function onCompanyChange(value: string) {
+    const next = value ? Number(value) : '';
+    setCompanyId(next);
+    // Las obras elegidas de otra compañía dejan de ser válidas
+    setLines((prev) =>
+      prev.map((l) =>
+        l.project_id && projects.find((p) => p.id === l.project_id)?.company_id !== next ? { ...l, project_id: '' } : l,
+      ),
+    );
+  }
 
   useEffect(() => {
     const token = getToken();
@@ -42,6 +61,8 @@ export default function NuevoOtroGastoPage() {
       .then((res) => {
         if (res.success) {
           setPartnerName(res.partner_name || '');
+          setCompanies(res.companies || []);
+          setCompanyId(res.default_company_id || res.companies?.[0]?.id || '');
           setProducts(res.products || []);
           setProjects(res.projects || []);
         } else {
@@ -62,7 +83,11 @@ export default function NuevoOtroGastoPage() {
     e.preventDefault();
     setError('');
 
-    const validationError = validateDraftLines(lines, projects);
+    if (!companyId) {
+      setError('Selecciona una compañía.');
+      return;
+    }
+    const validationError = validateDraftLines(lines);
     if (validationError) {
       setError(validationError);
       return;
@@ -75,6 +100,7 @@ export default function NuevoOtroGastoPage() {
       const res = await apiCreateMyExpense(
         token,
         date,
+        companyId,
         toNewExpenseLines(lines),
       );
       if (res.success && res.expense) {
@@ -115,6 +141,26 @@ export default function NuevoOtroGastoPage() {
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400"
               />
             </div>
+            <div className="md:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-slate-600">Compañía</label>
+              <select
+                required
+                value={companyId}
+                onChange={(e) => onCompanyChange(e.target.value)}
+                disabled={loadingOptions}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 md:w-1/2"
+              >
+                <option value="">Seleccionar compañía...</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {companyId && !loadingOptions && companyProjects.length === 0 && (
+                <p className="mt-1 text-xs text-amber-700">No eres responsable de ninguna obra de esta compañía.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -144,7 +190,7 @@ export default function NuevoOtroGastoPage() {
                     key={line.key}
                     line={line}
                     products={products}
-                    projects={projects}
+                    projects={companyProjects}
                     onChange={(patch) => updateLine(line.key, patch)}
                     onRemove={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
                   />

@@ -9,6 +9,7 @@ import {
   apiMyExpenseDetail,
   apiMyExpenseOptions,
   apiSetMyExpenseState,
+  apiUpdateMyExpense,
   ExpenseProductOption,
   ExpenseProjectOption,
   MyExpense,
@@ -50,8 +51,18 @@ export default function OtroGastoDetallePage() {
   const [linesError, setLinesError] = useState('');
   const [savingLines, setSavingLines] = useState(false);
 
-  async function addLine() {
-    setNewLines((prev) => [...prev, emptyLine()]);
+  const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
+  // Edición de cabecera (solo en borrador)
+  const [editDate, setEditDate] = useState('');
+  const [editCompanyId, setEditCompanyId] = useState<number | ''>('');
+  const [savingHeader, setSavingHeader] = useState(false);
+
+  function resetHeaderForm(exp: MyExpense) {
+    setEditDate(exp.date || '');
+    setEditCompanyId(exp.company_id || '');
+  }
+
+  async function loadOptions(onError: (msg: string) => void) {
     if (optionsLoaded) return;
     const token = getToken();
     if (!token) return;
@@ -60,12 +71,66 @@ export default function OtroGastoDetallePage() {
       if (res.success) {
         setProducts(res.products || []);
         setProjects(res.projects || []);
+        setCompanies(res.companies || []);
         setOptionsLoaded(true);
       } else {
-        setLinesError(res.error || 'No se pudieron cargar productos y obras.');
+        onError(res.error || 'No se pudieron cargar productos, obras y compañías.');
       }
     } catch {
-      setLinesError('Error de conexión al cargar productos y obras.');
+      onError('Error de conexión al cargar productos, obras y compañías.');
+    }
+  }
+
+  async function addLine() {
+    setNewLines((prev) => [...prev, emptyLine()]);
+    await loadOptions(setLinesError);
+  }
+
+  const isDraft = expense?.state === 'draft';
+
+  // En borrador hacen falta las compañías para poder cambiarla
+  useEffect(() => {
+    if (!isDraft || optionsLoaded) return;
+    const token = getToken();
+    if (!token) return;
+    apiMyExpenseOptions(token)
+      .then((res) => {
+        if (res.success) {
+          setProducts(res.products || []);
+          setProjects(res.projects || []);
+          setCompanies(res.companies || []);
+          setOptionsLoaded(true);
+        }
+      })
+      .catch(() => setActionError('Error de conexión al cargar las compañías.'));
+  }, [isDraft, optionsLoaded]);
+  const headerDirty =
+    !!expense && (editDate !== (expense.date || '') || editCompanyId !== (expense.company_id || ''));
+
+  async function saveHeader() {
+    const token = getToken();
+    if (!token || !expense || !headerDirty) return;
+    if (!editDate) {
+      setActionError('Indica una fecha.');
+      return;
+    }
+    setSavingHeader(true);
+    setActionError('');
+    try {
+      const res = await apiUpdateMyExpense(token, expense.id, {
+        date: editDate,
+        company_id: editCompanyId || undefined,
+      });
+      if (res.success && res.expense) {
+        setExpense(res.expense);
+        resetHeaderForm(res.expense);
+      } else {
+        setActionError(res.error || 'No se pudo guardar el gasto.');
+      }
+    } catch {
+      setActionError('Error de conexión al guardar el gasto.');
+    } finally {
+      setSavingHeader(false);
     }
   }
 
@@ -76,7 +141,7 @@ export default function OtroGastoDetallePage() {
   async function saveNewLines() {
     const token = getToken();
     if (!token || !expense) return;
-    const validationError = validateDraftLines(newLines, projects);
+    const validationError = validateDraftLines(newLines);
     if (validationError) {
       setLinesError(validationError);
       return;
@@ -105,8 +170,10 @@ export default function OtroGastoDetallePage() {
     setActionError('');
     try {
       const res = await apiSetMyExpenseState(token, expense.id, state);
-      if (res.success && res.expense) setExpense(res.expense);
-      else setActionError(res.error || 'No se pudo cambiar el estado.');
+      if (res.success && res.expense) {
+        setExpense(res.expense);
+        resetHeaderForm(res.expense);
+      } else setActionError(res.error || 'No se pudo cambiar el estado.');
     } catch {
       setActionError('Error de conexión al cambiar el estado.');
     } finally {
@@ -138,8 +205,10 @@ export default function OtroGastoDetallePage() {
     if (!token || !validId) return;
     apiMyExpenseDetail(token, expenseId)
       .then((res) => {
-        if (res.success && res.expense) setExpense(res.expense);
-        else setError(res.error || 'No se pudo cargar el gasto.');
+        if (res.success && res.expense) {
+          setExpense(res.expense);
+          resetHeaderForm(res.expense);
+        } else setError(res.error || 'No se pudo cargar el gasto.');
       })
       .catch(() => setError('Error de conexión al cargar el gasto.'))
       .finally(() => setLoading(false));
@@ -164,7 +233,8 @@ export default function OtroGastoDetallePage() {
                 <>
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || headerDirty}
+                    title={headerDirty ? 'Guarda o descarta los cambios de fecha/compañía primero' : undefined}
                     onClick={() => changeState('done')}
                     className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
                   >
@@ -222,13 +292,69 @@ export default function OtroGastoDetallePage() {
             <div className="mt-4 grid gap-x-8 md:grid-cols-2">
               <div>
                 <Field label="Proveedor" value={expense.partner_name} />
-                <Field label="Fecha" value={formatDay(expense.date)} />
+                {isDraft ? (
+                  <Field
+                    label="Fecha"
+                    value={
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        disabled={savingHeader}
+                        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-blue-400"
+                      />
+                    }
+                  />
+                ) : (
+                  <Field label="Fecha" value={formatDay(expense.date)} />
+                )}
               </div>
               <div>
                 <Field label="Creado" value={expense.user_name} />
-                <Field label="Compañía" value={expense.company_name} />
+                {isDraft ? (
+                  <Field
+                    label="Compañía"
+                    value={
+                      <select
+                        value={editCompanyId}
+                        onChange={(e) => setEditCompanyId(e.target.value ? Number(e.target.value) : '')}
+                        disabled={savingHeader || companies.length === 0}
+                        className="w-full max-w-sm rounded border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-blue-400"
+                      >
+                        {companies.length === 0 && <option value={expense.company_id}>{expense.company_name}</option>}
+                        {companies.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    }
+                  />
+                ) : (
+                  <Field label="Compañía" value={expense.company_name} />
+                )}
               </div>
             </div>
+            {isDraft && headerDirty && (
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => resetHeaderForm(expense)}
+                  disabled={savingHeader}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Descartar
+                </button>
+                <button
+                  type="button"
+                  onClick={saveHeader}
+                  disabled={savingHeader}
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50"
+                >
+                  {savingHeader ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -295,7 +421,7 @@ export default function OtroGastoDetallePage() {
                         key={line.key}
                         line={line}
                         products={products}
-                        projects={projects}
+                        projects={projects.filter((p) => p.company_id === expense.company_id)}
                         onChange={(patch) => updateNewLine(line.key, patch)}
                         onRemove={() => setNewLines((prev) => prev.filter((l) => l.key !== line.key))}
                       />
