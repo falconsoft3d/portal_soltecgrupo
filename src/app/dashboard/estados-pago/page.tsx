@@ -83,6 +83,34 @@ function stateBadge(state: string): string {
   return 'bg-gray-50 text-gray-700 border-gray-200';
 }
 
+interface DraftPaidstateLine {
+  key: number;
+  budget_id: number | '';
+  name: string;
+  quantity: string;
+  price_unit: string;
+  certification_factor: string;
+}
+
+let paidstateLineSeq = 0;
+function emptyPaidstateLine(): DraftPaidstateLine {
+  return { key: ++paidstateLineSeq, budget_id: '', name: '', quantity: '1', price_unit: '', certification_factor: '' };
+}
+
+/** Acepta "1.234,56" y "1234.56"; vacío = 0. */
+function parseNum(value: string): number {
+  const raw = value.trim();
+  if (!raw) return 0;
+  return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw);
+}
+
+/** Mismo cálculo que bim.paidstate.line: neto = cant * precio; importe = neto * factor (si factor > 0). */
+function lineAmount(line: DraftPaidstateLine): { net: number; total: number } {
+  const net = Math.trunc(parseNum(line.quantity) || 0) * (parseNum(line.price_unit) || 0);
+  const factor = parseNum(line.certification_factor) || 0;
+  return { net, total: factor > 0 ? net * factor : net };
+}
+
 export default function EstadosPagoPage() {
   const searchParams = useSearchParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -91,8 +119,7 @@ export default function EstadosPagoPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<number | ''>('');
   const [projSearchQ, setProjSearchQ] = useState('');
   const [projDropOpen, setProjDropOpen] = useState(false);
-  const [selectedBudgetId, setSelectedBudgetId] = useState<number | ''>('');
-  const [price, setPrice] = useState<number>(0);
+  const [lines, setLines] = useState<DraftPaidstateLine[]>(() => [emptyPaidstateLine()]);
   const [date, setDate] = useState<string>(toIsoDate(new Date()));
   const [paidstates, setPaidstates] = useState<PaidstateItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,10 +148,27 @@ export default function EstadosPagoPage() {
     return projects.find((project) => project.id === selectedProjectId)?.display_name || '—';
   }, [projects, selectedProjectId]);
 
-  const selectedBudgetName = useMemo(() => {
-    if (!selectedBudgetId) return '—';
-    return budgets.find((budget) => budget.id === selectedBudgetId)?.display_name || '—';
-  }, [budgets, selectedBudgetId]);
+  const linesTotal = lines.reduce((sum, l) => sum + lineAmount(l).total, 0);
+
+  function updateLine(key: number, patch: Partial<DraftPaidstateLine>) {
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
+
+  function onLineBudgetChange(line: DraftPaidstateLine, value: string) {
+    const budgetId = value ? Number(value) : '';
+    const previous = budgets.find((b) => b.id === line.budget_id);
+    const next = budgets.find((b) => b.id === budgetId);
+    // Como en Odoo: la descripción se rellena con el presupuesto si no se ha tocado
+    const keepName = line.name && line.name !== previous?.display_name;
+    updateLine(line.key, { budget_id: budgetId, name: keepName ? line.name : next?.display_name ?? '' });
+  }
+
+  function resetCreateForm() {
+    setSelectedProjectId('');
+    setBudgets([]);
+    setLines([emptyPaidstateLine()]);
+    setDate(toIsoDate(new Date()));
+  }
 
   const groupedPaidstates = useMemo(() => {
     const monthMap = new Map<string, PaidstateItem[]>();
@@ -269,9 +313,19 @@ export default function EstadosPagoPage() {
       return;
     }
 
-    if (!selectedBudgetId) {
-      setError('Debes seleccionar un presupuesto.');
+    if (lines.length === 0) {
+      setError('Añade al menos una línea.');
       return;
+    }
+    for (const [i, l] of lines.entries()) {
+      if (!l.budget_id) {
+        setError(`Línea ${i + 1}: selecciona un presupuesto.`);
+        return;
+      }
+      if (!Number.isFinite(parseNum(l.quantity)) || !Number.isFinite(parseNum(l.price_unit))) {
+        setError(`Línea ${i + 1}: cantidad y precio deben ser números.`);
+        return;
+      }
     }
 
     const token = getToken();
@@ -282,7 +336,18 @@ export default function EstadosPagoPage() {
 
     setIsCreating(true);
     try {
-      const res = await apiCreatePaidstate(token, selectedProjectId, selectedBudgetId, price, date);
+      const res = await apiCreatePaidstate(
+        token,
+        selectedProjectId,
+        lines.map((l) => ({
+          budget_id: l.budget_id as number,
+          name: l.name.trim(),
+          quantity: Math.trunc(parseNum(l.quantity)),
+          price_unit: parseNum(l.price_unit),
+          certification_factor: parseNum(l.certification_factor) || 0,
+        })),
+        date,
+      );
       if (!res.success || !res.paidstate) {
         setError(errorToText(res.error, 'No se pudo crear el estado de pago.'));
         return;
@@ -291,10 +356,7 @@ export default function EstadosPagoPage() {
       await loadPaidstates('all');
       setSuccess(`Estado de pago ${res.paidstate.name} creado correctamente.`);
       setShowCreateForm(false);
-      setSelectedProjectId('');
-      setSelectedBudgetId('');
-      setPrice(0);
-      setDate(toIsoDate(new Date()));
+      resetCreateForm();
     } catch {
       setError('Error creando el estado de pago.');
     } finally {
@@ -457,7 +519,7 @@ export default function EstadosPagoPage() {
         <article className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4 border-b border-gray-200 pb-3">
             <h2 className="text-lg font-semibold text-gray-800">Nuevo estado de pago</h2>
-            <p className="text-sm text-gray-500">Completa Proyecto, Presupuesto y Precio.</p>
+            <p className="text-sm text-gray-500">Elige el proyecto y añade las líneas por presupuesto.</p>
           </div>
 
           <form onSubmit={handleCreate} className="space-y-4">
@@ -483,7 +545,8 @@ export default function EstadosPagoPage() {
                           <li key={project.id}>
                             <button type="button" onClick={async () => {
                               const id = project.id;
-                              setSelectedProjectId(id); setSelectedBudgetId(''); setProjDropOpen(false);
+                              setSelectedProjectId(id); setProjDropOpen(false);
+                              setLines((prev) => prev.map((l) => ({ ...l, budget_id: '', name: '' })));
                               try { await loadBudgets(id); } catch { setBudgets([]); }
                             }} className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${selectedProjectId === project.id ? 'font-semibold text-brand-700 bg-brand-50' : 'text-gray-700'}`}>
                               {project.is_manager ? '👑 ' : ''}{project.display_name}
@@ -500,39 +563,6 @@ export default function EstadosPagoPage() {
               </label>
 
               <label className="text-sm font-medium text-gray-700">
-                Presupuesto
-                <select
-                  value={selectedBudgetId === '' ? '' : String(selectedBudgetId)}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setSelectedBudgetId(value ? Number(value) : '');
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                  disabled={!selectedProjectId}
-                >
-                  <option value="">Selecciona un presupuesto...</option>
-                  {budgets.map((budget) => (
-                    <option key={budget.id} value={budget.id}>
-                      {budget.display_name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="text-sm font-medium text-gray-700">
-                Precio
-                <input
-                  type="number"
-                  step="0.01"
-                  value={price}
-                  onChange={(event) => setPrice(Number(event.target.value || 0))}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-brand-400"
-                  required
-                />
-              </label>
-
-              <label className="text-sm font-medium text-gray-700">
                 Fecha
                 <input
                   type="date"
@@ -544,10 +574,115 @@ export default function EstadosPagoPage() {
               </label>
             </div>
 
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
+                  <tr>
+                    <th className="px-3 py-2">Presupuesto</th>
+                    <th className="px-3 py-2">Descripción</th>
+                    <th className="px-3 py-2 text-right">Cantidad</th>
+                    <th className="px-3 py-2 text-right">Precio</th>
+                    <th className="px-3 py-2 text-right">Factor</th>
+                    <th className="px-3 py-2 text-right">Neto</th>
+                    <th className="px-3 py-2 text-right">Importe</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line) => {
+                    const { net, total } = lineAmount(line);
+                    return (
+                      <tr key={line.key} className="border-t border-gray-100 align-top">
+                        <td className="px-2 py-2">
+                          <select
+                            value={line.budget_id === '' ? '' : String(line.budget_id)}
+                            onChange={(e) => onLineBudgetChange(line, e.target.value)}
+                            disabled={!selectedProjectId}
+                            className="w-64 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400 disabled:bg-gray-50"
+                          >
+                            <option value="">{selectedProjectId ? 'Selecciona...' : 'Elige un proyecto'}</option>
+                            {budgets.map((budget) => (
+                              <option key={budget.id} value={budget.id}>
+                                {budget.display_name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            value={line.name}
+                            onChange={(e) => updateLine(line.key, { name: e.target.value })}
+                            className="w-64 rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={line.quantity}
+                            onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                            className="w-16 rounded border border-gray-300 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={line.price_unit}
+                            onChange={(e) => updateLine(line.key, { price_unit: e.target.value })}
+                            placeholder="0,00"
+                            className="w-28 rounded border border-gray-300 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={line.certification_factor}
+                            onChange={(e) => updateLine(line.key, { certification_factor: e.target.value })}
+                            placeholder="0,00"
+                            className="w-20 rounded border border-gray-300 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap text-gray-600">{formatCurrency(net)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(total)}</td>
+                        <td className="px-2 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
+                            className="rounded px-2 py-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
+                            aria-label="Eliminar línea"
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-gray-200 bg-gray-50">
+                    <td colSpan={6} className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setLines((prev) => [...prev, emptyPaidstateLine()])}
+                        className="text-sm font-medium text-brand-700 hover:underline"
+                      >
+                        + Añadir una línea
+                      </button>
+                    </td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap font-bold">{formatCurrency(linesTotal)}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
               <p><span className="font-semibold">Proyecto:</span> {selectedProjectName}</p>
-              <p><span className="font-semibold">Presupuesto:</span> {selectedBudgetName}</p>
-              <p><span className="font-semibold">Precio:</span> {formatCurrency(price || 0)}</p>
+              <p><span className="font-semibold">Líneas:</span> {lines.length}</p>
+              <p><span className="font-semibold">Importe:</span> {formatCurrency(linesTotal)}</p>
               <p><span className="font-semibold">Fecha:</span> {date || '—'}</p>
             </div>
 
@@ -720,11 +855,15 @@ export default function EstadosPagoPage() {
                           </span>
                         ) : (
                           <span
-                            className={item.state === 'draft' ? 'cursor-pointer underline decoration-dotted hover:text-brand-600' : ''}
-                            title={item.state === 'draft' ? 'Haz clic para editar el precio' : undefined}
-                            onClick={() => item.state === 'draft' && startEditPrice(item)}
+                            className={item.state === 'draft' && (item.line_count ?? 1) <= 1 ? 'cursor-pointer underline decoration-dotted hover:text-brand-600' : ''}
+                            title={item.state === 'draft' && (item.line_count ?? 1) <= 1 ? 'Haz clic para editar el precio' : undefined}
+                            onClick={() => item.state === 'draft' && (item.line_count ?? 1) <= 1 && startEditPrice(item)}
                           >
-                            {formatCurrency(item.price || 0)}
+                            {(item.line_count ?? 1) > 1 ? (
+                              <span className="text-gray-500">{item.line_count} líneas</span>
+                            ) : (
+                              formatCurrency(item.price || 0)
+                            )}
                           </span>
                         )}
                       </td>

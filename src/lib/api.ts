@@ -252,6 +252,7 @@ export interface PaidstateItem {
   budget_id: number | false;
   budget_name: string;
   price: number;
+  line_count?: number;
   state: 'draft' | 'validated' | 'invoiced' | 'cancel' | string;
   date: string | false;
   amount_total: number;
@@ -532,14 +533,21 @@ export const apiPaidstates = async (
 ): Promise<PaidstatesResponse> =>
   post('/api/paidstates', { project_id }, token) as Promise<PaidstatesResponse>;
 
+export interface NewPaidstateLine {
+  budget_id: number;
+  name: string;
+  quantity: number;
+  price_unit: number;
+  certification_factor: number;
+}
+
 export const apiCreatePaidstate = async (
   token: string,
   project_id: number,
-  budget_id: number,
-  price: number,
+  lines: NewPaidstateLine[],
   date?: string,
 ): Promise<CreatePaidstateResponse> =>
-  post('/api/paidstates/create', { project_id, budget_id, price, date }, token) as Promise<CreatePaidstateResponse>;
+  post('/api/paidstates/create', { project_id, lines: lines as unknown as Record<string, unknown>[], date }, token) as Promise<CreatePaidstateResponse>;
 
 export const apiSetPaidstateState = async (
   token: string,
