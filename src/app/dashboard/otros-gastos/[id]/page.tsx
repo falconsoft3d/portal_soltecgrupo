@@ -318,10 +318,12 @@ export default function OtroGastoDetallePage() {
                       <select
                         value={editCompanyId}
                         onChange={(e) => setEditCompanyId(e.target.value ? Number(e.target.value) : '')}
-                        disabled={savingHeader || companies.length === 0}
+                        disabled={savingHeader}
                         className="w-full max-w-sm rounded border border-slate-300 bg-white px-2 py-1 text-sm outline-none focus:border-blue-400"
                       >
-                        {companies.length === 0 && <option value={expense.company_id}>{expense.company_name}</option>}
+                        {!companies.some((c) => c.id === expense.company_id) && (
+                          <option value={expense.company_id}>{expense.company_name}</option>
+                        )}
                         {companies.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.name}
