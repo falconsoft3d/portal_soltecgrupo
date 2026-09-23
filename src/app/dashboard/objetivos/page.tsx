@@ -66,7 +66,7 @@ export default function ObjetivosPage() {
   }
 
   function addRow() {
-    setObjectives([...objectives, { id: null, date_from: today(), date_to: today(), product_id: false, product_name: '', daily_units: 0 }]);
+    setObjectives([...objectives, { id: null, date_from: today(), date_to: today(), product_id: false, product_name: '', daily_units: 0, hh: 0 }]);
   }
 
   function removeRow(idx: number) {
@@ -96,7 +96,7 @@ export default function ObjetivosPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto text-slate-800">
+    <div className="p-6 max-w-6xl mx-auto text-slate-800">
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Objetivos</h1>
 
       {/* Selectores */}
@@ -179,7 +179,11 @@ export default function ObjetivosPage() {
                   <th className="px-3 py-2 text-left">Fecha de Inicio</th>
                   <th className="px-3 py-2 text-left">Fecha de Fin</th>
                   <th className="px-3 py-2 text-left">Producto</th>
-                  <th className="px-3 py-2 text-right">UD Diarias</th>
+                  <th className="px-3 py-2 text-right">UD</th>
+                  <th className="px-3 py-2 text-right">HH</th>
+                  <th className="px-3 py-2 text-right" title="UD / HH">Rendimiento</th>
+                  <th className="px-3 py-2 text-left">Empleado</th>
+                  <th className="px-3 py-2 text-left">Partner</th>
                   <th className="px-3 py-2"></th>
                 </tr>
               </thead>
@@ -206,6 +210,17 @@ export default function ObjetivosPage() {
                         onChange={e => updateRow(idx, 'daily_units', parseFloat(e.target.value) || 0)}
                         className="rounded border border-slate-300 bg-white text-slate-800 px-2 py-1 text-xs w-24 text-right" />
                     </td>
+                    <td className="px-3 py-1.5 text-right">
+                      <input type="number" value={obj.hh ?? 0} step="0.01"
+                        onChange={e => updateRow(idx, 'hh', parseFloat(e.target.value) || 0)}
+                        className="rounded border border-slate-300 bg-white text-slate-800 px-2 py-1 text-xs w-20 text-right" />
+                    </td>
+                    {/* Mismo cálculo que Odoo: UD / HH (0 si no hay HH) */}
+                    <td className="px-3 py-1.5 text-right text-xs font-semibold text-slate-700 whitespace-nowrap">
+                      {(obj.hh ? obj.daily_units / obj.hh : 0).toFixed(2).replace('.', ',')}
+                    </td>
+                    <td className="px-3 py-1.5 text-xs text-slate-600">{obj.employee_name || '—'}</td>
+                    <td className="px-3 py-1.5 text-xs text-slate-600">{obj.partner_name || '—'}</td>
                     <td className="px-3 py-1.5 text-center">
                       <button onClick={() => removeRow(idx)}
                         className="text-rose-500 hover:text-rose-700 text-xs font-bold">✕</button>
@@ -213,7 +228,7 @@ export default function ObjetivosPage() {
                   </tr>
                 ))}
                 {objectives.length === 0 && (
-                  <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-400 text-sm">Sin objetivos. Añade una línea.</td></tr>
+                  <tr><td colSpan={9} className="px-3 py-4 text-center text-slate-400 text-sm">Sin objetivos. Añade una línea.</td></tr>
                 )}
               </tbody>
             </table>

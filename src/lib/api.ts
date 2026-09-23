@@ -788,6 +788,12 @@ export interface ObjectiveItem {
   product_id: number | false;
   product_name: string;
   daily_units: number;
+  hh: number;
+  /** UD / HH, calculado en Odoo */
+  performance?: number;
+  /** Solo lectura en el portal */
+  employee_name?: string;
+  partner_name?: string;
 }
 export interface ObjectivesResponse extends ApiResponse { objectives?: ObjectiveItem[]; }
 
