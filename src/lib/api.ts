@@ -478,8 +478,9 @@ export const apiPickingAnalyses = async (
   year?: number,
   company_ids?: number[],
   project_ids?: number[],
+  all_periods?: boolean,
 ): Promise<PickingAnalysesResponse> =>
-  post('/api/picking-analyses', { project_id, month, months, filter_mode, year, company_ids, project_ids }, token) as Promise<PickingAnalysesResponse>;
+  post('/api/picking-analyses', { project_id, month, months, filter_mode, year, company_ids, project_ids, all_periods }, token) as Promise<PickingAnalysesResponse>;
 
 export interface PickingAnalysisFormLine {
   note: string;

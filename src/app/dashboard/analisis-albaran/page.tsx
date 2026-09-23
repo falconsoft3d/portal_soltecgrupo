@@ -188,7 +188,8 @@ export default function AnalisisAlbaranPage() {
     const token = getToken();
     if (!token) return;
 
-    const res = await apiPickingAnalyses(token, projectId);
+    // Todos los periodos: incluye análisis con fecha fin futura (p. ej. duplicados a otro mes)
+    const res = await apiPickingAnalyses(token, projectId, undefined, 'origin', undefined, undefined, undefined, undefined, true);
     if (!res.success) {
       throw new Error(errorToText(res.error, 'No se pudo cargar los analisis de albaran.'));
     }
@@ -199,7 +200,7 @@ export default function AnalisisAlbaranPage() {
     const token = getToken();
     if (!token) return;
 
-    Promise.all([apiProjects(token), apiPickingAnalyses(token, 'all')])
+    Promise.all([apiProjects(token), apiPickingAnalyses(token, 'all', undefined, 'origin', undefined, undefined, undefined, undefined, true)])
       .then(([projectsRes, analysesRes]) => {
         if (projectsRes.success && projectsRes.projects) {
           setProjects(projectsRes.projects);
