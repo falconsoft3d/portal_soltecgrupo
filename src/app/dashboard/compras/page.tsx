@@ -29,7 +29,8 @@ export default function ComprasPage() {
   const [error, setError] = useState('');
 
   const [groupByMonth, setGroupByMonth] = useState(true);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Los meses arrancan plegados; se despliegan al hacer clic
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   // Agrupación mensual por fecha de pedido (las filas ya vienen ordenadas por fecha desc)
   const groups = useMemo(() => {
@@ -49,7 +50,7 @@ export default function ComprasPage() {
   }, [rows]);
 
   function toggleGroup(key: string) {
-    setCollapsed((prev) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -243,7 +244,7 @@ export default function ComprasPage() {
             ) : (
               groupByMonth ? (
                 groups.map((group) => {
-                  const isCollapsed = collapsed.has(group.key);
+                  const isOpen = expanded.has(group.key);
                   return (
                     <Fragment key={group.key}>
                       <tr
@@ -251,7 +252,7 @@ export default function ComprasPage() {
                         className="cursor-pointer border-t border-slate-200 bg-slate-100 font-semibold text-slate-700 hover:bg-slate-200/70"
                       >
                         <td colSpan={6} className="px-3 py-2">
-                          <span className="mr-2 inline-block w-3 text-slate-500">{isCollapsed ? '▸' : '▾'}</span>
+                          <span className="mr-2 inline-block w-3 text-slate-500">{isOpen ? '▾' : '▸'}</span>
                           {monthLabel(group.key)}
                           <span className="ml-2 text-xs font-normal text-slate-500">({group.rows.length})</span>
                         </td>
@@ -259,7 +260,7 @@ export default function ComprasPage() {
                         <td className="px-3 py-2 text-right whitespace-nowrap">{formatCurrency(group.total)}</td>
                         <td className="px-3 py-2" />
                       </tr>
-                      {!isCollapsed && group.rows.map(renderRow)}
+                      {isOpen && group.rows.map(renderRow)}
                     </Fragment>
                   );
                 })
