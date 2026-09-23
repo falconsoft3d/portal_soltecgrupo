@@ -574,7 +574,7 @@ export default function EstadosPagoPage() {
               </label>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white text-gray-800">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
                   <tr>
@@ -598,7 +598,7 @@ export default function EstadosPagoPage() {
                             value={line.budget_id === '' ? '' : String(line.budget_id)}
                             onChange={(e) => onLineBudgetChange(line, e.target.value)}
                             disabled={!selectedProjectId}
-                            className="w-64 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-brand-400 disabled:bg-gray-50"
+                            className="w-64 rounded border border-gray-300 bg-white text-gray-800 px-2 py-1.5 text-sm outline-none focus:border-brand-400 disabled:bg-gray-50 disabled:text-gray-400"
                           >
                             <option value="">{selectedProjectId ? 'Selecciona...' : 'Elige un proyecto'}</option>
                             {budgets.map((budget) => (
@@ -613,7 +613,7 @@ export default function EstadosPagoPage() {
                             type="text"
                             value={line.name}
                             onChange={(e) => updateLine(line.key, { name: e.target.value })}
-                            className="w-64 rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-brand-400"
+                            className="w-64 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -622,7 +622,7 @@ export default function EstadosPagoPage() {
                             inputMode="numeric"
                             value={line.quantity}
                             onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                            className="w-16 rounded border border-gray-300 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
+                            className="w-16 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -632,7 +632,7 @@ export default function EstadosPagoPage() {
                             value={line.price_unit}
                             onChange={(e) => updateLine(line.key, { price_unit: e.target.value })}
                             placeholder="0,00"
-                            className="w-28 rounded border border-gray-300 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
+                            className="w-28 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-2 py-2">
@@ -642,7 +642,7 @@ export default function EstadosPagoPage() {
                             value={line.certification_factor}
                             onChange={(e) => updateLine(line.key, { certification_factor: e.target.value })}
                             placeholder="0,00"
-                            className="w-20 rounded border border-gray-300 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
+                            className="w-20 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-3 py-2 text-right whitespace-nowrap text-gray-600">{formatCurrency(net)}</td>
