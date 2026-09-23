@@ -18,6 +18,37 @@ function esNum(value: number, decimals = 2): string {
   return decimals > 0 ? `${sign}${intFormatted},${decPart}` : `${sign}${intFormatted}`;
 }
 
+// Filtro Obra/Presupuesto recordado entre menús hasta que se limpie
+const FILTER_STORAGE_KEY = 'mano_de_obra_filter';
+
+interface SavedFilter {
+  project: number | '';
+  budget: number | '';
+}
+
+function readSavedFilter(): SavedFilter | null {
+  try {
+    const raw = localStorage.getItem(FILTER_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as Partial<SavedFilter>;
+    return {
+      project: typeof data.project === 'number' ? data.project : '',
+      budget: typeof data.budget === 'number' ? data.budget : '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveFilter(filter: SavedFilter | null) {
+  try {
+    if (filter && filter.project) localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filter));
+    else localStorage.removeItem(FILTER_STORAGE_KEY);
+  } catch {
+    // localStorage no disponible: el filtro simplemente no se recuerda
+  }
+}
+
 export default function ManoDeObraPage() {
   const [projects, setProjects] = useState<PortalProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<number | ''>('');
@@ -35,12 +66,45 @@ export default function ManoDeObraPage() {
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    apiProjects(token).then(res => {
-      if (res.success) setProjects(res.projects || []);
-    });
+    let cancelled = false;
+    (async () => {
+      const res = await apiProjects(token);
+      if (cancelled || !res.success) return;
+      const loadedProjects = res.projects || [];
+      setProjects(loadedProjects);
+
+      // Restaurar el último filtro si la obra sigue disponible
+      const saved = readSavedFilter();
+      if (!saved?.project || !loadedProjects.some((p) => p.id === saved.project)) return;
+      setSelectedProject(saved.project);
+      const budgetsRes = await apiBudgets(token, saved.project);
+      if (cancelled || !budgetsRes.success) return;
+      const loadedBudgets = budgetsRes.budgets || [];
+      setBudgets(loadedBudgets);
+      if (!saved.budget || !loadedBudgets.some((b) => b.id === saved.budget)) return;
+      setSelectedBudget(saved.budget);
+      setLoading(true);
+      const laborRes = await apiBudgetLabor(token, saved.budget);
+      if (cancelled) return;
+      if (laborRes.success) setLines(laborRes.lines || []);
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
+  function clearFilter() {
+    saveFilter(null);
+    setSelectedProject('');
+    setSelectedBudget('');
+    setBudgets([]);
+    setLines([]);
+    setMsg('');
+  }
+
   async function onProjectChange(pid: number | '') {
+    saveFilter({ project: pid, budget: '' });
     setSelectedProject(pid);
     setSelectedBudget('');
     setLines([]);
@@ -64,6 +128,7 @@ export default function ManoDeObraPage() {
   }
 
   async function onBudgetChange(bid: number | '') {
+    saveFilter({ project: selectedProject, budget: bid });
     setSelectedBudget(bid);
     setLines([]);
     if (!bid) return;
@@ -88,7 +153,18 @@ export default function ManoDeObraPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto text-slate-800">
-      <h1 className="text-2xl font-bold text-slate-800 mb-6">Mano de Obra</h1>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-slate-800">Mano de Obra</h1>
+        {selectedProject && (
+          <button
+            type="button"
+            onClick={clearFilter}
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Limpiar filtro
+          </button>
+        )}
+      </div>
 
       {/* Selectores */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
