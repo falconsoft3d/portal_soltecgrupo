@@ -1074,3 +1074,40 @@ export const apiUpdateMyProject = async (
   values: { name: string; expansion_contract: number },
 ): Promise<MyProjectCreateResponse> =>
   post('/api/my-projects/update', { project_id, ...values }, token) as Promise<MyProjectCreateResponse>;
+
+export interface PaidstateDetailLine {
+  id: number;
+  budget_id: number | false;
+  budget_name: string;
+  name: string;
+  quantity: number;
+  price_unit: number;
+  certification_factor: number;
+  amount: number;
+  amount_total: number;
+}
+
+export interface PaidstateDetail extends PaidstateItem {
+  company_name: string;
+  object_name: string;
+  type: string;
+  amount: number;
+  editable: boolean;
+  lines: PaidstateDetailLine[];
+  budgets: ProjectBudgetItem[];
+}
+
+export interface PaidstateDetailResponse extends ApiResponse {
+  paidstate?: PaidstateDetail;
+}
+
+export const apiPaidstateDetail = async (token: string, paidstate_id: number): Promise<PaidstateDetailResponse> =>
+  post('/api/paidstates/detail', { paidstate_id }, token) as Promise<PaidstateDetailResponse>;
+
+export const apiSavePaidstate = async (
+  token: string,
+  paidstate_id: number,
+  date: string,
+  lines: (NewPaidstateLine & { id?: number })[],
+): Promise<PaidstateDetailResponse> =>
+  post('/api/paidstates/save', { paidstate_id, date, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<PaidstateDetailResponse>;

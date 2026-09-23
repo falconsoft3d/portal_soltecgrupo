@@ -1,6 +1,7 @@
 'use client';
 
 import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
   apiCreatePaidstate,
@@ -16,6 +17,13 @@ import {
   ProjectBudgetItem,
 } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import PaidstateLinesTable, {
+  DraftPaidstateLine,
+  emptyPaidstateLine,
+  linesTotal as computeLinesTotal,
+  toPaidstateLines,
+  validatePaidstateLines,
+} from './PaidstateLinesTable';
 
 function toIsoDate(date: Date): string {
   const y = date.getFullYear();
@@ -83,34 +91,6 @@ function stateBadge(state: string): string {
   return 'bg-gray-50 text-gray-700 border-gray-200';
 }
 
-interface DraftPaidstateLine {
-  key: number;
-  budget_id: number | '';
-  name: string;
-  quantity: string;
-  price_unit: string;
-  certification_factor: string;
-}
-
-let paidstateLineSeq = 0;
-function emptyPaidstateLine(): DraftPaidstateLine {
-  return { key: ++paidstateLineSeq, budget_id: '', name: '', quantity: '1', price_unit: '', certification_factor: '' };
-}
-
-/** Acepta "1.234,56" y "1234.56"; vacío = 0. */
-function parseNum(value: string): number {
-  const raw = value.trim();
-  if (!raw) return 0;
-  return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw);
-}
-
-/** Mismo cálculo que bim.paidstate.line: neto = cant * precio; importe = neto * factor (si factor > 0). */
-function lineAmount(line: DraftPaidstateLine): { net: number; total: number } {
-  const net = Math.trunc(parseNum(line.quantity) || 0) * (parseNum(line.price_unit) || 0);
-  const factor = parseNum(line.certification_factor) || 0;
-  return { net, total: factor > 0 ? net * factor : net };
-}
-
 export default function EstadosPagoPage() {
   const searchParams = useSearchParams();
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -148,20 +128,7 @@ export default function EstadosPagoPage() {
     return projects.find((project) => project.id === selectedProjectId)?.display_name || '—';
   }, [projects, selectedProjectId]);
 
-  const linesTotal = lines.reduce((sum, l) => sum + lineAmount(l).total, 0);
-
-  function updateLine(key: number, patch: Partial<DraftPaidstateLine>) {
-    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-  }
-
-  function onLineBudgetChange(line: DraftPaidstateLine, value: string) {
-    const budgetId = value ? Number(value) : '';
-    const previous = budgets.find((b) => b.id === line.budget_id);
-    const next = budgets.find((b) => b.id === budgetId);
-    // Como en Odoo: la descripción se rellena con el presupuesto si no se ha tocado
-    const keepName = line.name && line.name !== previous?.display_name;
-    updateLine(line.key, { budget_id: budgetId, name: keepName ? line.name : next?.display_name ?? '' });
-  }
+  const linesTotal = computeLinesTotal(lines);
 
   function resetCreateForm() {
     setSelectedProjectId('');
@@ -313,19 +280,10 @@ export default function EstadosPagoPage() {
       return;
     }
 
-    if (lines.length === 0) {
-      setError('Añade al menos una línea.');
+    const linesError = validatePaidstateLines(lines);
+    if (linesError) {
+      setError(linesError);
       return;
-    }
-    for (const [i, l] of lines.entries()) {
-      if (!l.budget_id) {
-        setError(`Línea ${i + 1}: selecciona un presupuesto.`);
-        return;
-      }
-      if (!Number.isFinite(parseNum(l.quantity)) || !Number.isFinite(parseNum(l.price_unit))) {
-        setError(`Línea ${i + 1}: cantidad y precio deben ser números.`);
-        return;
-      }
     }
 
     const token = getToken();
@@ -339,13 +297,7 @@ export default function EstadosPagoPage() {
       const res = await apiCreatePaidstate(
         token,
         selectedProjectId,
-        lines.map((l) => ({
-          budget_id: l.budget_id as number,
-          name: l.name.trim(),
-          quantity: Math.trunc(parseNum(l.quantity)),
-          price_unit: parseNum(l.price_unit),
-          certification_factor: parseNum(l.certification_factor) || 0,
-        })),
+        toPaidstateLines(lines),
         date,
       );
       if (!res.success || !res.paidstate) {
@@ -574,99 +526,12 @@ export default function EstadosPagoPage() {
               </label>
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white text-gray-800">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
-                  <tr>
-                    <th className="px-3 py-2">Presupuesto</th>
-                    <th className="px-3 py-2">Descripción</th>
-                    <th className="px-3 py-2 text-right">Cantidad</th>
-                    <th className="px-3 py-2 text-right">Precio</th>
-                    <th className="px-3 py-2 text-right">Neto</th>
-                    <th className="px-3 py-2 text-right">Importe</th>
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => {
-                    const { net, total } = lineAmount(line);
-                    return (
-                      <tr key={line.key} className="border-t border-gray-100 align-middle">
-                        <td className="px-2 py-2">
-                          <select
-                            value={line.budget_id === '' ? '' : String(line.budget_id)}
-                            onChange={(e) => onLineBudgetChange(line, e.target.value)}
-                            disabled={!selectedProjectId}
-                            className="w-64 rounded border border-gray-300 bg-white text-gray-800 px-2 py-1.5 text-sm outline-none focus:border-brand-400 disabled:bg-gray-50 disabled:text-gray-400"
-                          >
-                            <option value="">{selectedProjectId ? 'Selecciona...' : 'Elige un proyecto'}</option>
-                            {budgets.map((budget) => (
-                              <option key={budget.id} value={budget.id}>
-                                {budget.display_name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-2">
-                          <input
-                            type="text"
-                            value={line.name}
-                            onChange={(e) => updateLine(line.key, { name: e.target.value })}
-                            className="w-64 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-sm outline-none focus:border-brand-400"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            value={line.quantity}
-                            onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                            className="w-16 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={line.price_unit}
-                            onChange={(e) => updateLine(line.key, { price_unit: e.target.value })}
-                            placeholder="0,00"
-                            className="w-28 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
-                          />
-                        </td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap text-gray-600">{formatCurrency(net)}</td>
-                        <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{formatCurrency(total)}</td>
-                        <td className="px-2 py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setLines((prev) => prev.filter((l) => l.key !== line.key))}
-                            className="rounded px-2 py-1 text-gray-400 hover:bg-rose-50 hover:text-rose-600"
-                            aria-label="Eliminar línea"
-                          >
-                            ✕
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t border-gray-200 bg-gray-50">
-                    <td colSpan={5} className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => setLines((prev) => [...prev, emptyPaidstateLine()])}
-                        className="text-sm font-medium text-brand-700 hover:underline"
-                      >
-                        + Añadir una línea
-                      </button>
-                    </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap font-bold">{formatCurrency(linesTotal)}</td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            <PaidstateLinesTable
+              lines={lines}
+              budgets={budgets}
+              onChange={setLines}
+              budgetsPlaceholder={selectedProjectId ? 'Sin presupuestos certificables' : 'Elige un proyecto'}
+            />
 
             <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
               <p><span className="font-semibold">Proyecto:</span> {selectedProjectName}</p>
@@ -766,7 +631,15 @@ export default function EstadosPagoPage() {
                       id={`paidstate-row-${item.id}`}
                       className={`border-t border-gray-100 text-gray-700 ${highlightId === item.id ? 'bg-yellow-100' : ''}`}
                     >
-                      <td className="px-3 py-2 font-semibold">{item.name}</td>
+                      <td className="px-3 py-2 font-semibold">
+                        <Link
+                          href={`/dashboard/estados-pago/${item.id}`}
+                          className="text-brand-700 underline decoration-dotted hover:text-brand-600"
+                          title="Abrir estado de pago"
+                        >
+                          {item.name}
+                        </Link>
+                      </td>
                       <td className="px-3 py-2">{item.project_name || '—'}</td>
                       <td className="px-3 py-2">{item.budget_name || '—'}</td>
                       <td className="px-3 py-2">
