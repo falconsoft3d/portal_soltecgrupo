@@ -1017,3 +1017,45 @@ export const apiUpdateMyExpense = async (
   values: { date?: string; company_id?: number },
 ): Promise<MyExpenseDetailResponse> =>
   post('/api/my-expenses/update', { expense_id, ...values }, token) as Promise<MyExpenseDetailResponse>;
+
+// ------------------------------------------------------------------ //
+//  Proyectos propios (bim.project) — el usuario es resp. de ejecución //
+// ------------------------------------------------------------------ //
+
+export interface MyProject {
+  id: number;
+  company_id: number;
+  company_name: string;
+  code: string;
+  name: string;
+  customer_name: string;
+  manager_name: string;
+  foreman_name: string;
+  t_desplazamiento: number;
+  contracted_sale: number;
+  contracted_cost: number;
+  contracted_coefficient: number;
+  expansion_contract: number;
+  state_name: string;
+}
+
+export interface MyProjectsResponse extends ApiResponse {
+  projects?: MyProject[];
+  total_records?: number;
+  partner_name?: string;
+  companies?: { id: number; name: string }[];
+  default_company_id?: number | false;
+}
+
+export interface MyProjectCreateResponse extends ApiResponse {
+  project?: MyProject;
+}
+
+export const apiMyProjects = async (token: string, search?: string): Promise<MyProjectsResponse> =>
+  post('/api/my-projects', { search }, token) as Promise<MyProjectsResponse>;
+
+export const apiCreateMyProject = async (
+  token: string,
+  values: { company_id: number; name: string; expansion_contract: number },
+): Promise<MyProjectCreateResponse> =>
+  post('/api/my-projects/create', values, token) as Promise<MyProjectCreateResponse>;
