@@ -582,7 +582,6 @@ export default function EstadosPagoPage() {
                     <th className="px-3 py-2">Descripción</th>
                     <th className="px-3 py-2 text-right">Cantidad</th>
                     <th className="px-3 py-2 text-right">Precio</th>
-                    <th className="px-3 py-2 text-right">Factor</th>
                     <th className="px-3 py-2 text-right">Neto</th>
                     <th className="px-3 py-2 text-right">Importe</th>
                     <th className="px-3 py-2" />
@@ -592,7 +591,7 @@ export default function EstadosPagoPage() {
                   {lines.map((line) => {
                     const { net, total } = lineAmount(line);
                     return (
-                      <tr key={line.key} className="border-t border-gray-100 align-top">
+                      <tr key={line.key} className="border-t border-gray-100 align-middle">
                         <td className="px-2 py-2">
                           <select
                             value={line.budget_id === '' ? '' : String(line.budget_id)}
@@ -616,7 +615,7 @@ export default function EstadosPagoPage() {
                             className="w-64 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-sm outline-none focus:border-brand-400"
                           />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-3 py-2 text-right">
                           <input
                             type="text"
                             inputMode="numeric"
@@ -625,7 +624,7 @@ export default function EstadosPagoPage() {
                             className="w-16 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="px-3 py-2 text-right">
                           <input
                             type="text"
                             inputMode="decimal"
@@ -633,16 +632,6 @@ export default function EstadosPagoPage() {
                             onChange={(e) => updateLine(line.key, { price_unit: e.target.value })}
                             placeholder="0,00"
                             className="w-28 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={line.certification_factor}
-                            onChange={(e) => updateLine(line.key, { certification_factor: e.target.value })}
-                            placeholder="0,00"
-                            className="w-20 rounded border border-gray-300 bg-white text-gray-800 placeholder:text-gray-400 px-2 py-1.5 text-right text-sm outline-none focus:border-brand-400"
                           />
                         </td>
                         <td className="px-3 py-2 text-right whitespace-nowrap text-gray-600">{formatCurrency(net)}</td>
@@ -663,7 +652,7 @@ export default function EstadosPagoPage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-gray-200 bg-gray-50">
-                    <td colSpan={6} className="px-3 py-2">
+                    <td colSpan={5} className="px-3 py-2">
                       <button
                         type="button"
                         onClick={() => setLines((prev) => [...prev, emptyPaidstateLine()])}
