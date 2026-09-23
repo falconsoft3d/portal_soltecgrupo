@@ -73,6 +73,26 @@ const COLUMNS: ColDef[] = [
   { key: 'mmnet_year',           label: '%MNet-A',            align: 'right',  defaultVisible: true,  isPct: true },
 ];
 
+const VISIBLE_COLS_STORAGE_KEY = 'estados_resultados_visible_cols';
+
+function defaultVisibleCols(): Set<ColKey> {
+  return new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
+}
+
+/** Columnas visibles guardadas; si no hay nada válido, las de por defecto. */
+function loadVisibleCols(): Set<ColKey> {
+  if (typeof window === 'undefined') return defaultVisibleCols();
+  try {
+    const raw = localStorage.getItem(VISIBLE_COLS_STORAGE_KEY);
+    if (!raw) return defaultVisibleCols();
+    const valid = new Set<string>(COLUMNS.map((c) => c.key));
+    const saved = (JSON.parse(raw) as unknown[]).filter((k): k is ColKey => typeof k === 'string' && valid.has(k));
+    return saved.length ? new Set(saved) : defaultVisibleCols();
+  } catch {
+    return defaultVisibleCols();
+  }
+}
+
 function exportDetailToXlsx(detail: ResultTableDetailItem) {
   const rows = detail.lines.map((l) => {
     const row: Record<string, string | number> = {};
@@ -184,9 +204,15 @@ export default function EstadosResultadosPage() {
     document.addEventListener('mouseup', onUp);
   }
 
-  // Visibilidad de columnas
-  const defaultVisible = new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key));
-  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(defaultVisible);
+  // Visibilidad de columnas (se recuerda en localStorage entre visitas)
+  const [visibleCols, setVisibleCols] = useState<Set<ColKey>>(loadVisibleCols);
+  useEffect(() => {
+    try {
+      localStorage.setItem(VISIBLE_COLS_STORAGE_KEY, JSON.stringify([...visibleCols]));
+    } catch {
+      // localStorage no disponible (modo privado, bloqueado...): se ignora
+    }
+  }, [visibleCols]);
   const [showColPicker, setShowColPicker] = useState(false);
   const colPickerRef = useRef<HTMLDivElement>(null);
 
@@ -791,7 +817,7 @@ export default function EstadosResultadosPage() {
                       <div className="flex gap-2">
                         <button type="button" onClick={() => setVisibleCols(new Set(COLUMNS.map((c) => c.key)))} className="text-xs text-brand-600 hover:text-brand-800">Todas</button>
                         <span className="text-gray-300">|</span>
-                        <button type="button" onClick={() => setVisibleCols(new Set(COLUMNS.filter((c) => c.defaultVisible).map((c) => c.key)))} className="text-xs text-gray-500 hover:text-gray-700">Defecto</button>
+                        <button type="button" onClick={() => setVisibleCols(defaultVisibleCols())} className="text-xs text-gray-500 hover:text-gray-700">Defecto</button>
                       </div>
                     </div>
                     <ul className="divide-y divide-gray-50 py-1">
