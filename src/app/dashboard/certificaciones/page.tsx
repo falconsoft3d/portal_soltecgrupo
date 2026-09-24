@@ -1370,7 +1370,7 @@ export default function CertificacionesPage() {
                     : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
                 }`}
               >
-                {hideTheory ? '✓ ' : ''}Ocultar teoría
+                {hideTheory ? '✓ ' : ''}Planificación
               </button>
               <button
                 type="button"
