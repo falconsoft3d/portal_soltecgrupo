@@ -22,7 +22,9 @@ import {
   PortalProject,
   ShipmentItem,
   InvoicedInvoiceItem,
+  PickingAnalysisLineItem,
 } from '@/lib/api';
+import { SortableTh, SortGetters, SortState, nextSort, sortRows } from './components/SortableTh';
 import { getToken } from '@/lib/auth';
 
 type Kpi = {
@@ -247,6 +249,108 @@ function extractProjectCode(nameRaw: string): string {
   }
   return name || 'S/N';
 }
+
+// ------------------------------------------------------------------ //
+//  Ordenación de tablas: valor por columna                            //
+// ------------------------------------------------------------------ //
+
+const INVOICED_GETTERS: SortGetters<InvoicedInvoiceItem> = {
+  name: (r) => r.name || `INV-${r.id}`,
+  date: (r) => r.date,
+  customer: (r) => r.customer_name,
+  project: (r) => r.project_name,
+  total: (r) => r.total,
+};
+
+const AAPP_GETTERS: SortGetters<PickingAnalysisItem> = {
+  name: (r) => r.name,
+  project: (r) => r.project_name,
+  end_date: (r) => r.end_date,
+  created_by: (r) => r.created_by,
+  create_date: (r) => r.create_date,
+};
+
+const AAPP_LINE_GETTERS: SortGetters<PickingAnalysisLineItem> = {
+  note: (r) => r.note,
+  assets_qty: (r) => r.assets_qty,
+  product_cost: (r) => r.product_cost,
+  subtotal: (r) => r.subtotal,
+};
+
+const MATERIAL_GETTERS: SortGetters<MaterialLineItem> = {
+  category: (r) => r.category_name || 'Sin categoría',
+  date: (r) => r.date,
+  scheduled_date: (r) => r.scheduled_date,
+  partner: (r) => r.partner_name,
+  picking: (r) => r.picking_name,
+  reference: (r) => r.reference,
+  description: (r) => r.description,
+  qty: (r) => r.qty,
+  unit_price: (r) => r.unit_price,
+  subtotal: (r) => r.subtotal,
+};
+
+const OTHER_EXPENSE_GETTERS: SortGetters<OtherExpenseLineItem> = {
+  expense: (r) => r.expense_name || `OE-${r.expense_id}`,
+  date: (r) => r.date,
+  project: (r) => r.project_name,
+  total: (r) => r.total,
+};
+
+const SHIPMENT_GETTERS: SortGetters<ShipmentItem> = {
+  name: (r) => r.name,
+  vehicle: (r) => r.vehicle,
+  origin: (r) => r.origin_project,
+  destination: (r) => r.destination_project,
+  driver: (r) => r.driver,
+  km_initial: (r) => r.km_initial,
+  km_final: (r) => r.km_final,
+  price: (r) => r.price,
+  qty: (r) => r.qty,
+  total: (r) => r.total,
+  date: (r) => r.date,
+};
+
+const PARTNER_ATTENDANCE_GETTERS: SortGetters<PartnerAttendanceItem> = {
+  project: (r) => r.project_name,
+  contract: (r) => r.contract_name,
+  check_in: (r) => r.check_in,
+  check_out: (r) => r.check_out,
+  contract_in: (r) => r.contract_check_in_time,
+  contract_out: (r) => r.contract_check_out_time,
+  check_in_calc: (r) => r.check_in_calculated,
+  check_out_calc: (r) => r.check_out_calculated,
+  hour_cost: (r) => r.hour_cost,
+  tiempo_total: (r) => r.tiempo_total,
+  tiempo_calc: (r) => r.tiempo_total_calculado,
+  note: (r) => r.note,
+  total: (r) => r.total,
+  use_calc: (r) => r.use_calculated_time,
+};
+
+const ATTENDANCE_GETTERS: SortGetters<AttendanceItem> = {
+  job: (r) => r.job_name,
+  employee: (r) => r.employee_name,
+  check_in: (r) => r.check_in,
+  check_out: (r) => r.check_out,
+  project: (r) => r.project_name,
+  project_out: (r) => r.project_out_name,
+  de: (r) => r.de,
+  ds: (r) => r.ds,
+  almuerzo: (r) => r.almuerzo,
+  comida: (r) => r.comida,
+  note: (r) => r.note,
+  festivo: (r) => r.festivo,
+  ud: (r) => r.ud,
+  mod: (r) => r.mod,
+  total_hh: (r) => r.total_hh,
+  moe: (r) => r.moe,
+  mof: (r) => r.mof,
+  t_extra: (r) => r.t_extra,
+  dietas: (r) => r.dietas,
+  hour_cost: (r) => r.hour_cost,
+  total: (r) => r.total,
+};
 
 export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
@@ -710,6 +814,67 @@ export default function DashboardPage() {
       .map((c) => ({ ...c, partners: c.partners.sort((a, b) => b.amount - a.amount) }))
       .sort((a, b) => b.amount - a.amount);
   }, [partnerAttendanceData.rows]);
+
+  // Orden por columna de cada tabla (clic en la cabecera)
+  const [tableSorts, setTableSorts] = useState<Record<string, SortState | undefined>>({});
+  const sortProps = (table: string) => ({
+    sort: tableSorts[table],
+    onSort: (key: string) => setTableSorts((prev) => ({ ...prev, [table]: nextSort(prev[table], key) })),
+  });
+
+  const invoicedRowsSorted = useMemo(
+    () => sortRows(invoicedData.rows, tableSorts.invoiced, INVOICED_GETTERS),
+    [invoicedData.rows, tableSorts.invoiced],
+  );
+
+  const aappRowsSorted = useMemo(() => {
+    const sort = tableSorts.aapp;
+    if (!sort) return aappData.rows;
+    if (AAPP_GETTERS[sort.key]) return sortRows(aappData.rows, sort, AAPP_GETTERS);
+    // Columna de línea: se ordenan las líneas de cada análisis y los análisis por su primera línea
+    const lineGetter = AAPP_LINE_GETTERS[sort.key];
+    const withSortedLines = aappData.rows.map((item) => ({
+      ...item,
+      lines: sortRows(item.lines ?? [], sort, AAPP_LINE_GETTERS),
+    }));
+    return sortRows(withSortedLines, sort, {
+      [sort.key]: (item) => {
+        const first = item.lines[0];
+        if (first) return lineGetter(first);
+        return sort.key === 'subtotal' ? item.subtotal : null;
+      },
+    });
+  }, [aappData.rows, tableSorts.aapp]);
+
+  const materialRowsSorted = useMemo(
+    () => sortRows(materialRowsView, tableSorts.materials, MATERIAL_GETTERS),
+    [materialRowsView, tableSorts.materials],
+  );
+
+  const groupedMaterialRowsSorted = useMemo(
+    () => sortRows(groupedMaterialRows, tableSorts.materialGroups, {
+      category: (g) => g.category,
+      product: (g) => g.product,
+      qty: (g) => g.qty,
+      subtotal: (g) => g.subtotal,
+    }),
+    [groupedMaterialRows, tableSorts.materialGroups],
+  );
+
+  const otherExpenseRowsSorted = useMemo(
+    () => sortRows(otherExpenseData.rows, tableSorts.otherExpenses, OTHER_EXPENSE_GETTERS),
+    [otherExpenseData.rows, tableSorts.otherExpenses],
+  );
+
+  const shipmentRowsSorted = useMemo(
+    () => sortRows(shipmentData.rows, tableSorts.shipments, SHIPMENT_GETTERS),
+    [shipmentData.rows, tableSorts.shipments],
+  );
+
+  const attendanceRowsSorted = useMemo(
+    () => sortRows(attendanceData.rows, tableSorts.attendance, ATTENDANCE_GETTERS),
+    [attendanceData.rows, tableSorts.attendance],
+  );
 
   useEffect(() => {
     const token = getToken();
@@ -1417,11 +1582,11 @@ export default function DashboardPage() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
                     <tr>
-                      <th className="px-3 py-2">Factura</th>
-                      <th className="px-3 py-2">Fecha</th>
-                      <th className="px-3 py-2">Cliente</th>
-                      <th className="px-3 py-2">Proyecto</th>
-                      <th className="px-3 py-2 text-right whitespace-nowrap">Base imp.</th>
+                      <SortableTh sortKey="name" {...sortProps('invoiced')} className="px-3 py-2">Factura</SortableTh>
+                      <SortableTh sortKey="date" {...sortProps('invoiced')} className="px-3 py-2">Fecha</SortableTh>
+                      <SortableTh sortKey="customer" {...sortProps('invoiced')} className="px-3 py-2">Cliente</SortableTh>
+                      <SortableTh sortKey="project" {...sortProps('invoiced')} className="px-3 py-2">Proyecto</SortableTh>
+                      <SortableTh sortKey="total" {...sortProps('invoiced')} className="px-3 py-2 text-right whitespace-nowrap">Base imp.</SortableTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -1432,7 +1597,7 @@ export default function DashboardPage() {
                         </td>
                       </tr>
                     ) : (
-                      invoicedData.rows.map((invoice) => (
+                      invoicedRowsSorted.map((invoice) => (
                         <tr key={invoice.id} className="border-t border-slate-100 text-slate-700">
                           <td className="px-3 py-2 font-semibold text-slate-700">{invoice.name || `INV-${invoice.id}`}</td>
                           <td className="px-3 py-2">{formatDate(invoice.date)}</td>
@@ -1461,15 +1626,15 @@ export default function DashboardPage() {
                 <table className="min-w-full text-sm">
                   <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-wide text-slate-600">
                     <tr>
-                      <th className="px-3 py-2">Código</th>
-                      <th className="px-3 py-2">Proyecto</th>
-                      <th className="px-3 py-2">Fecha fin</th>
-                      <th className="px-3 py-2">Creado</th>
-                      <th className="px-3 py-2">Fecha creación</th>
-                      <th className="px-3 py-2">Nota</th>
-                      <th className="px-3 py-2 text-right">Cant. Activo</th>
-                      <th className="px-3 py-2 text-right">Costo unit.</th>
-                      <th className="px-3 py-2 text-right">Total parcial</th>
+                      <SortableTh sortKey="name" {...sortProps('aapp')} className="px-3 py-2">Código</SortableTh>
+                      <SortableTh sortKey="project" {...sortProps('aapp')} className="px-3 py-2">Proyecto</SortableTh>
+                      <SortableTh sortKey="end_date" {...sortProps('aapp')} className="px-3 py-2">Fecha fin</SortableTh>
+                      <SortableTh sortKey="created_by" {...sortProps('aapp')} className="px-3 py-2">Creado</SortableTh>
+                      <SortableTh sortKey="create_date" {...sortProps('aapp')} className="px-3 py-2">Fecha creación</SortableTh>
+                      <SortableTh sortKey="note" {...sortProps('aapp')} className="px-3 py-2">Nota</SortableTh>
+                      <SortableTh sortKey="assets_qty" {...sortProps('aapp')} className="px-3 py-2 text-right">Cant. Activo</SortableTh>
+                      <SortableTh sortKey="product_cost" {...sortProps('aapp')} className="px-3 py-2 text-right">Costo unit.</SortableTh>
+                      <SortableTh sortKey="subtotal" {...sortProps('aapp')} className="px-3 py-2 text-right">Total parcial</SortableTh>
                     </tr>
                   </thead>
                   <tbody>
@@ -1480,7 +1645,7 @@ export default function DashboardPage() {
                         </td>
                       </tr>
                     ) : (
-                      aappData.rows.map((analysis) =>
+                      aappRowsSorted.map((analysis) =>
                         (analysis.lines ?? []).length > 0 ? (
                           (analysis.lines ?? []).map((line, idx) => (
                             <tr key={`${analysis.id}-${idx}`} className="border-t border-slate-100 text-slate-700">
@@ -1767,20 +1932,20 @@ export default function DashboardPage() {
                         <table className="min-w-full text-xs table-fixed">
                           <thead className="bg-slate-100 text-slate-600">
                             <tr>
-                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Categoría</th>
-                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Fecha</th>
-                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Fecha Albarán</th>
-                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Contacto</th>
-                              <th className="px-2 py-1.5 text-left" style={{width:'90px'}}>Albarán</th>
-                              <th className="px-2 py-1.5 text-left" style={{width:'100px'}}>Referencia</th>
-                              <th className="px-2 py-1.5 text-left">Descripción</th>
-                              <th className="px-2 py-1.5 text-right" style={{width:'80px'}}>Cantidad</th>
-                              <th className="px-2 py-1.5 text-right" style={{width:'75px'}}>Coste</th>
-                              <th className="px-2 py-1.5 text-right" style={{width:'80px'}}>Subtotal</th>
+                              <SortableTh sortKey="category" {...sortProps('materials')} className="px-2 py-1.5 text-left" style={{width:'90px'}}>Categoría</SortableTh>
+                              <SortableTh sortKey="date" {...sortProps('materials')} className="px-2 py-1.5 text-left" style={{width:'90px'}}>Fecha</SortableTh>
+                              <SortableTh sortKey="scheduled_date" {...sortProps('materials')} className="px-2 py-1.5 text-left" style={{width:'90px'}}>Fecha Albarán</SortableTh>
+                              <SortableTh sortKey="partner" {...sortProps('materials')} className="px-2 py-1.5 text-left" style={{width:'90px'}}>Contacto</SortableTh>
+                              <SortableTh sortKey="picking" {...sortProps('materials')} className="px-2 py-1.5 text-left" style={{width:'90px'}}>Albarán</SortableTh>
+                              <SortableTh sortKey="reference" {...sortProps('materials')} className="px-2 py-1.5 text-left" style={{width:'100px'}}>Referencia</SortableTh>
+                              <SortableTh sortKey="description" {...sortProps('materials')} className="px-2 py-1.5 text-left">Descripción</SortableTh>
+                              <SortableTh sortKey="qty" {...sortProps('materials')} className="px-2 py-1.5 text-right" style={{width:'80px'}}>Cantidad</SortableTh>
+                              <SortableTh sortKey="unit_price" {...sortProps('materials')} className="px-2 py-1.5 text-right" style={{width:'75px'}}>Coste</SortableTh>
+                              <SortableTh sortKey="subtotal" {...sortProps('materials')} className="px-2 py-1.5 text-right" style={{width:'80px'}}>Subtotal</SortableTh>
                             </tr>
                           </thead>
                           <tbody>
-                            {materialRowsView.map((line) => (
+                            {materialRowsSorted.map((line) => (
                               <tr key={line.id} className="border-t border-slate-200">
                                 <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'90px'}} title={line.category_name || ''}>{line.category_name || 'Sin categoría'}</td>
                                 <td className="px-2 py-1.5 text-slate-600">{formatDateTime(line.date)}</td>
@@ -1809,14 +1974,14 @@ export default function DashboardPage() {
                         <table className="min-w-full text-xs">
                           <thead className="bg-slate-100 text-slate-600">
                             <tr>
-                              <th className="px-2 py-1.5 text-left">Categoría</th>
-                              <th className="px-2 py-1.5 text-left">Producto</th>
-                              <th className="px-2 py-1.5 text-right">Cantidad</th>
-                              <th className="px-2 py-1.5 text-right">Subtotal</th>
+                              <SortableTh sortKey="category" {...sortProps('materialGroups')} className="px-2 py-1.5 text-left">Categoría</SortableTh>
+                              <SortableTh sortKey="product" {...sortProps('materialGroups')} className="px-2 py-1.5 text-left">Producto</SortableTh>
+                              <SortableTh sortKey="qty" {...sortProps('materialGroups')} className="px-2 py-1.5 text-right">Cantidad</SortableTh>
+                              <SortableTh sortKey="subtotal" {...sortProps('materialGroups')} className="px-2 py-1.5 text-right">Subtotal</SortableTh>
                             </tr>
                           </thead>
                           <tbody>
-                            {groupedMaterialRows.map((group) => {
+                            {groupedMaterialRowsSorted.map((group) => {
                               const expanded = expandedMaterialGroups.includes(group.key);
                               return (
                                 <Fragment key={group.key}>
@@ -1844,17 +2009,17 @@ export default function DashboardPage() {
                                           <table className="min-w-full text-xs">
                                             <thead className="bg-slate-100 text-slate-600">
                                               <tr>
-                                                <th className="px-2 py-1 text-left">Fecha</th>
-                                                <th className="px-2 py-1 text-left">Albarán</th>
-                                                <th className="px-2 py-1 text-left">Referencia</th>
-                                                <th className="px-2 py-1 text-left">Descripción</th>
-                                                <th className="px-2 py-1 text-right">Cantidad</th>
-                                                <th className="px-2 py-1 text-right">Coste</th>
-                                                <th className="px-2 py-1 text-right">Subtotal</th>
+                                                <SortableTh sortKey="date" {...sortProps('materialGroupLines')} className="px-2 py-1 text-left">Fecha</SortableTh>
+                                                <SortableTh sortKey="picking" {...sortProps('materialGroupLines')} className="px-2 py-1 text-left">Albarán</SortableTh>
+                                                <SortableTh sortKey="reference" {...sortProps('materialGroupLines')} className="px-2 py-1 text-left">Referencia</SortableTh>
+                                                <SortableTh sortKey="description" {...sortProps('materialGroupLines')} className="px-2 py-1 text-left">Descripción</SortableTh>
+                                                <SortableTh sortKey="qty" {...sortProps('materialGroupLines')} className="px-2 py-1 text-right">Cantidad</SortableTh>
+                                                <SortableTh sortKey="unit_price" {...sortProps('materialGroupLines')} className="px-2 py-1 text-right">Coste</SortableTh>
+                                                <SortableTh sortKey="subtotal" {...sortProps('materialGroupLines')} className="px-2 py-1 text-right">Subtotal</SortableTh>
                                               </tr>
                                             </thead>
                                             <tbody>
-                                              {group.lines.map((line) => (
+                                              {sortRows(group.lines, tableSorts.materialGroupLines, MATERIAL_GETTERS).map((line) => (
                                                 <tr key={line.id} className="border-t border-slate-100">
                                                   <td className="px-2 py-1 text-slate-600">{formatDateTime(line.date)}</td>
                                                   <td className="px-2 py-1 text-slate-600 whitespace-nowrap">{line.picking_name || '—'}</td>
@@ -1926,14 +2091,14 @@ export default function DashboardPage() {
                       <table className="min-w-full text-xs">
                         <thead className="bg-slate-100 text-slate-600">
                           <tr>
-                            <th className="px-2 py-1.5 text-left">Gasto</th>
-                            <th className="px-2 py-1.5 text-left">Fecha</th>
-                            <th className="px-2 py-1.5 text-left">Proyecto</th>
-                            <th className="px-2 py-1.5 text-right">Total</th>
+                            <SortableTh sortKey="expense" {...sortProps('otherExpenses')} className="px-2 py-1.5 text-left">Gasto</SortableTh>
+                            <SortableTh sortKey="date" {...sortProps('otherExpenses')} className="px-2 py-1.5 text-left">Fecha</SortableTh>
+                            <SortableTh sortKey="project" {...sortProps('otherExpenses')} className="px-2 py-1.5 text-left">Proyecto</SortableTh>
+                            <SortableTh sortKey="total" {...sortProps('otherExpenses')} className="px-2 py-1.5 text-right">Total</SortableTh>
                           </tr>
                         </thead>
                         <tbody>
-                          {otherExpenseData.rows.map((line) => (
+                          {otherExpenseRowsSorted.map((line) => (
                             <tr key={line.id} className="border-t border-slate-200">
                               <td className="px-2 py-1.5 text-slate-700">{line.expense_name || `OE-${line.expense_id}`}</td>
                               <td className="px-2 py-1.5 text-slate-600">{line.date || '—'}</td>
@@ -1989,21 +2154,21 @@ export default function DashboardPage() {
                       <table className="min-w-full text-xs">
                         <thead className="bg-slate-100 text-slate-600">
                           <tr>
-                            <th className="px-1 py-1 text-left">Código</th>
-                            <th className="px-1 py-1 text-left">Equipos</th>
-                            <th className="px-1 py-1 text-left">Origen</th>
-                            <th className="px-1 py-1 text-left">Partida destino</th>
-                            <th className="px-1 py-1 text-left">Conductor</th>
-                            <th className="px-1 py-1 text-right">Km inicial</th>
-                            <th className="px-1 py-1 text-right">Km final</th>
-                            <th className="px-1 py-1 text-right">Precio</th>
-                            <th className="px-1 py-1 text-right">Cantidad</th>
-                            <th className="px-1 py-1 text-right">Total</th>
-                            <th className="px-1 py-1 text-left">Fecha</th>
+                            <SortableTh sortKey="name" {...sortProps('shipments')} className="px-1 py-1 text-left">Código</SortableTh>
+                            <SortableTh sortKey="vehicle" {...sortProps('shipments')} className="px-1 py-1 text-left">Equipos</SortableTh>
+                            <SortableTh sortKey="origin" {...sortProps('shipments')} className="px-1 py-1 text-left">Origen</SortableTh>
+                            <SortableTh sortKey="destination" {...sortProps('shipments')} className="px-1 py-1 text-left">Partida destino</SortableTh>
+                            <SortableTh sortKey="driver" {...sortProps('shipments')} className="px-1 py-1 text-left">Conductor</SortableTh>
+                            <SortableTh sortKey="km_initial" {...sortProps('shipments')} className="px-1 py-1 text-right">Km inicial</SortableTh>
+                            <SortableTh sortKey="km_final" {...sortProps('shipments')} className="px-1 py-1 text-right">Km final</SortableTh>
+                            <SortableTh sortKey="price" {...sortProps('shipments')} className="px-1 py-1 text-right">Precio</SortableTh>
+                            <SortableTh sortKey="qty" {...sortProps('shipments')} className="px-1 py-1 text-right">Cantidad</SortableTh>
+                            <SortableTh sortKey="total" {...sortProps('shipments')} className="px-1 py-1 text-right">Total</SortableTh>
+                            <SortableTh sortKey="date" {...sortProps('shipments')} className="px-1 py-1 text-left">Fecha</SortableTh>
                           </tr>
                         </thead>
                         <tbody>
-                          {shipmentData.rows.map((shipment, idx) => (
+                          {shipmentRowsSorted.map((shipment, idx) => (
                             <tr key={`${shipment.id}-${idx}`} className="border-t border-slate-200">
                               <td className="px-1 py-1 text-slate-700 font-mono">{shipment.name}</td>
                               <td className="px-1 py-1 text-slate-600">{shipment.vehicle || '—'}</td>
@@ -2149,24 +2314,24 @@ export default function DashboardPage() {
                                           <table className="min-w-full text-xs">
                                             <thead className="bg-slate-100 text-slate-600">
                                               <tr>
-                                                <th className="px-2 py-1.5 text-left" style={{maxWidth:'100px'}}>Proyecto</th>
-                                                <th className="px-2 py-1.5 text-left">Nº Contrato</th>
-                                                <th className="px-2 py-1.5 text-left">Entrada</th>
-                                                <th className="px-2 py-1.5 text-left">Salida</th>
-                                                <th className="px-2 py-1.5 text-right">H.Ent(C)</th>
-                                                <th className="px-2 py-1.5 text-right">H.Sal(C)</th>
-                                                <th className="px-2 py-1.5 text-left">Ent.Calc.</th>
-                                                <th className="px-2 py-1.5 text-left">Sal.Calc.</th>
-                                                <th className="px-2 py-1.5 text-right">€/H</th>
-                                                <th className="px-2 py-1.5 text-right">T.Total</th>
-                                                <th className="px-2 py-1.5 text-right">T.Calc.</th>
-                                                <th className="px-2 py-1.5 text-left">Notas</th>
-                                                <th className="px-2 py-1.5 text-right">Importe</th>
-                                                <th className="px-2 py-1.5 text-center">Imp.Calc</th>
+                                                <SortableTh sortKey="project" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left" style={{maxWidth:'100px'}}>Proyecto</SortableTh>
+                                                <SortableTh sortKey="contract" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left">Nº Contrato</SortableTh>
+                                                <SortableTh sortKey="check_in" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left">Entrada</SortableTh>
+                                                <SortableTh sortKey="check_out" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left">Salida</SortableTh>
+                                                <SortableTh sortKey="contract_in" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-right">H.Ent(C)</SortableTh>
+                                                <SortableTh sortKey="contract_out" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-right">H.Sal(C)</SortableTh>
+                                                <SortableTh sortKey="check_in_calc" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left">Ent.Calc.</SortableTh>
+                                                <SortableTh sortKey="check_out_calc" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left">Sal.Calc.</SortableTh>
+                                                <SortableTh sortKey="hour_cost" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-right">€/H</SortableTh>
+                                                <SortableTh sortKey="tiempo_total" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-right">T.Total</SortableTh>
+                                                <SortableTh sortKey="tiempo_calc" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-right">T.Calc.</SortableTh>
+                                                <SortableTh sortKey="note" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-left">Notas</SortableTh>
+                                                <SortableTh sortKey="total" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-right">Importe</SortableTh>
+                                                <SortableTh sortKey="use_calc" {...sortProps('partnerAttendance')} className="px-2 py-1.5 text-center">Imp.Calc</SortableTh>
                                               </tr>
                                             </thead>
                                             <tbody>
-                                              {partnerGroup.rows.map((attendance) => (
+                                              {sortRows(partnerGroup.rows, tableSorts.partnerAttendance, PARTNER_ATTENDANCE_GETTERS).map((attendance) => (
                                                 <tr key={attendance.id} className="border-t border-slate-200">
                                                   <td className="px-2 py-1.5 text-slate-600 truncate" style={{maxWidth:'100px'}} title={attendance.project_name || ''}>{attendance.project_name || '—'}</td>
                                                   <td className="px-2 py-1.5 text-slate-600">{attendance.contract_name || '—'}</td>
@@ -2252,31 +2417,31 @@ export default function DashboardPage() {
                     <table className="min-w-full text-xs">
                       <thead className="bg-slate-100 text-slate-600">
                         <tr>
-                          <th className="px-0.5 py-1 text-left">Puesto</th>
-                          <th className="px-0.5 py-1 text-left">Empleado</th>
-                          <th className="px-0.5 py-1 text-left">Entrada</th>
-                          <th className="px-0.5 py-1 text-left">Salida</th>
-                          <th className="px-0.5 py-1 text-left">Proyecto E.</th>
-                          <th className="px-0.5 py-1 text-left">Proyecto S.</th>
-                          <th className="px-0.5 py-1 text-center">DE</th>
-                          <th className="px-0.5 py-1 text-center">DS</th>
-                          <th className="px-0.5 py-1 text-center">A</th>
-                          <th className="px-0.5 py-1 text-center">C</th>
-                          <th className="px-0.5 py-1 text-left w-10">Nota</th>
-                          <th className="px-0.5 py-1 text-center">Fest.</th>
-                          <th className="px-0.5 py-1 text-right">UD</th>
-                          <th className="px-0.5 py-1 text-right">MOD</th>
-                          <th className="px-0.5 py-1 text-right">Total HH</th>
-                          <th className="px-0.5 py-1 text-right">MOE</th>
-                          <th className="px-0.5 py-1 text-right">MOF</th>
-                          <th className="px-0.5 py-1 text-right">T-Extra</th>
-                          <th className="px-0.5 py-1 text-right">Dietas</th>
-                          <th className="px-0.5 py-1 text-right">€/H</th>
-                          <th className="px-0.5 py-1 text-right">Costo</th>
+                          <SortableTh sortKey="job" {...sortProps('attendance')} className="px-0.5 py-1 text-left">Puesto</SortableTh>
+                          <SortableTh sortKey="employee" {...sortProps('attendance')} className="px-0.5 py-1 text-left">Empleado</SortableTh>
+                          <SortableTh sortKey="check_in" {...sortProps('attendance')} className="px-0.5 py-1 text-left">Entrada</SortableTh>
+                          <SortableTh sortKey="check_out" {...sortProps('attendance')} className="px-0.5 py-1 text-left">Salida</SortableTh>
+                          <SortableTh sortKey="project" {...sortProps('attendance')} className="px-0.5 py-1 text-left">Proyecto E.</SortableTh>
+                          <SortableTh sortKey="project_out" {...sortProps('attendance')} className="px-0.5 py-1 text-left">Proyecto S.</SortableTh>
+                          <SortableTh sortKey="de" {...sortProps('attendance')} className="px-0.5 py-1 text-center">DE</SortableTh>
+                          <SortableTh sortKey="ds" {...sortProps('attendance')} className="px-0.5 py-1 text-center">DS</SortableTh>
+                          <SortableTh sortKey="almuerzo" {...sortProps('attendance')} className="px-0.5 py-1 text-center">A</SortableTh>
+                          <SortableTh sortKey="comida" {...sortProps('attendance')} className="px-0.5 py-1 text-center">C</SortableTh>
+                          <SortableTh sortKey="note" {...sortProps('attendance')} className="px-0.5 py-1 text-left w-10">Nota</SortableTh>
+                          <SortableTh sortKey="festivo" {...sortProps('attendance')} className="px-0.5 py-1 text-center">Fest.</SortableTh>
+                          <SortableTh sortKey="ud" {...sortProps('attendance')} className="px-0.5 py-1 text-right">UD</SortableTh>
+                          <SortableTh sortKey="mod" {...sortProps('attendance')} className="px-0.5 py-1 text-right">MOD</SortableTh>
+                          <SortableTh sortKey="total_hh" {...sortProps('attendance')} className="px-0.5 py-1 text-right">Total HH</SortableTh>
+                          <SortableTh sortKey="moe" {...sortProps('attendance')} className="px-0.5 py-1 text-right">MOE</SortableTh>
+                          <SortableTh sortKey="mof" {...sortProps('attendance')} className="px-0.5 py-1 text-right">MOF</SortableTh>
+                          <SortableTh sortKey="t_extra" {...sortProps('attendance')} className="px-0.5 py-1 text-right">T-Extra</SortableTh>
+                          <SortableTh sortKey="dietas" {...sortProps('attendance')} className="px-0.5 py-1 text-right">Dietas</SortableTh>
+                          <SortableTh sortKey="hour_cost" {...sortProps('attendance')} className="px-0.5 py-1 text-right">€/H</SortableTh>
+                          <SortableTh sortKey="total" {...sortProps('attendance')} className="px-0.5 py-1 text-right">Costo</SortableTh>
                         </tr>
                       </thead>
                       <tbody>
-                        {attendanceData.rows.map((attendance) => (
+                        {attendanceRowsSorted.map((attendance) => (
                           <tr key={attendance.id} className="border-t border-slate-200">
                             <td className="px-0.5 py-1 text-slate-600">{attendance.job_name || '—'}</td>
                             <td className="px-0.5 py-1 text-slate-700">{attendance.employee_name}</td>
