@@ -1118,3 +1118,90 @@ export const apiSavePaidstate = async (
   lines: (NewPaidstateLine & { id?: number })[],
 ): Promise<PaidstateDetailResponse> =>
   post('/api/paidstates/save', { paidstate_id, date, lines: lines as unknown as Record<string, unknown>[] }, token) as Promise<PaidstateDetailResponse>;
+
+// ------------------------------------------------------------------ //
+//  Editor de presupuesto (bim.concepts: capítulos y partidas manuales) //
+// ------------------------------------------------------------------ //
+
+export interface BudgetNode {
+  id: number;
+  parent_id: number | false;
+  type: 'chapter' | 'departure';
+  code: string;
+  name: string;
+  sequence: number;
+  quantity: number;
+  /** Coste unitario (manual o calculado) */
+  cost: number;
+  /** Importe de coste = cantidad × coste */
+  amount: number;
+  /** Margen % */
+  margin: number;
+  sale_price: number;
+  sale_amount: number;
+  /** Partida de precio manual: cantidad, coste y margen editables */
+  is_manual: boolean;
+  /** Partida con recursos (mano de obra, material...) creada desde Odoo */
+  has_resources: boolean;
+}
+
+export interface BudgetEditorInfo {
+  id: number;
+  code: string;
+  name: string;
+  display_name: string;
+  state_name: string;
+  locked: boolean;
+  default_margin: number;
+  total_cost: number;
+  total_sale: number;
+  total_margin: number;
+}
+
+export interface BudgetEditorResponse extends ApiResponse {
+  budget?: BudgetEditorInfo;
+  nodes?: BudgetNode[];
+  created_id?: number;
+}
+
+export interface BudgetNodeValues {
+  name?: string;
+  code?: string;
+  quantity?: number;
+  cost?: number;
+  margin?: number;
+}
+
+export const apiBudgetEditor = (token: string, budget_id: number): Promise<BudgetEditorResponse> =>
+  post('/api/budget-editor', { budget_id }, token) as Promise<BudgetEditorResponse>;
+
+export const apiBudgetEditorCreate = (
+  token: string,
+  budget_id: number,
+  type: 'chapter' | 'departure',
+  parent_id: number | false,
+  values: BudgetNodeValues = {},
+): Promise<BudgetEditorResponse> =>
+  post('/api/budget-editor/create', { budget_id, type, parent_id, ...values }, token) as Promise<BudgetEditorResponse>;
+
+export const apiBudgetEditorUpdate = (
+  token: string,
+  budget_id: number,
+  concept_id: number,
+  values: BudgetNodeValues,
+): Promise<BudgetEditorResponse> =>
+  post('/api/budget-editor/update', { budget_id, concept_id, values: values as Record<string, unknown> }, token) as Promise<BudgetEditorResponse>;
+
+export const apiBudgetEditorDelete = (token: string, budget_id: number, concept_id: number): Promise<BudgetEditorResponse> =>
+  post('/api/budget-editor/delete', { budget_id, concept_id }, token) as Promise<BudgetEditorResponse>;
+
+export const apiBudgetEditorMove = (
+  token: string,
+  budget_id: number,
+  concept_id: number,
+  direction: 'up' | 'down',
+): Promise<BudgetEditorResponse> =>
+  post('/api/budget-editor/move', { budget_id, concept_id, direction }, token) as Promise<BudgetEditorResponse>;
+
+export const apiBudgetEditorRecalculate = (token: string, budget_id: number): Promise<BudgetEditorResponse> =>
+  post('/api/budget-editor/recalculate', { budget_id }, token) as Promise<BudgetEditorResponse>;

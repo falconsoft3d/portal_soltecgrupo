@@ -53,6 +53,15 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/presupuestos',
+    label: 'Presupuestos',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6h16.5M3.75 12h16.5M8.25 18h12M3.75 18h.01M6 12V6" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/certificaciones',
     label: 'Certificaciones',
     icon: (
