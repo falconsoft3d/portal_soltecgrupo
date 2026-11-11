@@ -2,6 +2,7 @@
 
 import { ExpenseProductOption, ExpenseProjectOption, NewExpenseLine } from '@/lib/api';
 import { formatCurrency, formatNumber } from './utils';
+import ProjectPicker from './ProjectPicker';
 
 export interface DraftLine {
   key: number;
@@ -92,19 +93,11 @@ export default function ExpenseLineRow({ line, products, projects, onChange, onR
         />
       </td>
       <td className="px-2 py-2">
-        <select
+        <ProjectPicker
           value={line.project_id}
-          onChange={(e) => onChange({ project_id: e.target.value ? Number(e.target.value) : '' })}
-          className="w-72 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none"
-        >
-          <option value="">Seleccionar obra...</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.display_name}
-              {p.state_name ? ` (${p.state_name})` : ''}
-            </option>
-          ))}
-        </select>
+          projects={projects}
+          onChange={(projectId) => onChange({ project_id: projectId })}
+        />
       </td>
       <td className="px-2 py-2">
         <input
