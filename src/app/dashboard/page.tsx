@@ -1120,7 +1120,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1360px] space-y-4 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 text-slate-900 shadow-lg shadow-slate-200/70 md:p-5">
+    <section className="w-full space-y-4 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 text-slate-900 shadow-lg shadow-slate-200/70 md:p-5">
       <article className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-200 pb-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2 text-lg font-bold text-blue-700">
