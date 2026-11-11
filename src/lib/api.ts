@@ -72,6 +72,10 @@ export interface AttendanceItem {
   dietas: number;
   hours: number;
   hour_cost: number;
+  /** Último MO de la pestaña Costes de la ficha del empleado */
+  employee_mo: number;
+  /** Último MOE de la pestaña Costes de la ficha del empleado */
+  employee_moe: number;
   total: number;
 }
 

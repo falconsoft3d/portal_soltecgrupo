@@ -349,6 +349,8 @@ const ATTENDANCE_GETTERS: SortGetters<AttendanceItem> = {
   t_extra: (r) => r.t_extra,
   dietas: (r) => r.dietas,
   hour_cost: (r) => r.hour_cost,
+  employee_mo: (r) => r.employee_mo,
+  employee_moe: (r) => r.employee_moe,
   total: (r) => r.total,
 };
 
@@ -1039,6 +1041,8 @@ export default function DashboardPage() {
         'Horas extra': row.t_extra,
         'Dietas (€)': row.dietas,
         'EUR por hora': row.hour_cost,
+        'MO empleado (€)': row.employee_mo,
+        'MOE empleado (€)': row.employee_moe,
         Total: row.total,
       }));
 
@@ -2437,6 +2441,8 @@ export default function DashboardPage() {
                           <SortableTh sortKey="t_extra" {...sortProps('attendance')} className="px-0.5 py-1 text-right">T-Extra</SortableTh>
                           <SortableTh sortKey="dietas" {...sortProps('attendance')} className="px-0.5 py-1 text-right">Dietas</SortableTh>
                           <SortableTh sortKey="hour_cost" {...sortProps('attendance')} className="px-0.5 py-1 text-right">€/H</SortableTh>
+                          <SortableTh sortKey="employee_mo" {...sortProps('attendance')} className="px-0.5 py-1 text-right" title="Último MO de la ficha del empleado (pestaña Costes)">MO Emp.</SortableTh>
+                          <SortableTh sortKey="employee_moe" {...sortProps('attendance')} className="px-0.5 py-1 text-right" title="Último MOE de la ficha del empleado (pestaña Costes)">MOE Emp.</SortableTh>
                           <SortableTh sortKey="total" {...sortProps('attendance')} className="px-0.5 py-1 text-right">Costo</SortableTh>
                         </tr>
                       </thead>
@@ -2463,6 +2469,8 @@ export default function DashboardPage() {
                             <td className="px-0.5 py-1 text-right text-slate-700">{attendance.t_extra.toFixed(2)}</td>
                             <td className="px-0.5 py-1 text-right text-slate-700">{attendance.dietas.toFixed(2)}</td>
                             <td className="px-0.5 py-1 text-right text-slate-700">{formatCurrency(attendance.hour_cost)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{(attendance.employee_mo ?? 0).toFixed(2)}</td>
+                            <td className="px-0.5 py-1 text-right text-slate-700">{(attendance.employee_moe ?? 0).toFixed(2)}</td>
                             <td className="px-0.5 py-1 text-right font-semibold text-slate-800">{formatCurrency(attendance.total)}</td>
                           </tr>
                         ))}
@@ -2471,7 +2479,7 @@ export default function DashboardPage() {
                         <tr>
                           <td className="px-0.5 py-1 font-bold text-slate-700" colSpan={14}>TOTAL</td>
                           <td className="px-0.5 py-1 text-right font-bold text-slate-700">{attendanceData.totalHours.toFixed(2)} h</td>
-                          <td className="px-0.5 py-1" colSpan={5} />
+                          <td className="px-0.5 py-1" colSpan={7} />
                           <td className="px-0.5 py-1 text-right font-bold text-slate-800">{formatCurrency(attendanceData.totalAmount)}</td>
                         </tr>
                       </tfoot>
