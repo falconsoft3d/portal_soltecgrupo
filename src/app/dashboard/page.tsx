@@ -27,6 +27,9 @@ import {
 import { SortableTh, SortGetters, SortState, nextSort, sortRows } from './components/SortableTh';
 import { getToken } from '@/lib/auth';
 
+// Orden de los botones de estado de obra
+const STATE_ORDER = ['pre-contratado', 'contratado', 'ejecución', 'ejecucion', 'garantía', 'garantia', 'finalizado'];
+
 type Kpi = {
   title: string;
   value: string;
@@ -472,7 +475,12 @@ export default function DashboardPage() {
   const availableStateNames = useMemo(() => {
     const seen = new Set<string>();
     companyFilteredProjects.forEach((p) => { if (p.state_name) seen.add(p.state_name); });
-    return Array.from(seen).sort((a, b) => a.localeCompare(b));
+    // En el orden de la obra; los estados que no estén en la lista van al final por nombre
+    const rank = (name: string) => {
+      const index = STATE_ORDER.indexOf(name.toLowerCase());
+      return index === -1 ? STATE_ORDER.length : index;
+    };
+    return Array.from(seen).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   }, [companyFilteredProjects]);
 
   const availableManagers = useMemo(() => {
