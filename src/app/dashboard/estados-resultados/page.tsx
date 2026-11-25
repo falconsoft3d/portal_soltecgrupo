@@ -1124,7 +1124,7 @@ export default function EstadosResultadosPage() {
                 <svg className="w-3.5 h-3.5 text-brand-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
                 </svg>
-                <span>Los estados de proyecto aplicados serán: <strong>Ejecución, Garantía, Finalizado</strong>.</span>
+                <span>Los estados de proyecto aplicados serán: <strong>PRE-Contratado, Contratado, Ejecución, Garantía, Finalizado</strong>.</span>
               </div>
             </div>
 
