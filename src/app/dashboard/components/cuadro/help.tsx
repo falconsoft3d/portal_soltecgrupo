@@ -55,7 +55,7 @@ export const HELP: Record<string, { title: string; body: ReactNode }> = {
     title: '¿Cómo se forma este análisis?',
     body: (
       <>
-        <p>Reproduce la plantilla «Análisis económico financiero» con tres ejercicios, calculados solos desde la contabilidad de Odoo.</p>
+        <p>Reproduce la plantilla «Análisis económico financiero» con tres ejercicios, calculados solos desde la contabilidad de Odoo. Por defecto suma los asientos publicados y los que están en borrador; desmarca «Incluir asientos en borrador» para usar solo los publicados.</p>
         <ul>
           <li><b>Balance:</b> saldos de cada cuenta a 31 de diciembre (o a hoy si el año está en curso), agrupados por su código del Plan General Contable: 20 intangible, 21 material, 43 clientes, 57 bancos, 40 proveedores, 520 deuda bancaria a corto, 17 a largo…</li>
           <li><b>Explotación:</b> movimientos del año en los grupos 6 (gastos) y 7 (ingresos), sin el asiento de regularización, para que el resultado no salga a cero en años cerrados.</li>

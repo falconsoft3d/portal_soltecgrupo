@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
 import { apiAccountingAnalysis, AccountingAnalysisResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { afCalc, Triple } from '@/lib/financialAnalysis';
@@ -21,6 +21,7 @@ type TabKey = (typeof TABS)[number][0];
 
 const TAB_KEY = 'portal_af_tab_v1';
 const EMP_KEY = 'portal_af_employees_v1';
+const DRAFT_KEY = 'portal_af_include_draft_v1';
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -45,6 +46,8 @@ export default function AnalisisFinancieroPage() {
     const t = readJson<string>(TAB_KEY, 'balance');
     return (TABS.some(([k]) => k === t) ? t : 'balance') as TabKey;
   });
+  // Asientos en borrador: incluidos por defecto, se pueden desactivar
+  const [includeDraft, setIncludeDraft] = useState<boolean>(() => readJson<boolean>(DRAFT_KEY, true) !== false);
   const [employeesStore, setEmployeesStore] = useState<Record<string, number>>(() => readJson(EMP_KEY, {}));
   const setTab = (t: TabKey) => { setTabState(t); writeJson(TAB_KEY, t); };
 
@@ -52,7 +55,7 @@ export default function AnalisisFinancieroPage() {
     const token = getToken();
     if (!token) return;
     let cancelled = false;
-    apiAccountingAnalysis(token, selected, endYear)
+    apiAccountingAnalysis(token, selected, endYear, includeDraft)
       .then((res) => {
         if (cancelled) return;
         if (res.success) { setData(res); setError(''); }
@@ -61,10 +64,11 @@ export default function AnalisisFinancieroPage() {
       .catch(() => { if (!cancelled) setError('Error de conexión.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [selected, endYear]);
+  }, [selected, endYear, includeDraft]);
 
   const changeCompanies = (ids: number[]) => { setLoading(true); setSelected(ids); };
   const changeYear = (y: number) => { setLoading(true); setEndYear(y); };
+  const toggleDraft = () => { setLoading(true); setIncludeDraft((v) => { writeJson(DRAFT_KEY, !v); return !v; }); };
 
   // Nº de empleados por compañías + año (no está en la contabilidad)
   const companyKey = (data?.selected_company_ids ?? []).slice().sort((a, b) => a - b).join('-');
@@ -97,14 +101,20 @@ export default function AnalisisFinancieroPage() {
   const vacio = r ? r.y.map((_, i) => r.D[i] === 0 && r.prod[i] === 0) : [];
 
   return (
-    <Shell today={data?.today} companies={data?.companies} selected={selected} onCompanies={changeCompanies} loading={loading && !!data} error={error}>
+    <Shell today={data?.today} companies={data?.companies} selected={selected} onCompanies={changeCompanies} loading={loading && !!data} error={error}
+      extraControls={
+        <label className="tg" style={{ '--c': 'var(--accent)' } as CSSProperties} title="Si está activo, el análisis también suma los asientos contables en borrador">
+          <input type="checkbox" checked={includeDraft} onChange={toggleDraft} />
+          <span className="sw" />Incluir asientos en borrador
+        </label>
+      }>
       {loading && !data ? <div className="empty">Calculando…</div> : r && data && (
         <section className="panel">
           <div className="card" style={{ gap: 10 }}>
             <div className="afhead">
               <div>
                 <h2 style={{ margin: 0 }}>Análisis económico-financiero · {compLabel}</h2>
-                <div className="afstatus">Calculado desde la contabilidad de Odoo (cuentas del PGC). Solo lectura.</div>
+                <div className="afstatus">Calculado desde la contabilidad de Odoo (cuentas del PGC){includeDraft ? ', con asientos publicados y en borrador' : ', solo con asientos publicados'}. Solo lectura.</div>
               </div>
               {data.available_years && (
                 <label className="afstatus" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

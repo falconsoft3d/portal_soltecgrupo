@@ -135,6 +135,16 @@ const PRODUCTION_ITEMS = NAV_ITEMS.filter((i) => !TOP_HREFS.includes(i.href));
 
 const ACCOUNTING_ITEMS = [
   {
+    href: '/dashboard/analisis-financiero',
+    label: 'Análisis económico-financiero',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v9l6.4 6.4" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/contabilidad-deuda',
     label: 'Contabilidad y deuda',
     icon: (
@@ -159,16 +169,6 @@ const ACCOUNTING_ITEMS = [
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18" />
-      </svg>
-    ),
-  },
-  {
-    href: '/dashboard/analisis-financiero',
-    label: 'Análisis económico-financiero',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="9" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v9l6.4 6.4" />
       </svg>
     ),
   },

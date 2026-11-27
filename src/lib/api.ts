@@ -1351,8 +1351,9 @@ export interface AccountingAnalysisResponse extends ApiResponse {
   values?: Record<string, [number, number, number]>;
   unmapped?: AccountingUnmapped[];
   employees_now?: number;
+  include_draft?: boolean;
   available_years?: number[];
 }
 
-export const apiAccountingAnalysis = (token: string, company_ids: number[] = [], end_year?: number): Promise<AccountingAnalysisResponse> =>
-  post('/api/accounting/analysis', { company_ids, end_year }, token) as Promise<AccountingAnalysisResponse>;
+export const apiAccountingAnalysis = (token: string, company_ids: number[] = [], end_year?: number, include_draft = true): Promise<AccountingAnalysisResponse> =>
+  post('/api/accounting/analysis', { company_ids, end_year, include_draft }, token) as Promise<AccountingAnalysisResponse>;
