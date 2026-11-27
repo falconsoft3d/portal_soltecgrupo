@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, Fragment, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { apiAccountingMoveLines, AccountingDrillSpec, AccountingMoveLinesResponse } from '@/lib/api';
+import { apiAccountingMoveLines, AccountingDrillSpec, AccountingMoveLine, AccountingMoveLinesResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { useCompanySelection } from '../components/AccountingUi';
 import Shell from '../components/cuadro/Shell';
@@ -13,6 +13,30 @@ import { e2, fD } from '../components/cuadro/lib';
 const PAGE = 100;
 
 type Free = Extract<AccountingDrillSpec, { t: 'free' }>;
+type GroupDetail = { lines: AccountingMoveLine[]; count: number; loading: boolean };
+const GROUPED_KEY = 'portal_cf_apuntes_grouped_v1';
+
+/** Fila de un apunte. */
+function LineRow({ l, isDebt, odoo, nested = false }: { l: AccountingMoveLine; isDebt: boolean; odoo: string; nested?: boolean }) {
+  return (
+    <tr className={nested ? 'ml-sub' : ''}>
+      <td style={nested ? { paddingLeft: 30 } : undefined}>{fD(l.date)}</td>
+      <td>
+        {odoo && l.move_id ? <a href={`${odoo}/web#id=${l.move_id}&model=account.move&view_type=form`} target="_blank" rel="noopener noreferrer" className="drill" title="Abrir el asiento en Odoo">{l.move}</a> : l.move}
+        {l.state === 'draft' && <> <span className="st-draft">Borrador</span></>}
+      </td>
+      <td className="muted">{l.journal}</td>
+      <td>{l.account}</td>
+      <td>{l.partner}</td>
+      <td className="w" style={{ maxWidth: 320 }}>{l.label}{l.ref && l.ref !== l.label ? <span className="muted"> · {l.ref}</span> : null}</td>
+      {isDebt && <td>{fD(l.date_maturity)}</td>}
+      <td className="n">{l.debit ? e2(l.debit) : ''}</td>
+      <td className="n">{l.credit ? e2(l.credit) : ''}</td>
+      <td className={`n ${l.balance < 0 ? 'neg' : ''}`}>{e2(l.balance)}</td>
+      {isDebt && <td className={`n ${l.residual < 0 ? 'neg' : ''}`}>{e2(l.residual)}</td>}
+    </tr>
+  );
+}
 
 function yearStart(today: string) { return `${today.slice(0, 4)}-01-01`; }
 
@@ -37,8 +61,42 @@ function ApuntesInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  // Vista agrupada por compañía (por defecto) y grupos desplegados
+  const [grouped, setGroupedState] = useState<boolean>(() => {
+    try { return typeof window === 'undefined' || localStorage.getItem(GROUPED_KEY) !== 'false'; } catch { return true; }
+  });
+  const setGrouped = (v: boolean) => { setGroupedState(v); try { localStorage.setItem(GROUPED_KEY, String(v)); } catch { /* sin almacenamiento */ } };
+  const [expanded, setExpanded] = useState<{ qk: string; map: Record<number, GroupDetail> }>({ qk: '', map: {} });
 
   const specKey = JSON.stringify(spec);
+  const qk = `${specKey}|${selected.join(',')}`;
+  const expMap = expanded.qk === qk ? expanded.map : {};
+
+  const loadGroup = async (companyId: number, more = false) => {
+    const token = getToken();
+    if (!token) return;
+    const prev = expMap[companyId];
+    const from = more && prev ? prev.lines.length : 0;
+    setExpanded((e) => {
+      const map = e.qk === qk ? { ...e.map } : {};
+      map[companyId] = { lines: more && prev ? prev.lines : [], count: prev?.count ?? 0, loading: true };
+      return { qk, map };
+    });
+    const res = await apiAccountingMoveLines(token, spec, drill ? [] : selected, from, PAGE, companyId);
+    setExpanded((e) => {
+      const map = e.qk === qk ? { ...e.map } : {};
+      const base = more && map[companyId] ? map[companyId].lines : [];
+      map[companyId] = { lines: [...base, ...(res.lines ?? [])], count: res.count ?? 0, loading: false };
+      return { qk, map };
+    });
+  };
+  const toggleGroup = (companyId: number) => {
+    if (expMap[companyId]) {
+      setExpanded((e) => { const map = { ...(e.qk === qk ? e.map : {}) }; delete map[companyId]; return { qk, map }; });
+    } else {
+      void loadGroup(companyId);
+    }
+  };
   useEffect(() => {
     const token = getToken();
     if (!token) return;
@@ -65,6 +123,8 @@ function ApuntesInner() {
   const totals = data?.totals;
   const odoo = (data?.odoo_url ?? '').replace(/\/$/, '');
   const companyName = (id: number | false) => data?.companies?.find((c) => c.id === id)?.short ?? '';
+  const companyFull = (id: number) => data?.companies?.find((c) => c.id === id)?.name ?? `Compañía ${id}`;
+  const groups = data?.groups ?? [];
   const multi = (data?.selected_company_ids ?? []).length > 1;
 
   const exportCsv = async () => {
@@ -131,7 +191,7 @@ function ApuntesInner() {
         {loading && !data ? <div className="empty">Cargando…</div> : data?.success && (
           <>
             <div className="grid k4">
-              <div className="card kpi"><div className="lbl">Apuntes</div><div className="val">{count.toLocaleString('es-ES')}</div><div className="sub">{count > PAGE ? `se muestran de ${PAGE} en ${PAGE}` : 'todos en esta página'}</div></div>
+              <div className="card kpi"><div className="lbl">Apuntes</div><div className="val">{count.toLocaleString('es-ES')}</div><div className="sub">{grouped ? 'despliega una compañía para ver el detalle' : count > PAGE ? `se muestran de ${PAGE} en ${PAGE}` : 'todos en esta página'}</div></div>
               <div className="card kpi"><div className="lbl">Debe</div><div className="val">{e2(totals?.debit ?? 0)}</div></div>
               <div className="card kpi"><div className="lbl">Haber</div><div className="val">{e2(totals?.credit ?? 0)}</div></div>
               <div className="card kpi">
@@ -143,8 +203,14 @@ function ApuntesInner() {
 
             <div className="card">
               <div className="afhead">
-                <h2>Apuntes contables <small>{count ? `${offset + 1}–${Math.min(offset + PAGE, count)} de ${count.toLocaleString('es-ES')}` : 'sin resultados'}</small></h2>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <h2>Apuntes contables <small>{!count ? 'sin resultados'
+                  : grouped ? `${groups.length} ${groups.length === 1 ? 'compañía' : 'compañías'} · ${count.toLocaleString('es-ES')} apuntes`
+                    : `${offset + 1}–${Math.min(offset + PAGE, count)} de ${count.toLocaleString('es-ES')}`}</small></h2>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <label className="tg" style={{ '--c': 'var(--accent)' } as CSSProperties}>
+                    <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />
+                    <span className="sw" />Agrupar por compañía
+                  </label>
                   <button type="button" className="btn" disabled={!count || exporting} onClick={exportCsv}>{exporting ? 'Preparando…' : 'Descargar CSV'}</button>
                 </div>
               </div>
@@ -158,29 +224,42 @@ function ApuntesInner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lines.length === 0 && <tr><td colSpan={isDebt ? 11 : 9} className="muted">No hay apuntes con este filtro.</td></tr>}
-                    {lines.map((l) => (
-                      <tr key={l.id}>
-                        <td>{fD(l.date)}</td>
-                        <td>
-                          {odoo && l.move_id ? <a href={`${odoo}/web#id=${l.move_id}&model=account.move&view_type=form`} target="_blank" rel="noopener noreferrer" className="drill" title="Abrir el asiento en Odoo">{l.move}</a> : l.move}
-                          {l.state === 'draft' && <> <span className="st-draft">Borrador</span></>}
-                        </td>
-                        <td className="muted">{l.journal}</td>
-                        <td>{l.account}</td>
-                        <td>{l.partner}</td>
-                        <td className="w" style={{ maxWidth: 320 }}>{l.label}{l.ref && l.ref !== l.label ? <span className="muted"> · {l.ref}</span> : null}</td>
-                        {isDebt && <td>{fD(l.date_maturity)}</td>}
-                        <td className="n">{l.debit ? e2(l.debit) : ''}</td>
-                        <td className="n">{l.credit ? e2(l.credit) : ''}</td>
-                        <td className={`n ${l.balance < 0 ? 'neg' : ''}`}>{e2(l.balance)}</td>
-                        {isDebt && <td className={`n ${l.residual < 0 ? 'neg' : ''}`}>{e2(l.residual)}</td>}
-                      </tr>
-                    ))}
+                    {count === 0 && <tr><td colSpan={isDebt ? 11 : 9} className="muted">No hay apuntes con este filtro.</td></tr>}
+                    {grouped ? groups.map((g) => {
+                      const det = expMap[g.company_id];
+                      const open = !!det;
+                      return (
+                        <Fragment key={g.company_id}>
+                          <tr className="ml-grp" onClick={() => toggleGroup(g.company_id)} aria-expanded={open}>
+                            <td colSpan={isDebt ? 7 : 6}>
+                              <span className="ml-caret">{open ? '▼' : '▶'}</span>
+                              <b>{companyFull(g.company_id)}</b>
+                              <span className="muted"> · {g.count.toLocaleString('es-ES')} apuntes</span>
+                            </td>
+                            <td className="n">{e2(g.debit)}</td>
+                            <td className="n">{e2(g.credit)}</td>
+                            <td className={`n ${g.balance < 0 ? 'neg' : ''}`}><b>{e2(g.balance)}</b></td>
+                            {isDebt && <td className={`n ${g.residual < 0 ? 'neg' : ''}`}><b>{e2(g.residual)}</b></td>}
+                          </tr>
+                          {open && det.lines.map((l) => <LineRow key={l.id} l={l} isDebt={isDebt} odoo={odoo} nested />)}
+                          {open && (det.loading || det.lines.length < det.count) && (
+                            <tr className="ml-sub">
+                              <td colSpan={isDebt ? 11 : 9} style={{ paddingLeft: 30 }}>
+                                {det.loading ? <span className="muted">Cargando…</span> : (
+                                  <button type="button" className="btn" onClick={() => void loadGroup(g.company_id, true)}>
+                                    Cargar más ({det.lines.length.toLocaleString('es-ES')} de {det.count.toLocaleString('es-ES')})
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    }) : lines.map((l) => <LineRow key={l.id} l={l} isDebt={isDebt} odoo={odoo} />)}
                   </tbody>
                 </table>
               </div>
-              {count > PAGE && (
+              {!grouped && count > PAGE && (
                 <div className="pager">
                   <button type="button" className="btn" disabled={offset === 0} onClick={() => page(Math.max(0, offset - PAGE))}>← Anteriores</button>
                   <span>Página {Math.floor(offset / PAGE) + 1} de {Math.ceil(count / PAGE)}</span>

@@ -75,7 +75,7 @@ export const HELP: Record<string, { title: string; body: ReactNode }> = {
           <li><b>Desde un importe:</b> en Contabilidad y deuda, Previsión, Bancos o el Análisis, al pulsar una cifra subrayada se abre esta página con el filtro exacto que forma ese importe (por ejemplo, la deuda vencida de clientes de una compañía, el saldo de un banco o la partida «Clientes» del balance de un año). Arriba se indica qué estás revisando.</li>
           <li><b>Desde el menú:</b> búsqueda libre por fechas, cuenta (por cómo empieza el código: 430, 57, 6…), diario, contacto o texto, con o sin borradores.</li>
         </ul>
-        <p>Las tarjetas suman el debe, el haber y el saldo (debe − haber) de todos los apuntes del filtro, no solo de la página. En cuentas de pasivo, ingresos o patrimonio el saldo sale negativo aunque el cuadro lo muestre en positivo. En la deuda se muestra además lo pendiente de cada apunte.</p>
+        <p>Por defecto los apuntes salen <b>agrupados por compañía</b>, con el total de cada una: pulsa una compañía para desplegar su detalle (o desmarca «Agrupar por compañía» para verlos todos seguidos). Las tarjetas suman el debe, el haber y el saldo (debe − haber) de todos los apuntes del filtro. En cuentas de pasivo, ingresos o patrimonio el saldo sale negativo aunque el cuadro lo muestre en positivo. En la deuda se muestra además lo pendiente de cada apunte.</p>
         <p>El número de asiento abre el asiento en Odoo, y «Descargar CSV» exporta hasta 5.000 apuntes para revisarlos en Excel.</p>
       </>
     ),

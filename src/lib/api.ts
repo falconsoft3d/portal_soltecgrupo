@@ -1381,9 +1381,12 @@ export interface AccountingMoveLinesResponse extends ApiResponse {
   limit?: number;
   totals?: { debit: number; credit: number; balance: number; residual: number };
   lines?: AccountingMoveLine[];
+  groups?: { company_id: number; count: number; debit: number; credit: number; balance: number; residual: number }[];
   journals?: { id: number; name: string; company_id: number }[];
   odoo_url?: string;
 }
 
-export const apiAccountingMoveLines = (token: string, spec: AccountingDrillSpec, company_ids: number[] = [], offset = 0, limit = 100): Promise<AccountingMoveLinesResponse> =>
-  post('/api/accounting/move-lines', { spec: spec as unknown as Record<string, unknown>, company_ids, offset, limit }, token) as Promise<AccountingMoveLinesResponse>;
+export const apiAccountingMoveLines = (
+  token: string, spec: AccountingDrillSpec, company_ids: number[] = [], offset = 0, limit = 100, only_company?: number,
+): Promise<AccountingMoveLinesResponse> =>
+  post('/api/accounting/move-lines', { spec: spec as unknown as Record<string, unknown>, company_ids, offset, limit, only_company }, token) as Promise<AccountingMoveLinesResponse>;
