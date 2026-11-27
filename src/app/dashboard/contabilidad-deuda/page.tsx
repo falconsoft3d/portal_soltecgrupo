@@ -9,6 +9,7 @@ import Shell from '../components/cuadro/Shell';
 import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Icon } from '../components/cuadro/icons';
 import { Drill, chartDrill } from '../components/cuadro/drill';
+import { Tbl } from '../components/cuadro/xlsx';
 import {
   C, baseOpts, compact, companyColor, donutConfig, e0, entColor, fM, fonts, hbarOpts, pct, rgba, zeroLine,
 } from '../components/cuadro/lib';
@@ -272,7 +273,7 @@ export default function ContabilidadDeudaPage() {
           <div className="card"><h2>Cómo pagamos <small>12 meses</small></h2><ChartCanvas config={charts.metP} className="chart donut" /><Legend items={charts.legP} /></div>
           <div className="card">
             <h2>Proyectos con más cobros <small>12 meses</small></h2>
-            <div className="tbl scroll" style={{ maxHeight: 300 }}>
+            <Tbl name="Proyectos con más cobros" className="tbl scroll" style={{ maxHeight: 300 }}>
               <table>
                 <thead><tr><th>Proyecto</th><th className="n">Cobrado</th></tr></thead>
                 <tbody>
@@ -291,7 +292,7 @@ export default function ContabilidadDeudaPage() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </Tbl>
           </div>
         </div>
       </section>

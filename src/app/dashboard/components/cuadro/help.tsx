@@ -76,7 +76,7 @@ export const HELP: Record<string, { title: string; body: ReactNode }> = {
           <li><b>Desde el menú:</b> búsqueda libre por fechas, cuenta (por cómo empieza el código: 430, 57, 6…), diario, contacto o texto, con o sin borradores.</li>
         </ul>
         <p>Por defecto los apuntes salen <b>agrupados por compañía, después por cuenta contable y después por contacto</b>, con el total de cada grupo: pulsa un grupo para desplegarlo hasta llegar a los apuntes (o desmarca la agrupación para verlos todos seguidos). Las tarjetas suman el debe, el haber y el saldo (debe − haber) de todos los apuntes del filtro. En cuentas de pasivo, ingresos o patrimonio el saldo sale negativo aunque el cuadro lo muestre en positivo. En la deuda se muestra además lo pendiente de cada apunte.</p>
-        <p>El número de asiento abre el asiento en Odoo, y «Descargar CSV» exporta hasta 5.000 apuntes para revisarlos en Excel.</p>
+        <p>El número de asiento abre el asiento en Odoo, y «Descargar Excel» exporta hasta 5.000 apuntes del filtro (todos, no solo los visibles) con los importes como números.</p>
       </>
     ),
   },

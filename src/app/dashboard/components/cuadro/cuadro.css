@@ -282,3 +282,9 @@
 .cf tr.ml-grp.ml-l1 td{background:#f8fafb;font-weight:600}
 .cf tr.ml-grp.ml-l2 td{background:var(--surface);font-weight:500}
 .cf tr.ml-grp.ml-l1:hover td,.cf tr.ml-grp.ml-l2:hover td{background:var(--accent-soft)}
+/* Exportar a Excel */
+.cf .tbl-wrap{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cf .tbl-tools{display:flex;justify-content:flex-end;margin-top:-4px}
+.cf .xls-btn{font:inherit;font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:#1d6f42;cursor:pointer}
+.cf .xls-btn svg{width:13px;height:13px}
+.cf .xls-btn:hover{border-color:#1d6f42;background:#e8f4ec}

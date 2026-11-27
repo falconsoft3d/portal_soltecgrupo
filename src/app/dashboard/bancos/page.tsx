@@ -11,6 +11,7 @@ import { Drill, chartDrill } from '../components/cuadro/drill';
 import { useRouter } from 'next/navigation';
 import { ORIGIN_LABEL, Serie, baseBalance, horizonEnd, movimientos, serie, useToggles } from '../components/cuadro/forecast';
 import { C, baseOpts, companyColor, compact, e0, e2, entColor, fD, fonts, gradientFill, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
+import { Tbl } from '../components/cuadro/xlsx';
 
 /** Minigráfico de la tarjeta (mismo dibujo que el artefacto: línea + área hasta 0). */
 function Spark({ vals, color }: { vals: number[]; color: string }) {
@@ -182,7 +183,7 @@ export default function BancosPage() {
               </div>
               <div className="card">
                 <h2>Movimientos previstos <small>{detail.moves.length} movimientos hasta {fD(calc.end)}</small></h2>
-                <div className="tbl scroll">
+                <Tbl name="Movimientos previstos" className="tbl scroll">
                   <table>
                     <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th className="n">Importe</th><th className="n">Saldo</th></tr></thead>
                     <tbody>
@@ -197,7 +198,7 @@ export default function BancosPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </Tbl>
               </div>
             </>
           )}

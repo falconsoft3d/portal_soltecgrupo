@@ -9,6 +9,7 @@ import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Icon } from '../components/cuadro/icons';
 import { Drill } from '../components/cuadro/drill';
 import { ORIGIN_LABEL, horizonEnd, movimientos, selectedJournals, serie, useJournalSelection, useToggles } from '../components/cuadro/forecast';
+import { Tbl } from '../components/cuadro/xlsx';
 import {
   C, DAY, MES, baseOpts, compact, companyColor, e0, e2, entColor, fD, fM, fonts, gradientFill, rgba, toIso, toTime, zeroLine,
 } from '../components/cuadro/lib';
@@ -245,7 +246,7 @@ export default function PrevisionTesoreriaPage() {
           <div className="grid k2">
             <div className="card">
               <h2>Resumen mensual</h2>
-              <div className="tbl scroll">
+              <Tbl name="Resumen mensual" className="tbl scroll">
                 <table>
                   <thead><tr><th>Mes</th><th className="n">Saldo inicial</th><th className="n">Cobros</th><th className="n">Pagos</th><th className="n">Ajustes</th>{t.est && <th className="n">Estimación</th>}<th className="n">Saldo final</th></tr></thead>
                   <tbody>
@@ -260,11 +261,11 @@ export default function PrevisionTesoreriaPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Tbl>
             </div>
             <div className="card">
               <h2>Próximos movimientos <small>30 días</small></h2>
-              <div className="tbl scroll">
+              <Tbl name="Próximos movimientos" className="tbl scroll">
                 <table>
                   <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Diario</th><th className="n">Importe</th><th className="n">Saldo</th></tr></thead>
                   <tbody>
@@ -279,13 +280,13 @@ export default function PrevisionTesoreriaPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </Tbl>
             </div>
           </div>
 
           <div className="card">
             <h2>Ajustes de periodo <small>tal como están en Odoo (asientos recurrentes)</small></h2>
-            <div className="tbl scroll">
+            <Tbl name="Ajustes de periodo" className="tbl scroll">
               <table>
                 <thead><tr><th>Compañía</th><th>Descripción</th><th>Diario</th><th>Inicio</th><th>Fin</th><th className="n">Importe</th><th className="n">Cada</th><th>Próximo cargo</th></tr></thead>
                 <tbody>
@@ -301,7 +302,7 @@ export default function PrevisionTesoreriaPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Tbl>
           </div>
         </section>
       )}

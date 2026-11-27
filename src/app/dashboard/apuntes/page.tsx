@@ -9,6 +9,7 @@ import { useCompanySelection } from '../components/AccountingUi';
 import Shell from '../components/cuadro/Shell';
 import { APUNTES_PATH, parseSpec } from '../components/cuadro/drill';
 import { e2, fD } from '../components/cuadro/lib';
+import { downloadXlsx } from '../components/cuadro/xlsx';
 
 const PAGE = 100;
 
@@ -61,10 +62,6 @@ function LineRow({ l, isDebt, odoo, level = 0 }: { l: AccountingMoveLine; isDebt
 
 function yearStart(today: string) { return `${today.slice(0, 4)}-01-01`; }
 
-function csvCell(v: string | number) {
-  const s = String(v ?? '');
-  return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
 
 function ApuntesInner() {
   const params = useSearchParams();
@@ -197,7 +194,7 @@ function ApuntesInner() {
   const groups = data?.groups ?? [];
   const multi = (data?.selected_company_ids ?? []).length > 1;
 
-  const exportCsv = async () => {
+  const exportXlsx = async () => {
     const token = getToken();
     if (!token || !data) return;
     setExporting(true);
@@ -208,14 +205,13 @@ function ApuntesInner() {
         if (!res.success) break;
         all.push(...(res.lines ?? []));
       }
-      const head = ['Fecha', 'Asiento', 'Diario', 'Cuenta', 'Contacto', 'Etiqueta', 'Referencia', 'Vencimiento', 'Debe', 'Haber', 'Saldo', 'Pendiente', 'Estado'];
-      const num = (n: number) => n.toFixed(2).replace('.', ',');
-      const rows = all.map((l) => [l.date ?? '', l.move, l.journal, l.account, l.partner, l.label, l.ref, l.date_maturity ?? '', num(l.debit), num(l.credit), num(l.balance), num(l.residual), l.state === 'draft' ? 'Borrador' : 'Publicado']);
-      const csv = '﻿' + [head, ...rows].map((r) => r.map(csvCell).join(';')).join('\n');
-      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-      const a = document.createElement('a');
-      a.href = url; a.download = `apuntes-${todayIso}.csv`; a.click();
-      URL.revokeObjectURL(url);
+      const head = ['Compañía', 'Fecha', 'Asiento', 'Diario', 'Cuenta', 'Contacto', 'Etiqueta', 'Referencia', 'Vencimiento', 'Debe', 'Haber', 'Saldo', 'Pendiente', 'Estado'];
+      const eur = (n: number) => ({ v: n, t: 'n' as const, z: '#,##0.00 "€"' });
+      const rows = all.map((l) => [
+        companyFull(l.company_id as number), l.date ? fD(l.date) : '', l.move, l.journal, l.account, l.partner, l.label, l.ref, l.date_maturity ? fD(l.date_maturity) : '',
+        eur(l.debit), eur(l.credit), eur(l.balance), eur(l.residual), l.state === 'draft' ? 'Borrador' : 'Publicado',
+      ]);
+      await downloadXlsx(drill?.l ? `Apuntes ${drill.l}` : 'Apuntes contables', [head, ...rows]);
     } finally {
       setExporting(false);
     }
@@ -281,7 +277,7 @@ function ApuntesInner() {
                     <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />
                     <span className="sw" />Agrupar por compañía, cuenta y contacto
                   </label>
-                  <button type="button" className="btn" disabled={!count || exporting} onClick={exportCsv}>{exporting ? 'Preparando…' : 'Descargar CSV'}</button>
+                  <button type="button" className="btn" disabled={!count || exporting} onClick={exportXlsx}>{exporting ? 'Preparando…' : 'Descargar Excel'}</button>
                 </div>
               </div>
               <div className="tbl scroll" style={{ maxHeight: 'none' }}>

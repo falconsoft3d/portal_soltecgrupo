@@ -8,6 +8,7 @@ import {
 import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Drill } from '../components/cuadro/drill';
 import { AnyOpts, C, baseOpts, compact, e0, fonts, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
+import { Tbl } from '../components/cuadro/xlsx';
 
 /* ------------------------------------------------------------------ */
 /*  Formatos (afE, afN2, afP, afD del artefacto)                        */
@@ -79,9 +80,9 @@ function AfRows({ view, r, base }: { view: string[]; r: AfResult; base: Triple }
   );
 }
 
-function Synth({ rows, r }: { rows: [string, Triple, boolean?][]; r: AfResult }) {
+function Synth({ rows, r, name = 'Cuadro' }: { rows: [string, Triple, boolean?][]; r: AfResult; name?: string }) {
   return (
-    <div className="tbl">
+    <Tbl name={name} className="tbl">
       <table className="aft">
         <thead><tr><th>Concepto</th><th className="n">{r.y[0]}</th><th className="n">{r.y[1]}</th><th className="n">Variación</th><th className="n">%</th><th className="n">{r.y[2]}</th><th className="n">Variación</th><th className="n">%</th></tr></thead>
         <tbody>
@@ -100,7 +101,7 @@ function Synth({ rows, r }: { rows: [string, Triple, boolean?][]; r: AfResult })
           })}
         </tbody>
       </table>
-    </div>
+    </Tbl>
   );
 }
 
@@ -182,8 +183,8 @@ export function BalanceTab({ r }: { r: AfResult }) {
     <>
       <Note>Importes calculados desde la contabilidad (saldos a 31/12, o a hoy si el ejercicio está en curso). Pulsa un importe para ver los apuntes que lo forman. Las filas en gris son totales. <b>%</b> = peso sobre el total del activo o del pasivo · <b>Ind.</b> = año / año anterior.</Note>
       <div className="grid k2" style={{ alignItems: 'start' }}>
-        <div className="card"><h2>Activo</h2><div className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_ACT} r={r} base={r.D} /></tbody></table></div></div>
-        <div className="card"><h2>Pasivo y patrimonio neto</h2><div className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_PAS} r={r} base={r.H} /></tbody></table></div></div>
+        <div className="card"><h2>Activo</h2><Tbl name="Activo" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_ACT} r={r} base={r.D} /></tbody></table></Tbl></div>
+        <div className="card"><h2>Pasivo y patrimonio neto</h2><Tbl name="Pasivo y patrimonio neto" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_PAS} r={r} base={r.H} /></tbody></table></Tbl></div>
       </div>
     </>
   );
@@ -197,10 +198,10 @@ export function ExplotacionTab({ r, employees, onEmployees }: { r: AfResult; emp
   return (
     <>
       <Note>Importes sin signo, como en la plantilla: la variación de existencias va en negativo si disminuyen, y los excesos de provisiones con signo menos. <b>%</b> = peso sobre la producción. Pulsa un importe para ver sus apuntes.</Note>
-      <div className="card"><h2>Cuenta de explotación · rentabilidad</h2><div className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_PYG} r={r} base={r.prod} /></tbody></table></div></div>
+      <div className="card"><h2>Cuenta de explotación · rentabilidad</h2><Tbl name="Cuenta de explotación · rentabilidad" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_PYG} r={r} base={r.prod} /></tbody></table></Tbl></div>
       <div className="card">
         <h2>Plantilla y productividad <small>el nº de empleados no está en la contabilidad: escríbelo aquí</small></h2>
-        <div className="tbl">
+        <Tbl name="Plantilla y productividad" className="tbl">
           <table className="aft">
             <thead><tr><th /><th>Concepto</th><YearHead r={r} pc={false} /></tr></thead>
             <tbody>
@@ -225,7 +226,7 @@ export function ExplotacionTab({ r, employees, onEmployees }: { r: AfResult; emp
               ))}
             </tbody>
           </table>
-        </div>
+        </Tbl>
         <Note>La Seguridad Social solo sirve para repartir el valor añadido: se resta del personal y se suma a las administraciones.</Note>
       </div>
     </>
@@ -269,7 +270,7 @@ export function MasasTab({ r }: { r: AfResult }) {
       </div>
       <div className="card">
         <h2>Fondo de maniobra por masas <small>capitales permanentes − inmovilizado</small></h2>
-        <Synth r={r} rows={[['Fondos propios', r.fp], ['Deudas a largo plazo', r.g('deuda_lp')], ['Capitales permanentes', r.capPerm, true], ['Inmovilizado', r.A.map((v) => -v) as Triple], ['Fondo de maniobra', r.fmMasas, true]]} />
+        <Synth name="Fondo de maniobra por masas" r={r} rows={[['Fondos propios', r.fp], ['Deudas a largo plazo', r.g('deuda_lp')], ['Capitales permanentes', r.capPerm, true], ['Inmovilizado', r.A.map((v) => -v) as Triple], ['Fondo de maniobra', r.fmMasas, true]]} />
         <Note>Si el fondo de maniobra es positivo, los recursos a largo plazo financian todo el inmovilizado y además una parte del circulante. Es la situación sana.</Note>
       </div>
     </>
@@ -298,7 +299,7 @@ export function ResumenTab({ r }: { r: AfResult }) {
       </div>
       <div className="card">
         <h2>Fondos de maniobra</h2>
-        <Synth r={r} rows={[['+ Activo circulante', r.ac], ['− Pasivo circulante', r.pc], ['Fondo de maniobra aparente', r.fm, true], ['Fondo de maniobra necesario', r.fmNec, true], ['Exceso (+) o déficit (−)', r.fmExc, true]]} />
+        <Synth name="Fondos de maniobra" r={r} rows={[['+ Activo circulante', r.ac], ['− Pasivo circulante', r.pc], ['Fondo de maniobra aparente', r.fm, true], ['Fondo de maniobra necesario', r.fmNec, true], ['Exceso (+) o déficit (−)', r.fmExc, true]]} />
         <div className="legend" style={{ marginTop: 4 }}>Días de autonomía: {r.y.map((y, i) => <Fragment key={y}><b>{y}</b> {afD(r.diasAut[i])}{i < 2 ? ' · ' : ''}</Fragment>)}</div>
       </div>
       <div className="grid k2">
@@ -306,7 +307,7 @@ export function ResumenTab({ r }: { r: AfResult }) {
           <h2>Composición de la deuda total</h2>
           <ChartCanvas config={deuda} className="chart short" />
           <Legend items={[['Deuda a largo plazo', C.estim], ['Deuda a corto plazo', C.pago]]} />
-          <Synth r={r} rows={[['Deudas a largo plazo', r.g('deuda_lp')], ['Deudas a corto plazo', r.G], ['Deuda total', r.deudaTot, true], ['Total balance', r.H]]} />
+          <Synth name="Composición de la deuda total" r={r} rows={[['Deudas a largo plazo', r.g('deuda_lp')], ['Deudas a corto plazo', r.G], ['Deuda total', r.deudaTot, true], ['Total balance', r.H]]} />
         </div>
         <div className="card">
           <h2>Capacidad de endeudamiento</h2>
@@ -320,7 +321,7 @@ export function ResumenTab({ r }: { r: AfResult }) {
       </div>
       <div className="card">
         <h2>Cuadro de síntesis</h2>
-        <Synth r={r} rows={[['Clientes', r.g('clientes')], ['Proveedores y acreedores', r.provAcr], ['Activo real', r.activoReal], ['Existencias', r.B], ['Deuda con bancos a c/p y l/p', r.deudaBanc], ['Cifra de negocio', r.g('cn'), true], ['Total de gastos generales', r.gtosGen], ['Resultado neto', r.rn, true], ['Gastos de explotación diarios', r.gtosDia]]} />
+        <Synth name="Cuadro de síntesis" r={r} rows={[['Clientes', r.g('clientes')], ['Proveedores y acreedores', r.provAcr], ['Activo real', r.activoReal], ['Existencias', r.B], ['Deuda con bancos a c/p y l/p', r.deudaBanc], ['Cifra de negocio', r.g('cn'), true], ['Total de gastos generales', r.gtosGen], ['Resultado neto', r.rn, true], ['Gastos de explotación diarios', r.gtosDia]]} />
         <Note>Fondo de maniobra necesario = (gastos diarios × periodo de maduración) − (compras / días × plazo de pago). Activo real = total − intangible − inversiones financieras.</Note>
       </div>
     </>
@@ -350,7 +351,7 @@ export function Ratios1Tab({ r }: { r: AfResult }) {
       </div>
       <div className="card">
         <h2>Incidencias en tesorería <small>cuánto dinero liberan (+) o consumen (−) los cambios de plazos</small></h2>
-        <div className="tbl">
+        <Tbl name="Incidencias en tesorería" className="tbl">
           <table className="aft">
             <thead><tr><th>Por</th><th className="n">{Y[0]}</th><th className="n">{Y[1]}</th><th className="n">Pérd./gan. tesorería</th><th className="n">{Y[2]}</th><th className="n">Pérd./gan. tesorería</th></tr></thead>
             <tbody>
@@ -360,7 +361,7 @@ export function Ratios1Tab({ r }: { r: AfResult }) {
               <tr className="tot"><td className="lbl">Suma</td><td /><td /><td className={`n ${cls(r.incTot[1])}`}>{afE(r.incTot[1])}</td><td /><td className={`n ${cls(r.incTot[2])}`}>{afE(r.incTot[2])}</td></tr>
             </tbody>
           </table>
-        </div>
+        </Tbl>
         <Note>Cobrar antes, almacenar menos o pagar más tarde libera tesorería. Se calcula sobre 360 días, como en la plantilla.</Note>
       </div>
     </>
@@ -438,8 +439,8 @@ export function OriAplTab({ r }: { r: AfResult }) {
       <div className="card">
         <div className="afhead"><h2>Estado de origen y aplicación de fondos</h2><div className="yrsel" style={{ alignItems: 'center' }}>Comparar {sel(f, setF)} con {sel(to, setTo)}</div></div>
         <div className="grid k2">
-          <div className="tbl"><table className="aft"><thead><tr><th>Activo</th><th className="n">{r.y[f]}</th><th className="n">{r.y[to]}</th><th className="n">Diferencia</th></tr></thead><tbody>{tb(act)}{totRow('Total activo', act)}</tbody></table></div>
-          <div className="tbl"><table className="aft"><thead><tr><th>Pasivo</th><th className="n">{r.y[f]}</th><th className="n">{r.y[to]}</th><th className="n">Diferencia</th></tr></thead><tbody>{tb(pas)}{totRow('Total pasivo', pas)}</tbody></table></div>
+          <Tbl name="Origen y aplicación · Activo" className="tbl"><table className="aft"><thead><tr><th>Activo</th><th className="n">{r.y[f]}</th><th className="n">{r.y[to]}</th><th className="n">Diferencia</th></tr></thead><tbody>{tb(act)}{totRow('Total activo', act)}</tbody></table></Tbl>
+          <Tbl name="Origen y aplicación · Pasivo" className="tbl"><table className="aft"><thead><tr><th>Pasivo</th><th className="n">{r.y[f]}</th><th className="n">{r.y[to]}</th><th className="n">Diferencia</th></tr></thead><tbody>{tb(pas)}{totRow('Total pasivo', pas)}</tbody></table></Tbl>
         </div>
       </div>
       <div className="card">
@@ -447,8 +448,8 @@ export function OriAplTab({ r }: { r: AfResult }) {
         <Legend items={[['Aplicaciones (usos)', C.pago], ['Orígenes (fuentes)', C.cobro]]} />
         <ChartCanvas config={chart} />
         <div className="grid k2">
-          <div className="tbl"><table className="aft"><thead><tr><th>Aplicación</th><th className="n">Importe</th></tr></thead><tbody>{apl.filter((x) => x[1]).map((x) => <tr key={x[0]}><td>{x[0]}</td><td className="n">{afE(x[1])}</td></tr>)}<tr className="tot"><td>Total aplicaciones</td><td className="n">{afE(sa)}</td></tr></tbody></table></div>
-          <div className="tbl"><table className="aft"><thead><tr><th>Origen</th><th className="n">Importe</th></tr></thead><tbody>{ori.filter((x) => x[1]).map((x) => <tr key={x[0]}><td>{x[0]}</td><td className="n">{afE(x[1])}</td></tr>)}<tr className="tot"><td>Total orígenes</td><td className="n">{afE(so)}</td></tr></tbody></table></div>
+          <Tbl name="Aplicaciones de fondos" className="tbl"><table className="aft"><thead><tr><th>Aplicación</th><th className="n">Importe</th></tr></thead><tbody>{apl.filter((x) => x[1]).map((x) => <tr key={x[0]}><td>{x[0]}</td><td className="n">{afE(x[1])}</td></tr>)}<tr className="tot"><td>Total aplicaciones</td><td className="n">{afE(sa)}</td></tr></tbody></table></Tbl>
+          <Tbl name="Orígenes de fondos" className="tbl"><table className="aft"><thead><tr><th>Origen</th><th className="n">Importe</th></tr></thead><tbody>{ori.filter((x) => x[1]).map((x) => <tr key={x[0]}><td>{x[0]}</td><td className="n">{afE(x[1])}</td></tr>)}<tr className="tot"><td>Total orígenes</td><td className="n">{afE(so)}</td></tr></tbody></table></Tbl>
         </div>
         <Note>Aumentos de activo y bajadas de pasivo son aplicaciones; bajadas de activo y aumentos de pasivo son orígenes. Si el balance cuadra, los dos totales coinciden.</Note>
       </div>
@@ -492,7 +493,7 @@ export function ValorAnadidoTab({ r }: { r: AfResult }) {
       </div>
       <div className="card">
         <h2>Detalle</h2>
-        <div className="tbl">
+        <Tbl name="Valor añadido · detalle" className="tbl">
           <table className="aft">
             <thead><tr><th>Concepto</th>{r.y.map((y) => <Fragment key={y}><th className="n">{y}</th><th className="n pc">%</th></Fragment>)}</tr></thead>
             <tbody>
@@ -506,7 +507,7 @@ export function ValorAnadidoTab({ r }: { r: AfResult }) {
               <tr><td className="lbl muted">Línea de cuadre (debe ser 0)</td>{r.vaChk.map((v, i) => <Fragment key={i}><td className={`n ${Math.abs(v) > 1 ? 'neg' : 'pos'}`}>{afE(v)}</td><td /></Fragment>)}</tr>
             </tbody>
           </table>
-        </div>
+        </Tbl>
       </div>
     </>
   );
@@ -602,7 +603,7 @@ export function CuentasTab({ r, unmapped }: { r: AfResult; unmapped: AccountingU
     <>
       <div className="card">
         <h2>Comprobaciones <small>como en la portada de la plantilla: deben salir a 0</small></h2>
-        <div className="tbl">
+        <Tbl name="Comprobaciones" className="tbl">
           <table className="aft">
             <thead><tr><th>Comprobación</th>{r.y.map((y) => <th key={y} className="n">{y}</th>)}</tr></thead>
             <tbody>
@@ -611,12 +612,12 @@ export function CuentasTab({ r, unmapped }: { r: AfResult; unmapped: AccountingU
               ))}
             </tbody>
           </table>
-        </div>
+        </Tbl>
       </div>
       <div className="card">
         <h2>Cuentas sin clasificar <small>su código no encaja en ninguna partida; se han sumado a la indicada para que el balance cuadre</small></h2>
         {unmapped.length === 0 ? <div className="afempty">Todas las cuentas con saldo están clasificadas.</div> : (
-          <div className="tbl scroll">
+          <Tbl name="Cuentas sin clasificar" className="tbl scroll">
             <table className="aft">
               <thead><tr><th>Ejercicio</th><th>Cuenta</th><th>Sumada a</th><th className="n">Saldo</th></tr></thead>
               <tbody>
@@ -625,7 +626,7 @@ export function CuentasTab({ r, unmapped }: { r: AfResult; unmapped: AccountingU
                 ))}
               </tbody>
             </table>
-          </div>
+          </Tbl>
         )}
         <Note>Saldo con el signo contable de Odoo (deudor +, acreedor −). Si una cuenta debería ir a otra partida, se añade su prefijo a la clasificación.</Note>
       </div>
