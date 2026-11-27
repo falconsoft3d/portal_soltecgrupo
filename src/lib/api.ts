@@ -656,6 +656,7 @@ export interface ResultTableItem {
   from_date: string | false;
   to_date: string | false;
   line_count: number;
+  created_by?: string;
   states: string[];
   managers: { id: number; name: string }[];
   project_ids: { id: number; display_name: string }[];

@@ -114,6 +114,19 @@ function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+/** Clave YYYY-MM a partir de la fecha "desde" (o 'sin-fecha'). */
+function monthKey(value: string | false): string {
+  return typeof value === 'string' && /^\d{4}-\d{2}/.test(value) ? value.slice(0, 7) : 'sin-fecha';
+}
+
+function monthLabel(key: string): string {
+  if (key === 'sin-fecha') return 'Sin fecha';
+  const [y, m] = key.split('-');
+  return `${MONTH_NAMES[Number(m) - 1] ?? m} ${y}`;
+}
+
 function formatDate(value: string | false): string {
   if (!value) return '—';
   const date = new Date(value);
@@ -230,6 +243,28 @@ export default function EstadosResultadosPage() {
   const [isSavingTitle, setIsSavingTitle] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+
+  // Agrupación de la lista por mes (fecha "desde")
+  const [groupTablesByMonth, setGroupTablesByMonth] = useState(true);
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const tablesByMonth = useMemo(() => {
+    const map = new Map<string, ResultTableItem[]>();
+    for (const t of tables) {
+      const key = monthKey(t.from_date);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => (a === 'sin-fecha' ? 1 : b === 'sin-fecha' ? -1 : b.localeCompare(a)))
+      .map(([key, items]) => ({ key, items }));
+  }, [tables]);
+  const toggleMonth = (key: string) => {
+    setCollapsedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   function handleSort(key: ColKey) {
     setSortCol((prev) => {
@@ -1032,6 +1067,112 @@ export default function EstadosResultadosPage() {
     );
   }
 
+  // Fila de la lista de estados
+  const renderTableRow = (table: ResultTableItem) => (
+    <tr
+      key={table.id}
+      onClick={() => !isLoadingDetail && editingTitleId !== table.id && confirmDeleteId !== table.id && handleViewDetail(table.id)}
+      className={`hover:bg-brand-50 transition-colors ${isLoadingDetail || editingTitleId === table.id || confirmDeleteId === table.id ? 'opacity-100' : 'cursor-pointer'}`}
+    >
+      <td className="px-4 py-3 text-gray-700">{table.created_by || '—'}</td>
+      <td className="px-4 py-3 font-mono font-medium text-gray-700">{table.name}</td>
+      <td className="px-4 py-3 text-gray-800 max-w-55" onClick={(e) => e.stopPropagation()}>
+        {editingTitleId === table.id ? (
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              value={editingTitleValue}
+              onChange={(e) => setEditingTitleValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSaveTitle(table.id);
+                if (e.key === 'Escape') setEditingTitleId(null);
+              }}
+              autoFocus
+              className="flex-1 border border-brand-400 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-0"
+            />
+            <button
+              onClick={() => handleSaveTitle(table.id)}
+              disabled={isSavingTitle}
+              className="text-emerald-600 hover:text-emerald-800 text-xs px-1 disabled:opacity-50"
+            >✓</button>
+            <button
+              onClick={() => setEditingTitleId(null)}
+              className="text-gray-400 hover:text-gray-600 text-xs px-1"
+            >✕</button>
+          </div>
+        ) : (
+          <span className="truncate block">{table.title}</span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-gray-600">{formatDate(table.from_date)}</td>
+      <td className="px-4 py-3 text-gray-600">{formatDate(table.to_date)}</td>
+      <td className="px-4 py-3 text-center">
+        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-50 text-brand-700 text-xs font-semibold">
+          {table.line_count}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-gray-500 text-xs">
+        {table.states.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            {table.states.map((s) => (
+              <span key={s} className="inline-block bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
+                {s}
+              </span>
+            ))}
+          </div>
+        ) : '—'}
+      </td>
+      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+        {confirmDeleteId === table.id ? (
+          <div className="flex items-center justify-center gap-1">
+            <span className="text-xs text-gray-500 mr-1">¿Eliminar?</span>
+            <button
+              onClick={() => handleDelete(table.id)}
+              disabled={isDeletingId === table.id}
+              className="text-xs text-rose-600 hover:text-rose-800 font-medium disabled:opacity-50"
+            >{isDeletingId === table.id ? '...' : 'Sí'}</button>
+            <button
+              onClick={() => setConfirmDeleteId(null)}
+              className="text-xs text-gray-500 hover:text-gray-700 font-medium"
+            >No</button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2">
+            <button
+              title="Ver detalle"
+              onClick={() => handleViewDetail(table.id)}
+              disabled={isLoadingDetail}
+              className="text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+            <button
+              title="Editar título"
+              onClick={() => { setEditingTitleId(table.id); setEditingTitleValue(table.title); }}
+              className="text-gray-400 hover:text-brand-600 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
+              </svg>
+            </button>
+            <button
+              title="Eliminar"
+              onClick={() => setConfirmDeleteId(table.id)}
+              className="text-gray-400 hover:text-rose-600 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0a2 2 0 00-2-2H9a2 2 0 00-2 2m10 0H5" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </td>
+    </tr>
+  );
+
   // Vista de lista
   return (
     <div className="space-y-6">
@@ -1157,6 +1298,13 @@ export default function EstadosResultadosPage() {
               <span className="ml-2 text-xs text-gray-400 font-normal">{tables.length} registros</span>
             )}
           </h2>
+          <button
+            type="button"
+            onClick={() => setGroupTablesByMonth((v) => !v)}
+            className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${groupTablesByMonth ? 'bg-brand-50 border-brand-200 text-brand-700' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+          >
+            {groupTablesByMonth ? 'Agrupado por mes' : 'Agrupar por mes'}
+          </button>
         </div>
 
         {isLoading ? (
@@ -1170,6 +1318,7 @@ export default function EstadosResultadosPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                  <th className="px-4 py-3 text-left font-medium">Contacto</th>
                   <th className="px-4 py-3 text-left font-medium">Código</th>
                   <th className="px-4 py-3 text-left font-medium">Título</th>
                   <th className="px-4 py-3 text-left font-medium">Desde</th>
@@ -1180,109 +1329,26 @@ export default function EstadosResultadosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {tables.map((table) => (
-                  <tr
-                    key={table.id}
-                    onClick={() => !isLoadingDetail && editingTitleId !== table.id && confirmDeleteId !== table.id && handleViewDetail(table.id)}
-                    className={`hover:bg-brand-50 transition-colors ${isLoadingDetail || editingTitleId === table.id || confirmDeleteId === table.id ? 'opacity-100' : 'cursor-pointer'}`}
-                  >
-                    <td className="px-4 py-3 font-mono font-medium text-gray-700">{table.name}</td>
-                    <td className="px-4 py-3 text-gray-800 max-w-55" onClick={(e) => e.stopPropagation()}>
-                      {editingTitleId === table.id ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            value={editingTitleValue}
-                            onChange={(e) => setEditingTitleValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveTitle(table.id);
-                              if (e.key === 'Escape') setEditingTitleId(null);
-                            }}
-                            autoFocus
-                            className="flex-1 border border-brand-400 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 min-w-0"
-                          />
-                          <button
-                            onClick={() => handleSaveTitle(table.id)}
-                            disabled={isSavingTitle}
-                            className="text-emerald-600 hover:text-emerald-800 text-xs px-1 disabled:opacity-50"
-                          >✓</button>
-                          <button
-                            onClick={() => setEditingTitleId(null)}
-                            className="text-gray-400 hover:text-gray-600 text-xs px-1"
-                          >✕</button>
-                        </div>
-                      ) : (
-                        <span className="truncate block">{table.title}</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(table.from_date)}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDate(table.to_date)}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-50 text-brand-700 text-xs font-semibold">
-                        {table.line_count}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {table.states.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {table.states.map((s) => (
-                            <span key={s} className="inline-block bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
-                              {s}
-                            </span>
-                          ))}
-                        </div>
-                      ) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      {confirmDeleteId === table.id ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <span className="text-xs text-gray-500 mr-1">¿Eliminar?</span>
-                          <button
-                            onClick={() => handleDelete(table.id)}
-                            disabled={isDeletingId === table.id}
-                            className="text-xs text-rose-600 hover:text-rose-800 font-medium disabled:opacity-50"
-                          >{isDeletingId === table.id ? '...' : 'Sí'}</button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="text-xs text-gray-500 hover:text-gray-700 font-medium"
-                          >No</button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            title="Ver detalle"
-                            onClick={() => handleViewDetail(table.id)}
-                            disabled={isLoadingDetail}
-                            className="text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40"
+                {groupTablesByMonth
+                  ? tablesByMonth.map(({ key, items }) => {
+                      const isCollapsed = collapsedMonths.has(key);
+                      return (
+                        <Fragment key={key}>
+                          <tr
+                            onClick={() => toggleMonth(key)}
+                            className="cursor-pointer bg-slate-100 hover:bg-slate-200 transition-colors border-t border-slate-200"
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                          <button
-                            title="Editar título"
-                            onClick={() => { setEditingTitleId(table.id); setEditingTitleValue(table.title); }}
-                            className="text-gray-400 hover:text-brand-600 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
-                            </svg>
-                          </button>
-                          <button
-                            title="Eliminar"
-                            onClick={() => setConfirmDeleteId(table.id)}
-                            className="text-gray-400 hover:text-rose-600 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0a2 2 0 00-2-2H9a2 2 0 00-2 2m10 0H5" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                            <td colSpan={8} className="px-4 py-2 text-xs font-bold text-slate-700">
+                              <span className="text-slate-400 mr-1.5">{isCollapsed ? '▶' : '▼'}</span>
+                              {monthLabel(key)}
+                              <span className="ml-1 text-slate-400 font-normal">({items.length})</span>
+                            </td>
+                          </tr>
+                          {!isCollapsed && items.map(renderTableRow)}
+                        </Fragment>
+                      );
+                    })
+                  : tables.map(renderTableRow)}
               </tbody>
             </table>
           </div>
