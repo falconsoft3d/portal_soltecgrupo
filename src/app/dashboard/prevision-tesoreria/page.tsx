@@ -4,12 +4,12 @@ import { CSSProperties, useEffect, useMemo, useState } from 'react';
 import { apiAccountingForecast, AccountingForecastResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { useCompanySelection } from '../components/AccountingUi';
-import Shell, { useHorizon } from '../components/cuadro/Shell';
+import Shell, { MultiSelect, useHorizon } from '../components/cuadro/Shell';
 import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Icon } from '../components/cuadro/icons';
-import { ORIGIN_LABEL, horizonEnd, movimientos, selectedJournals, serie, useToggles } from '../components/cuadro/forecast';
+import { ORIGIN_LABEL, horizonEnd, movimientos, selectedJournals, serie, useJournalSelection, useToggles } from '../components/cuadro/forecast';
 import {
-  C, DAY, MES, baseOpts, compact, companyColor, e0, e2, fD, fM, fonts, gradientFill, rgba, toIso, toTime, zeroLine,
+  C, DAY, MES, baseOpts, compact, companyColor, e0, e2, entColor, fD, fM, fonts, gradientFill, rgba, toIso, toTime, zeroLine,
 } from '../components/cuadro/lib';
 
 const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
@@ -26,7 +26,8 @@ function Toggle({ checked, onChange, label, color, radio = false }: { checked: b
 export default function PrevisionTesoreriaPage() {
   const [selected, setSelected] = useCompanySelection();
   const [horizon, setHorizon] = useHorizon();
-  const [t, setT] = useToggles();
+  const [toggles, setT] = useToggles();
+  const [journalSel, setJournalSel] = useJournalSelection();
   const [data, setData] = useState<AccountingForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,6 +48,18 @@ export default function PrevisionTesoreriaPage() {
   }, [selected]);
 
   const changeCompanies = (ids: number[]) => { setLoading(true); setSelected(ids); };
+
+  // Diarios de banco y efectivo de las compañías filtradas (vacío = todos)
+  const journalOptions = useMemo(() => {
+    const comps = data?.companies ?? [];
+    const multi = (data?.selected_company_ids ?? []).length > 1;
+    return (data?.journals ?? []).map((j) => ({
+      id: j.id, label: j.name, color: entColor(j.entity), hint: compact(j.balance),
+      group: multi ? comps.find((c) => c.id === j.company_id)?.name : undefined,
+    }));
+  }, [data]);
+  const validJournals = useMemo(() => journalSel.filter((id) => journalOptions.some((o) => o.id === id)), [journalSel, journalOptions]);
+  const t = useMemo(() => ({ ...toggles, journalIds: validJournals }), [toggles, validJournals]);
 
   const calc = useMemo(() => {
     if (!data?.success || !data.today) return null;
@@ -153,7 +166,11 @@ export default function PrevisionTesoreriaPage() {
 
   return (
     <Shell today={data?.today} companies={data?.companies} selected={selected} onCompanies={changeCompanies}
-      horizon={horizon} onHorizon={setHorizon} loading={loading && !!data} error={error}>
+      horizon={horizon} onHorizon={setHorizon} loading={loading && !!data} error={error}
+      extraControls={journalOptions.length > 0 && (
+        <MultiSelect options={journalOptions} selected={validJournals} onChange={setJournalSel}
+          allLabel="Todos los diarios" unit={['diario', 'diarios']} title="Diarios de banco y efectivo" />
+      )}>
       {loading && !data ? <div className="empty">Cargando…</div> : calc && (
         <section className="panel">
           <div className="card" style={{ gap: 10 }}>

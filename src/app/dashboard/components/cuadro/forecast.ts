@@ -13,7 +13,11 @@ export interface Mov {
   date: string; amount: number; origin: Origin; company_id: number; journal_id: number | false; journal: string; concept: string;
 }
 
-export interface Toggles { adj: boolean; cob: boolean; pag: boolean; est: boolean; cart: boolean; base: 'book' | 'statement' }
+export interface Toggles {
+  adj: boolean; cob: boolean; pag: boolean; est: boolean; cart: boolean; base: 'book' | 'statement';
+  /** Diarios elegidos en el desplegable (vacío = todos). No se guarda con los interruptores. */
+  journalIds?: number[];
+}
 const DEFAULT_TOGGLES: Toggles = { adj: true, cob: true, pag: true, est: false, cart: true, base: 'book' };
 const TOGGLES_KEY = 'portal_cf_toggles_v1';
 
@@ -28,17 +32,35 @@ export function useToggles(): [Toggles, (t: Partial<Toggles>) => void] {
   const update = (p: Partial<Toggles>) => {
     setT((prev) => {
       const next = { ...prev, ...p };
-      try { localStorage.setItem(TOGGLES_KEY, JSON.stringify(next)); } catch { /* sin almacenamiento */ }
+      try { localStorage.setItem(TOGGLES_KEY, JSON.stringify({ ...next, journalIds: undefined })); } catch { /* sin almacenamiento */ }
       return next;
     });
   };
   return [t, update];
 }
 
+const JOURNALS_KEY = 'portal_cf_journals_v1';
+
+/** Diarios marcados en el desplegable de Previsión (vacío = todos). */
+export function useJournalSelection(): [number[], (ids: number[]) => void] {
+  const [ids, setIds] = useState<number[]>(() => {
+    try {
+      const raw = typeof window !== 'undefined' ? localStorage.getItem(JOURNALS_KEY) : null;
+      const v = raw ? JSON.parse(raw) : [];
+      return Array.isArray(v) ? v.filter((n) => Number.isInteger(n)) : [];
+    } catch { return []; }
+  });
+  const update = (v: number[]) => { setIds(v); try { localStorage.setItem(JOURNALS_KEY, JSON.stringify(v)); } catch { /* sin almacenamiento */ } };
+  return [ids, update];
+}
+
 export const horizonEnd = (today: string, months: number) => addMonthsIso(today, months);
 
 export function selectedJournals(data: AccountingForecastResponse, t: Toggles, companyId?: number): AccountingForecastJournal[] {
-  return (data.journals ?? []).filter((j) => (t.cart || !j.portfolio) && (companyId === undefined || j.company_id === companyId));
+  const ids = t.journalIds ?? [];
+  return (data.journals ?? []).filter((j) => (t.cart || !j.portfolio)
+    && (ids.length === 0 || ids.includes(j.id))
+    && (companyId === undefined || j.company_id === companyId));
 }
 
 export const baseBalance = (j: AccountingForecastJournal, t: Toggles) =>

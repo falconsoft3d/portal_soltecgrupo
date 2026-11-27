@@ -34,8 +34,15 @@ export function useHorizon(): [number, (h: number) => void] {
   return [h, update];
 }
 
-function CompanyDropdown({ companies, selected, onChange }: {
-  companies: AccountingCompany[]; selected: number[]; onChange: (ids: number[]) => void;
+export interface MultiOption { id: number; label: string; color?: string; group?: string; hint?: string }
+
+/**
+ * Desplegable de selección múltiple con casillas.
+ * `selected` vacío = todas las opciones. Si se desmarcan todas (o se marcan todas) vuelve a «todas».
+ */
+export function MultiSelect({ options, selected, onChange, allLabel, unit, title }: {
+  options: MultiOption[]; selected: number[]; onChange: (ids: number[]) => void;
+  allLabel: string; unit: [string, string]; title?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -48,24 +55,22 @@ function CompanyDropdown({ companies, selected, onChange }: {
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
   }, [open]);
 
-  if (companies.length <= 1) return companies[0] ? <span className="cfdd-static">{companies[0].short ?? companies[0].name}</span> : null;
-  const valid = selected.filter((id) => companies.some((c) => c.id === id));
+  if (options.length <= 1) return options[0] ? <span className="cfdd-static">{options[0].label}</span> : null;
+  const valid = selected.filter((id) => options.some((o) => o.id === id));
   const all = valid.length === 0;
-  const label = all ? 'Grupo · todas las compañías'
-    : valid.length === 1 ? (companies.find((c) => c.id === valid[0])?.name ?? '1 compañía') : `${valid.length} compañías`;
+  const label = all ? allLabel
+    : valid.length === 1 ? (options.find((o) => o.id === valid[0])?.label ?? `1 ${unit[0]}`) : `${valid.length} ${unit[1]}`;
   const toggle = (id: number) => {
-    const current = all ? companies.map((c) => c.id) : valid;
+    const current = all ? options.map((o) => o.id) : valid;
     const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
-    onChange(next.length === 0 || next.length === companies.length ? [] : next);
+    onChange(next.length === 0 || next.length === options.length ? [] : next);
   };
+  const shown = (all ? options : options.filter((o) => valid.includes(o.id))).filter((o) => o.color).slice(0, 4);
+  const headers = options.map((o, i) => (o.group && (i === 0 || options[i - 1].group !== o.group) ? o.group : null));
   return (
     <div className="cfdd" ref={ref}>
-      <button type="button" className="cfdd-btn" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open}>
-        <span className="cfdd-dots">
-          {(all ? companies : companies.filter((c) => valid.includes(c.id))).slice(0, 4).map((c) => (
-            <span key={c.id} className="dot" style={{ background: companyColor(companies.findIndex((x) => x.id === c.id)) }} />
-          ))}
-        </span>
+      <button type="button" className="cfdd-btn" onClick={() => setOpen((v) => !v)} aria-haspopup="listbox" aria-expanded={open} title={title}>
+        {shown.length > 0 && <span className="cfdd-dots">{shown.map((o) => <span key={o.id} className="dot" style={{ background: o.color }} />)}</span>}
         <span className="cfdd-lbl">{label}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} className={open ? 'rot' : ''}><path d="M6 9l6 6 6-6" /></svg>
       </button>
@@ -73,24 +78,44 @@ function CompanyDropdown({ companies, selected, onChange }: {
         <div className="cfdd-menu" role="listbox" aria-multiselectable="true">
           <label className="cfdd-opt head">
             <input type="checkbox" checked={all} onChange={() => onChange([])} />
-            Grupo · todas las compañías
+            {allLabel}
           </label>
-          {companies.map((c, i) => (
-            <label key={c.id} className="cfdd-opt">
-              <input type="checkbox" checked={all || valid.includes(c.id)} onChange={() => toggle(c.id)} />
-              <span className="dot" style={{ background: companyColor(i) }} />
-              <span className="nm" title={c.name}>{c.name}</span>
-            </label>
-          ))}
+          {options.map((o, i) => {
+            const header = headers[i];
+            return (
+              <div key={o.id}>
+                {header && <div className="cfdd-group">{header}</div>}
+                <label className="cfdd-opt">
+                  <input type="checkbox" checked={all || valid.includes(o.id)} onChange={() => toggle(o.id)} />
+                  {o.color && <span className="dot" style={{ background: o.color }} />}
+                  <span className="nm" title={o.label}>{o.label}</span>
+                  {o.hint && <span className="hint">{o.hint}</span>}
+                </label>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
+function CompanyDropdown({ companies, selected, onChange }: {
+  companies: AccountingCompany[]; selected: number[]; onChange: (ids: number[]) => void;
+}) {
+  return (
+    <MultiSelect
+      options={companies.map((c, i) => ({ id: c.id, label: c.name, color: companyColor(i) }))}
+      selected={selected} onChange={onChange}
+      allLabel="Grupo · todas las compañías" unit={['compañía', 'compañías']}
+    />
+  );
+}
+
 export default function Shell({
-  today, companies, selected, onCompanies, horizon, onHorizon, children, loading = false, error = '',
+  today, companies, selected, onCompanies, horizon, onHorizon, children, loading = false, error = '', extraControls,
 }: {
+  extraControls?: ReactNode;
   today?: string;
   companies?: AccountingCompany[];
   selected: number[];
@@ -115,6 +140,7 @@ export default function Shell({
             </div>
             <div className="ctrls">
               {companies && <CompanyDropdown companies={companies} selected={selected} onChange={onCompanies} />}
+              {extraControls}
               {horizon !== undefined && onHorizon && (
                 <select className="cf-select" value={horizon} onChange={(e) => onHorizon(Number(e.target.value))} aria-label="Horizonte de previsión">
                   {HORIZONS.map((h) => <option key={h} value={h}>Horizonte {h} meses</option>)}
