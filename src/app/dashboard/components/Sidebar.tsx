@@ -145,6 +145,15 @@ const ACCOUNTING_ITEMS = [
     ),
   },
   {
+    href: '/dashboard/prevision-tesoreria',
+    label: 'Previsión de tesorería',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 17l5-5 4 4 8-9M15 7h5v5" />
+      </svg>
+    ),
+  },
+  {
     href: '/dashboard/bancos',
     label: 'Bancos',
     icon: (

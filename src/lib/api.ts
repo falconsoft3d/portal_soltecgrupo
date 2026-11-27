@@ -1272,3 +1272,40 @@ export const apiAccountingOverview = (token: string, company_ids: number[] = [])
 
 export const apiAccountingBanks = (token: string, company_ids: number[] = []): Promise<AccountingBanksResponse> =>
   post('/api/accounting/banks', { company_ids }, token) as Promise<AccountingBanksResponse>;
+
+export interface AccountingForecastEvent {
+  date: string;
+  kind: 'in' | 'out' | 'adj';
+  amount: number;
+  partner: string;
+  ref: string;
+  journal: string;
+  draft: boolean;
+}
+
+export interface AccountingAdjustment {
+  id: number;
+  name: string;
+  partner: string;
+  journal: string;
+  company: string;
+  next_date: string;
+  until: string | null;
+  period: string;
+  amount: number;
+  occurrences: number;
+}
+
+export interface AccountingForecastResponse extends ApiResponse {
+  today?: string;
+  companies?: AccountingCompany[];
+  selected_company_ids?: number[];
+  opening?: { book: number; statement: number };
+  events?: AccountingForecastEvent[];
+  adjustments?: AccountingAdjustment[];
+  estimate?: { in: number; out: number };
+  estimate_days?: number;
+}
+
+export const apiAccountingForecast = (token: string, company_ids: number[] = []): Promise<AccountingForecastResponse> =>
+  post('/api/accounting/forecast', { company_ids }, token) as Promise<AccountingForecastResponse>;
