@@ -1,9 +1,9 @@
 'use client';
 
-import { CSSProperties, Fragment, Suspense, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, Fragment, ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { apiAccountingMoveLines, AccountingDrillSpec, AccountingMoveLine, AccountingMoveLinesResponse } from '@/lib/api';
+import { apiAccountingMoveLines, AccountingDrillSpec, AccountingMoveLine, AccountingMoveLineGroup, AccountingMoveLinesResponse, AccountingMoveLinesScope } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { useCompanySelection } from '../components/AccountingUi';
 import Shell from '../components/cuadro/Shell';
@@ -13,14 +13,35 @@ import { e2, fD } from '../components/cuadro/lib';
 const PAGE = 100;
 
 type Free = Extract<AccountingDrillSpec, { t: 'free' }>;
-type GroupDetail = { lines: AccountingMoveLine[]; count: number; loading: boolean };
+/** Nodo desplegado del árbol compañía → cuenta → contacto: subgrupos o apuntes. */
+type TreeNode = { loading: boolean; subs?: AccountingMoveLineGroup[]; lines?: AccountingMoveLine[]; count?: number };
+type Totals = { count: number; debit: number; credit: number; balance: number; residual: number };
+
+/** Fila de grupo (compañía, cuenta o contacto) con sus totales. */
+function GroupRow({ level, label, t, open, isDebt, onClick }: {
+  level: number; label: string; t: Totals; open: boolean; isDebt: boolean; onClick: () => void;
+}) {
+  return (
+    <tr className={`ml-grp ml-l${level}`} onClick={onClick} aria-expanded={open}>
+      <td colSpan={isDebt ? 7 : 6} style={{ paddingLeft: 11 + level * 22 }}>
+        <span className="ml-caret">{open ? '▼' : '▶'}</span>
+        {level === 0 ? <b>{label}</b> : label}
+        <span className="muted"> · {t.count.toLocaleString('es-ES')} apuntes</span>
+      </td>
+      <td className="n">{e2(t.debit)}</td>
+      <td className="n">{e2(t.credit)}</td>
+      <td className={`n ${t.balance < 0 ? 'neg' : ''}`}><b>{e2(t.balance)}</b></td>
+      {isDebt && <td className={`n ${t.residual < 0 ? 'neg' : ''}`}><b>{e2(t.residual)}</b></td>}
+    </tr>
+  );
+}
 const GROUPED_KEY = 'portal_cf_apuntes_grouped_v1';
 
 /** Fila de un apunte. */
-function LineRow({ l, isDebt, odoo, nested = false }: { l: AccountingMoveLine; isDebt: boolean; odoo: string; nested?: boolean }) {
+function LineRow({ l, isDebt, odoo, level = 0 }: { l: AccountingMoveLine; isDebt: boolean; odoo: string; level?: number }) {
   return (
-    <tr className={nested ? 'ml-sub' : ''}>
-      <td style={nested ? { paddingLeft: 30 } : undefined}>{fD(l.date)}</td>
+    <tr className={level ? 'ml-sub' : ''}>
+      <td style={level ? { paddingLeft: 11 + level * 22 } : undefined}>{fD(l.date)}</td>
       <td>
         {odoo && l.move_id ? <a href={`${odoo}/web#id=${l.move_id}&model=account.move&view_type=form`} target="_blank" rel="noopener noreferrer" className="drill" title="Abrir el asiento en Odoo">{l.move}</a> : l.move}
         {l.state === 'draft' && <> <span className="st-draft">Borrador</span></>}
@@ -66,36 +87,85 @@ function ApuntesInner() {
     try { return typeof window === 'undefined' || localStorage.getItem(GROUPED_KEY) !== 'false'; } catch { return true; }
   });
   const setGrouped = (v: boolean) => { setGroupedState(v); try { localStorage.setItem(GROUPED_KEY, String(v)); } catch { /* sin almacenamiento */ } };
-  const [expanded, setExpanded] = useState<{ qk: string; map: Record<number, GroupDetail> }>({ qk: '', map: {} });
+  const [expanded, setExpanded] = useState<{ qk: string; map: Record<string, TreeNode> }>({ qk: '', map: {} });
 
   const specKey = JSON.stringify(spec);
   const qk = `${specKey}|${selected.join(',')}`;
   const expMap = expanded.qk === qk ? expanded.map : {};
 
-  const loadGroup = async (companyId: number, more = false) => {
+  // Árbol: clave «c:ID», «c:ID|a:ID» o «c:ID|a:ID|p:ID»
+  const setNode = (key: string, node: TreeNode | null) => setExpanded((e) => {
+    const map = { ...(e.qk === qk ? e.map : {}) };
+    if (node) map[key] = node; else delete map[key];
+    return { qk, map };
+  });
+  const scopeOf = (key: string): AccountingMoveLinesScope => {
+    const parts = Object.fromEntries(key.split('|').map((x) => x.split(':')));
+    return { only_company: Number(parts.c), ...(parts.a ? { only_account: Number(parts.a) } : {}), ...(parts.p !== undefined ? { only_partner: Number(parts.p) } : {}) };
+  };
+  const loadNode = async (key: string, more = false) => {
     const token = getToken();
     if (!token) return;
-    const prev = expMap[companyId];
-    const from = more && prev ? prev.lines.length : 0;
-    setExpanded((e) => {
-      const map = e.qk === qk ? { ...e.map } : {};
-      map[companyId] = { lines: more && prev ? prev.lines : [], count: prev?.count ?? 0, loading: true };
-      return { qk, map };
-    });
-    const res = await apiAccountingMoveLines(token, spec, drill ? [] : selected, from, PAGE, companyId);
-    setExpanded((e) => {
-      const map = e.qk === qk ? { ...e.map } : {};
-      const base = more && map[companyId] ? map[companyId].lines : [];
-      map[companyId] = { lines: [...base, ...(res.lines ?? [])], count: res.count ?? 0, loading: false };
-      return { qk, map };
-    });
-  };
-  const toggleGroup = (companyId: number) => {
-    if (expMap[companyId]) {
-      setExpanded((e) => { const map = { ...(e.qk === qk ? e.map : {}) }; delete map[companyId]; return { qk, map }; });
+    const depth = key.split('|').length; // 1 compañía, 2 cuenta, 3 contacto
+    const prev = expMap[key];
+    const scope = scopeOf(key);
+    setNode(key, { ...(prev ?? {}), loading: true });
+    if (depth < 3) {
+      const res = await apiAccountingMoveLines(token, spec, drill ? [] : selected, 0, 0, { ...scope, group_by: depth === 1 ? 'account' : 'partner' });
+      setNode(key, { loading: false, subs: res.subgroups ?? [] });
     } else {
-      void loadGroup(companyId);
+      const from = more && prev?.lines ? prev.lines.length : 0;
+      const res = await apiAccountingMoveLines(token, spec, drill ? [] : selected, from, PAGE, scope);
+      setNode(key, { loading: false, lines: [...(more && prev?.lines ? prev.lines : []), ...(res.lines ?? [])], count: res.count ?? 0 });
     }
+  };
+  const toggleNode = (key: string) => {
+    if (expMap[key]) {
+      // al plegar se pliegan también sus hijos
+      setExpanded((e) => {
+        const map = Object.fromEntries(Object.entries(e.qk === qk ? e.map : {}).filter(([k]) => k !== key && !k.startsWith(`${key}|`)));
+        return { qk, map };
+      });
+    } else {
+      void loadNode(key);
+    }
+  };
+
+  /** Filas desplegadas bajo un nodo del árbol. */
+  const renderNode = (key: string, level: number): ReactNode => {
+    const node = expMap[key];
+    if (!node) return null;
+    if (node.loading && !node.subs && !node.lines) {
+      return <tr className="ml-sub"><td colSpan={isDebt ? 11 : 9} style={{ paddingLeft: 11 + level * 22 }} className="muted">Cargando…</td></tr>;
+    }
+    if (node.subs) {
+      return node.subs.map((sg) => {
+        const child = `${key}|${level === 1 ? 'a' : 'p'}:${sg.id}`;
+        return (
+          <Fragment key={child}>
+            <GroupRow level={level} label={sg.name} t={sg} open={!!expMap[child]} isDebt={isDebt} onClick={() => toggleNode(child)} />
+            {renderNode(child, level + 1)}
+          </Fragment>
+        );
+      });
+    }
+    const ls = node.lines ?? [];
+    return (
+      <>
+        {ls.map((l) => <LineRow key={l.id} l={l} isDebt={isDebt} odoo={odoo} level={level} />)}
+        {(node.loading || ls.length < (node.count ?? 0)) && (
+          <tr className="ml-sub">
+            <td colSpan={isDebt ? 11 : 9} style={{ paddingLeft: 11 + level * 22 }}>
+              {node.loading ? <span className="muted">Cargando…</span> : (
+                <button type="button" className="btn" onClick={() => void loadNode(key, true)}>
+                  Cargar más ({ls.length.toLocaleString('es-ES')} de {(node.count ?? 0).toLocaleString('es-ES')})
+                </button>
+              )}
+            </td>
+          </tr>
+        )}
+      </>
+    );
   };
   useEffect(() => {
     const token = getToken();
@@ -191,7 +261,7 @@ function ApuntesInner() {
         {loading && !data ? <div className="empty">Cargando…</div> : data?.success && (
           <>
             <div className="grid k4">
-              <div className="card kpi"><div className="lbl">Apuntes</div><div className="val">{count.toLocaleString('es-ES')}</div><div className="sub">{grouped ? 'despliega una compañía para ver el detalle' : count > PAGE ? `se muestran de ${PAGE} en ${PAGE}` : 'todos en esta página'}</div></div>
+              <div className="card kpi"><div className="lbl">Apuntes</div><div className="val">{count.toLocaleString('es-ES')}</div><div className="sub">{grouped ? 'despliega compañía → cuenta → contacto' : count > PAGE ? `se muestran de ${PAGE} en ${PAGE}` : 'todos en esta página'}</div></div>
               <div className="card kpi"><div className="lbl">Debe</div><div className="val">{e2(totals?.debit ?? 0)}</div></div>
               <div className="card kpi"><div className="lbl">Haber</div><div className="val">{e2(totals?.credit ?? 0)}</div></div>
               <div className="card kpi">
@@ -209,7 +279,7 @@ function ApuntesInner() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <label className="tg" style={{ '--c': 'var(--accent)' } as CSSProperties}>
                     <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} />
-                    <span className="sw" />Agrupar por compañía
+                    <span className="sw" />Agrupar por compañía, cuenta y contacto
                   </label>
                   <button type="button" className="btn" disabled={!count || exporting} onClick={exportCsv}>{exporting ? 'Preparando…' : 'Descargar CSV'}</button>
                 </div>
@@ -226,33 +296,11 @@ function ApuntesInner() {
                   <tbody>
                     {count === 0 && <tr><td colSpan={isDebt ? 11 : 9} className="muted">No hay apuntes con este filtro.</td></tr>}
                     {grouped ? groups.map((g) => {
-                      const det = expMap[g.company_id];
-                      const open = !!det;
+                      const key = `c:${g.company_id}`;
                       return (
-                        <Fragment key={g.company_id}>
-                          <tr className="ml-grp" onClick={() => toggleGroup(g.company_id)} aria-expanded={open}>
-                            <td colSpan={isDebt ? 7 : 6}>
-                              <span className="ml-caret">{open ? '▼' : '▶'}</span>
-                              <b>{companyFull(g.company_id)}</b>
-                              <span className="muted"> · {g.count.toLocaleString('es-ES')} apuntes</span>
-                            </td>
-                            <td className="n">{e2(g.debit)}</td>
-                            <td className="n">{e2(g.credit)}</td>
-                            <td className={`n ${g.balance < 0 ? 'neg' : ''}`}><b>{e2(g.balance)}</b></td>
-                            {isDebt && <td className={`n ${g.residual < 0 ? 'neg' : ''}`}><b>{e2(g.residual)}</b></td>}
-                          </tr>
-                          {open && det.lines.map((l) => <LineRow key={l.id} l={l} isDebt={isDebt} odoo={odoo} nested />)}
-                          {open && (det.loading || det.lines.length < det.count) && (
-                            <tr className="ml-sub">
-                              <td colSpan={isDebt ? 11 : 9} style={{ paddingLeft: 30 }}>
-                                {det.loading ? <span className="muted">Cargando…</span> : (
-                                  <button type="button" className="btn" onClick={() => void loadGroup(g.company_id, true)}>
-                                    Cargar más ({det.lines.length.toLocaleString('es-ES')} de {det.count.toLocaleString('es-ES')})
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
-                          )}
+                        <Fragment key={key}>
+                          <GroupRow level={0} label={companyFull(g.company_id)} t={g} open={!!expMap[key]} isDebt={isDebt} onClick={() => toggleNode(key)} />
+                          {renderNode(key, 1)}
                         </Fragment>
                       );
                     }) : lines.map((l) => <LineRow key={l.id} l={l} isDebt={isDebt} odoo={odoo} />)}

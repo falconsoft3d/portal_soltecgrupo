@@ -279,3 +279,6 @@
 .cf tr.ml-grp:hover td{background:var(--accent-soft)}
 .cf .ml-caret{display:inline-block;width:18px;color:var(--muted);font-size:11px}
 .cf tr.ml-sub td{font-size:12.5px}
+.cf tr.ml-grp.ml-l1 td{background:#f8fafb;font-weight:600}
+.cf tr.ml-grp.ml-l2 td{background:var(--surface);font-weight:500}
+.cf tr.ml-grp.ml-l1:hover td,.cf tr.ml-grp.ml-l2:hover td{background:var(--accent-soft)}
