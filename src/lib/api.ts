@@ -1217,27 +1217,39 @@ export const apiBudgetEditorRecalculate = (token: string, budget_id: number): Pr
 //  Contabilidad (portal_accounting)                                   //
 // ------------------------------------------------------------------ //
 
-export interface AccountingCompany { id: number; name: string }
+export interface AccountingCompany { id: number; name: string; short?: string }
 export interface AccountingAmountRow { name: string; amount: number }
 export interface AccountingAging {
   current: number; d30: number; d60: number; d90: number; d90p: number; overdue: number; total: number;
+}
+
+export interface AccountingDebtCompany {
+  id: number; name: string; short: string;
+  customers: { total: number; overdue: number; count: number };
+  suppliers: { total: number; overdue: number; count: number };
+  draft_bills_count: number; draft_bills_amount: number; to_check_count: number;
 }
 
 export interface AccountingOverviewResponse extends ApiResponse {
   today?: string;
   companies?: AccountingCompany[];
   selected_company_ids?: number[];
-  debt?: { customers: AccountingAging; suppliers: AccountingAging };
+  debt?: { customers: AccountingAging & { count: number }; suppliers: AccountingAging & { count: number } };
+  debt_companies?: AccountingDebtCompany[];
   overdue_customers?: AccountingAmountRow[];
   overdue_suppliers?: AccountingAmountRow[];
-  treasury?: { id: number; name: string; type: string; company: string; balance: number }[];
+  treasury?: { id: number; name: string; type: string; company: string; company_short: string; portfolio: boolean; entity: string; balance: number }[];
   treasury_total?: number;
+  treasury_liquid?: number;
   monthly?: { month: string; in: number; out: number; net: number }[];
+  payments_in_12m?: number;
+  payments_out_12m?: number;
+  adjustments_monthly_out?: number;
   top_customers?: AccountingAmountRow[];
   top_suppliers?: AccountingAmountRow[];
   methods_in?: AccountingAmountRow[];
   methods_out?: AccountingAmountRow[];
-  top_projects?: AccountingAmountRow[];
+  top_projects?: { name: string; company_short: string; amount: number }[];
 }
 
 export interface AccountingFutureMove {
@@ -1277,8 +1289,9 @@ export interface AccountingForecastEvent {
   date: string;
   kind: 'in' | 'out' | 'adj';
   amount: number;
-  partner: string;
-  ref: string;
+  company_id: number;
+  concept: string;
+  journal_id: number | false;
   journal: string;
   draft: boolean;
 }
@@ -1286,24 +1299,40 @@ export interface AccountingForecastEvent {
 export interface AccountingAdjustment {
   id: number;
   name: string;
-  partner: string;
+  journal_id: number;
   journal: string;
-  company: string;
-  next_date: string;
+  company_id: number;
+  start: string;
   until: string | null;
-  period: string;
+  months: number;
+  next_date: string;
   amount: number;
-  occurrences: number;
+}
+
+export interface AccountingForecastJournal {
+  id: number;
+  name: string;
+  company_id: number;
+  kind: 'banco' | 'cartera' | 'tarjeta' | 'efectivo' | 'fintech';
+  entity: string;
+  portfolio: boolean;
+  bank_account: string;
+  balance: number;
+  has_statement: boolean;
+  statement_balance: number;
+  statement_date: string | null;
+  pending_count: number;
+  pending_amount: number;
 }
 
 export interface AccountingForecastResponse extends ApiResponse {
   today?: string;
   companies?: AccountingCompany[];
   selected_company_ids?: number[];
-  opening?: { book: number; statement: number };
+  journals?: AccountingForecastJournal[];
   events?: AccountingForecastEvent[];
   adjustments?: AccountingAdjustment[];
-  estimate?: { in: number; out: number };
+  estimate?: { company_id: number; in: number; out: number }[];
   estimate_days?: number;
 }
 

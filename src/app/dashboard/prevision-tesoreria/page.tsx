@@ -1,239 +1,35 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { apiAccountingForecast, AccountingForecastEvent, AccountingForecastResponse } from '@/lib/api';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
+import { apiAccountingForecast, AccountingForecastResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { useCompanySelection } from '../components/AccountingUi';
+import Shell, { useHorizon } from '../components/cuadro/Shell';
+import ChartCanvas from '../components/cuadro/ChartCanvas';
+import { Icon } from '../components/cuadro/icons';
+import { ORIGIN_LABEL, horizonEnd, movimientos, selectedJournals, serie, useToggles } from '../components/cuadro/forecast';
 import {
-  CompanyFilter, Empty, Kpi, Panel, eur, eurShort, formatDay, monthShort, useCompanySelection,
-} from '../components/AccountingUi';
+  C, DAY, MES, baseOpts, compact, companyColor, e0, e2, fD, fM, fonts, gradientFill, rgba, toIso, toTime, zeroLine,
+} from '../components/cuadro/lib';
 
-/* ------------------------------------------------------------------ */
-/*  Fechas en UTC (claves YYYY-MM-DD, sin desfases de zona horaria)     */
-/* ------------------------------------------------------------------ */
+const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
-const DAY = 86_400_000;
-const toTime = (iso: string) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
-const toIso = (t: number) => new Date(t).toISOString().slice(0, 10);
-const addMonths = (iso: string, n: number) => {
-  const d = new Date(toTime(iso));
-  d.setUTCMonth(d.getUTCMonth() + n);
-  return toIso(d.getTime());
-};
-const isWeekday = (t: number) => { const w = new Date(t).getUTCDay(); return w !== 0 && w !== 6; };
-
-type Cat = 'in' | 'out' | 'adj' | 'est';
-const CAT_LABEL: Record<Cat, string> = { in: 'Cobros', out: 'Pagos', adj: 'Ajustes de periodo', est: 'Estimación facturas' };
-const CAT_FILL: Record<Cat, string> = { in: 'fill-emerald-500', out: 'fill-rose-400', adj: 'fill-amber-400', est: 'fill-sky-400' };
-const CAT_BG: Record<Cat, string> = { in: 'bg-emerald-500', out: 'bg-rose-400', adj: 'bg-amber-400', est: 'bg-sky-400' };
-const HORIZONS = [3, 6, 12, 24];
-
-interface DayRow { date: string; in: number; out: number; adj: number; est: number; net: number; balance: number }
-interface MonthRow { month: string; in: number; out: number; adj: number; est: number; net: number; end: number }
-
-/* ------------------------------------------------------------------ */
-/*  Gráficos                                                            */
-/* ------------------------------------------------------------------ */
-
-function Waterfall({ steps }: { steps: { label: string; value: number; total?: boolean }[] }) {
-  const H = 220, PAD = 12, colW = 90, W = steps.length * colW;
-  const bars: { label: string; value: number; total?: boolean; from: number; to: number }[] = [];
-  for (const s of steps) {
-    const prev = bars.length ? bars[bars.length - 1].to : 0;
-    bars.push(s.total ? { ...s, from: 0, to: s.value } : { ...s, from: prev, to: prev + s.value });
-  }
-  const vals = bars.flatMap((b) => [b.from, b.to, 0]);
-  const max = Math.max(...vals), min = Math.min(...vals);
-  const y = (v: number) => PAD + ((max - v) / ((max - min) || 1)) * (H - PAD * 2);
+function Toggle({ checked, onChange, label, color, radio = false }: { checked: boolean; onChange: () => void; label: string; color: string; radio?: boolean }) {
   return (
-    <div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-56">
-        <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="#e5e7eb" vectorEffect="non-scaling-stroke" />
-        {bars.map((b, i) => {
-          const top = y(Math.max(b.from, b.to)), bot = y(Math.min(b.from, b.to));
-          const cls = b.total ? 'fill-brand-500' : b.value >= 0 ? 'fill-emerald-500' : 'fill-rose-400';
-          return (
-            <g key={b.label}>
-              <rect x={i * colW + 18} y={top} width={colW - 36} height={Math.max(bot - top, 1)} className={cls} rx={2} />
-              {i < bars.length - 1 && (
-                <line x1={i * colW + colW - 18} x2={(i + 1) * colW + 18} y1={y(b.to)} y2={y(b.to)} stroke="#9ca3af" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-              )}
-            </g>
-          );
-        })}
-      </svg>
-      <div className="flex mt-1">
-        {bars.map((b) => (
-          <div key={b.label} className="flex-1 text-center">
-            <div className="text-[11px] text-gray-500 truncate">{b.label}</div>
-            <div className={`text-xs font-semibold tabular-nums ${b.total ? 'text-gray-900' : b.value >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {b.total ? eurShort(b.value) : `${b.value >= 0 ? '+' : ''}${eurShort(b.value)}`}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BalanceLine({ days }: { days: DayRow[] }) {
-  const [hover, setHover] = useState<number | null>(null);
-  if (days.length < 2) return <Empty />;
-  const H = 200, PAD = 10, W = 1000;
-  const vals = days.map((d) => d.balance);
-  const max = Math.max(...vals, 0), min = Math.min(...vals, 0);
-  const x = (i: number) => (i / (days.length - 1)) * W;
-  const y = (v: number) => PAD + ((max - v) / ((max - min) || 1)) * (H - PAD * 2);
-  const path = days.map((d, i) => `${i ? 'L' : 'M'}${x(i)},${y(d.balance)}`).join(' ');
-  const area = `${path} L${W},${y(0)} L0,${y(0)} Z`;
-  const h = hover !== null ? days[hover] : null;
-  const ticks = days.filter((d) => d.date.endsWith('-01'));
-  return (
-    <div>
-      <div className="text-xs text-gray-500 tabular-nums h-4 mb-1 text-right">
-        {h ? `${formatDay(h.date)} · saldo ${eur(h.balance)} · neto del día ${eur(h.net)}` : ''}
-      </div>
-      <svg
-        viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-56"
-        onMouseMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setHover(Math.round(((e.clientX - r.left) / r.width) * (days.length - 1)));
-        }}
-        onMouseLeave={() => setHover(null)}
-      >
-        <path d={area} className="fill-brand-100" opacity={0.6} />
-        <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="#f43f5e" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />
-        <path d={path} fill="none" stroke="#5f3f58" strokeWidth={2} vectorEffect="non-scaling-stroke" />
-        {h && hover !== null && <line x1={x(hover)} x2={x(hover)} y1={0} y2={H} stroke="#9ca3af" vectorEffect="non-scaling-stroke" />}
-      </svg>
-      <div className="relative h-4 text-[10px] text-gray-400">
-        {ticks.map((d) => {
-          const i = days.indexOf(d);
-          return <span key={d.date} className="absolute -translate-x-1/2" style={{ left: `${(i / (days.length - 1)) * 100}%` }}>{monthShort(d.date.slice(0, 7))}</span>;
-        })}
-      </div>
-    </div>
-  );
-}
-
-/** Segmentos apilados: positivos hacia arriba desde 0, negativos hacia abajo. */
-function stackSegments(m: MonthRow): { c: Cat; from: number; to: number }[] {
-  const out: { c: Cat; from: number; to: number }[] = [];
-  let up = 0;
-  let down = 0;
-  for (const c of ['in', 'out', 'adj', 'est'] as Cat[]) {
-    const v = m[c];
-    if (!v) continue;
-    if (v > 0) { out.push({ c, from: up, to: up + v }); up += v; }
-    else { out.push({ c, from: down, to: down + v }); down += v; }
-  }
-  return out;
-}
-
-function MonthlyStack({ months }: { months: MonthRow[] }) {
-  if (!months.length) return <Empty />;
-  const H = 220, PAD = 10, colW = 40, W = months.length * colW;
-  const cats: Cat[] = ['in', 'out', 'adj', 'est'];
-  const pos = months.map((m) => cats.reduce((s, c) => s + Math.max(m[c], 0), 0));
-  const neg = months.map((m) => cats.reduce((s, c) => s + Math.min(m[c], 0), 0));
-  const max = Math.max(...pos, ...months.map((m) => m.end), 0);
-  const min = Math.min(...neg, ...months.map((m) => m.end), 0);
-  const y = (v: number) => PAD + ((max - v) / ((max - min) || 1)) * (H - PAD * 2);
-  const line = months.map((m, i) => `${i ? 'L' : 'M'}${i * colW + colW / 2},${y(m.end)}`).join(' ');
-  return (
-    <div>
-      <div className="flex flex-wrap gap-4 text-xs text-gray-600 mb-2">
-        {cats.map((c) => <span key={c} className="flex items-center gap-1.5"><span className={`w-2.5 h-2.5 rounded-sm ${CAT_BG[c]}`} />{CAT_LABEL[c]}</span>)}
-        <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-brand-600" />Saldo a fin de mes</span>
-      </div>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full h-60">
-        <line x1={0} x2={W} y1={y(0)} y2={y(0)} stroke="#e5e7eb" vectorEffect="non-scaling-stroke" />
-        {months.map((m, i) => (
-          <g key={m.month}>
-            <title>{`${monthShort(m.month)} · cobros ${eur(m.in)} · pagos ${eur(m.out)} · ajustes ${eur(m.adj)} · estimación ${eur(m.est)} · saldo ${eur(m.end)}`}</title>
-            <rect x={i * colW} y={0} width={colW} height={H} fill="transparent" />
-            {stackSegments(m).map(({ c, from, to }) => (
-              <rect key={c} x={i * colW + 8} y={y(Math.max(from, to))} width={colW - 16} height={Math.max(Math.abs(y(from) - y(to)), 0.5)} className={CAT_FILL[c]} />
-            ))}
-          </g>
-        ))}
-        <path d={line} fill="none" stroke="#5f3f58" strokeWidth={2} vectorEffect="non-scaling-stroke" pointerEvents="none" />
-      </svg>
-      <div className="flex text-[10px] text-gray-400 mt-1">
-        {months.map((m, i) => <span key={m.month} className="flex-1 text-center truncate">{months.length <= 12 || i % 2 === 0 ? monthShort(m.month) : ''}</span>)}
-      </div>
-    </div>
-  );
-}
-
-function Heatmap({ days }: { days: DayRow[] }) {
-  if (!days.length) return <Empty />;
-  const max = Math.max(...days.map((d) => Math.abs(d.net)), 1);
-  const byMonth = new Map<string, DayRow[]>();
-  for (const d of days) {
-    const k = d.date.slice(0, 7);
-    if (!byMonth.has(k)) byMonth.set(k, []);
-    byMonth.get(k)!.push(d);
-  }
-  const color = (v: number) => {
-    if (!v) return 'rgb(243 244 246)';
-    const a = 0.15 + 0.85 * Math.min(Math.abs(v) / max, 1) ** 0.5;
-    return v > 0 ? `rgba(16, 185, 129, ${a})` : `rgba(244, 63, 94, ${a})`;
-  };
-  return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[640px] space-y-1">
-        {Array.from(byMonth.entries()).map(([month, rows]) => (
-          <div key={month} className="flex items-center gap-1">
-            <span className="w-14 shrink-0 text-[11px] text-gray-500">{monthShort(month)}</span>
-            <div className="grid flex-1 gap-0.5" style={{ gridTemplateColumns: 'repeat(31, minmax(0, 1fr))' }}>
-              {rows.map((d) => (
-                <div
-                  key={d.date}
-                  className="h-4 rounded-sm"
-                  style={{ gridColumnStart: Number(d.date.slice(8, 10)), background: color(d.net) }}
-                  title={`${formatDay(d.date)} · neto ${eur(d.net)} · saldo ${eur(d.balance)}`}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-        <div className="flex items-center gap-3 pt-1 pl-15 text-[11px] text-gray-500">
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(16,185,129,.8)' }} />Entra más de lo que sale</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(244,63,94,.8)' }} />Sale más de lo que entra</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Página                                                              */
-/* ------------------------------------------------------------------ */
-
-function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
-  return (
-    <label className="flex items-start gap-2 cursor-pointer select-none">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-brand-600" />
-      <span>
-        <span className="text-sm text-gray-700">{label}</span>
-        {hint && <span className="block text-xs text-gray-400">{hint}</span>}
-      </span>
+    <label className="tg" style={{ '--c': color } as CSSProperties}>
+      <input type={radio ? 'radio' : 'checkbox'} checked={checked} onChange={onChange} />
+      <span className="sw" />{label}
     </label>
   );
 }
 
 export default function PrevisionTesoreriaPage() {
   const [selected, setSelected] = useCompanySelection();
+  const [horizon, setHorizon] = useHorizon();
+  const [t, setT] = useToggles();
   const [data, setData] = useState<AccountingForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [horizon, setHorizon] = useState(6);
-  const [base, setBase] = useState<'book' | 'statement'>('book');
-  const [useAdj, setUseAdj] = useState(true);
-  const [useIn, setUseIn] = useState(true);
-  const [useOut, setUseOut] = useState(true);
-  const [useEst, setUseEst] = useState(true);
 
   useEffect(() => {
     const token = getToken();
@@ -253,255 +49,242 @@ export default function PrevisionTesoreriaPage() {
   const changeCompanies = (ids: number[]) => { setLoading(true); setSelected(ids); };
 
   const calc = useMemo(() => {
-    if (!data?.success || !data.today || !data.opening) return null;
-    const today = data.today;
-    const end = addMonths(today, horizon);
-    const tToday = toTime(today), tEnd = toTime(end);
-    const opening = data.opening[base];
+    if (!data?.success || !data.today) return null;
+    const today = data.today, end = horizonEnd(today, horizon);
+    const companies = data.companies ?? [];
+    const sel = data.selected_company_ids ?? [];
+    const movs = movimientos(data, t, end);
+    const journals = selectedJournals(data, t);
+    const T = serie(movs, journals, t, today, end);
+    const tot = (o: string) => movs.filter((m) => m.origin === o).reduce((s, m) => s + m.amount, 0);
+    const group = sel.length > 1;
+    const title = group ? 'del grupo' : `de ${companies.find((c) => c.id === sel[0])?.short ?? ''}`;
+    const mainColor = group ? C.accent : companyColor(companies.findIndex((c) => c.id === sel[0]));
+    const { num } = fonts();
 
-    const days = new Map<string, DayRow>();
-    for (let t = tToday; t <= tEnd; t += DAY) {
-      const k = toIso(t);
-      days.set(k, { date: k, in: 0, out: 0, adj: 0, est: 0, net: 0, balance: 0 });
+    // Cascada
+    const steps: [string, number, string][] = [['Saldo hoy', T.ini, 'total'], ['Cobros', tot('cobro'), 'cobro'], ['Pagos', tot('pago'), 'pago'], ['Ajustes', tot('ajuste'), 'ajuste']];
+    if (t.est) steps.push(['Estimación', tot('estim'), 'estim']);
+    steps.push(['Saldo final', T.fin, 'total']);
+    let run = 0;
+    const wd: [number, number][] = [], wc: string[] = [];
+    const catColor: Record<string, string> = { cobro: C.cobro, pago: C.pago, ajuste: C.ajuste, estim: C.estim };
+    for (const [, v, k] of steps) {
+      if (k === 'total') { wd.push([0, v]); run = v; wc.push(v < 0 ? C.neg : C.accent); }
+      else { wd.push([run, run + v]); run += v; wc.push(catColor[k]); }
     }
+    const ow = baseOpts();
+    ow.interaction = { mode: 'nearest', intersect: true };
+    ow.scales.x.ticks.maxTicksLimit = 20;
+    ow.plugins.tooltip.callbacks.label = (c: { raw: [number, number]; dataIndex: number }) => {
+      const s = steps[c.dataIndex];
+      return ` ${s[2] === 'total' ? e0(c.raw[1]) : `${s[1] >= 0 ? '+' : ''}${e0(s[1])}`}`;
+    };
+    const water = { type: 'bar', data: { labels: steps.map((s) => s[0]), datasets: [{ data: wd, backgroundColor: wc, borderRadius: 5, barPercentage: 0.7 }] }, options: ow, plugins: [zeroLine] };
 
-    const include = (e: AccountingForecastEvent) =>
-      (e.kind === 'in' && useIn) || (e.kind === 'out' && useOut) || (e.kind === 'adj' && useAdj);
-    const events = (data.events ?? []).filter((e) => include(e) && e.date <= end);
-    for (const e of events) {
-      const row = days.get(e.date < today ? today : e.date);
-      if (row) row[e.kind] += e.amount;
+    // Calendario de calor (semanas en columnas, de lunes a domingo)
+    const t0 = toTime(today);
+    const startT = t0 - ((new Date(t0).getUTCDay() + 6) % 7) * DAY;
+    const endHeat = toTime(horizonEnd(today, 6));
+    const nets: { d: string; v: number | null }[] = [];
+    for (let tt = startT; tt <= endHeat; tt += DAY) nets.push({ d: toIso(tt), v: tt < t0 ? null : (T.porDia.get(toIso(tt)) ?? 0) });
+    const mxAbs = Math.max(1, ...nets.map((n) => Math.abs(n.v ?? 0)));
+    const weeks = Math.ceil(nets.length / 7);
+    const monthLabels: string[] = [];
+    let lastM = -1;
+    for (let w = 0; w < weeks; w++) { const m = Number(nets[w * 7].d.slice(5, 7)) - 1; monthLabels.push(m !== lastM ? MES[m] : ''); lastM = m; }
+    const byDay = new Map<string, typeof movs>();
+    movs.forEach((m) => { if (!byDay.has(m.date)) byDay.set(m.date, []); byDay.get(m.date)!.push(m); });
+
+    // Saldo previsto diario (grupo + cada compañía)
+    const ds: Record<string, unknown>[] = [{
+      label: group ? 'Grupo' : companies.find((c) => c.id === sel[0])?.short ?? '', data: T.vals, borderColor: mainColor,
+      backgroundColor: gradientFill(mainColor), fill: true, pointRadius: 0, borderWidth: 2.5, stepped: true,
+    }];
+    const lineLegend = [{ label: String(ds[0].label), color: mainColor }];
+    if (group) {
+      for (const cid of sel) {
+        const idx = companies.findIndex((c) => c.id === cid);
+        const sc = serie(movs.filter((m) => m.company_id === cid), selectedJournals(data, t, cid), t, today, end);
+        ds.push({ label: companies[idx]?.short ?? '', data: sc.vals, borderColor: companyColor(idx), borderDash: [6, 4], fill: false, pointRadius: 0, borderWidth: 1.8, stepped: true });
+        lineLegend.push({ label: companies[idx]?.name ?? '', color: companyColor(idx) });
+      }
     }
+    const line = { type: 'line', data: { labels: T.labels, datasets: ds }, options: baseOpts(), plugins: [zeroLine] };
 
-    // Estimación: pendiente no vencido repartido a partes iguales en los días laborables de los próximos N días
-    if (useEst && data.estimate) {
-      const n = data.estimate_days ?? 60;
-      const work: string[] = [];
-      for (let t = tToday + DAY; t <= tToday + n * DAY; t += DAY) if (isWeekday(t)) work.push(toIso(t));
-      const per = (data.estimate.in + data.estimate.out) / (work.length || 1);
-      for (const k of work) { const row = days.get(k); if (row) row.est += per; }
+    // Meses
+    const months = new Map<string, { cobro: number; pago: number; ajuste: number; estim: number }>();
+    for (let k = today.slice(0, 7); k <= end.slice(0, 7);) {
+      months.set(k, { cobro: 0, pago: 0, ajuste: 0, estim: 0 });
+      const y = Number(k.slice(0, 4)), m = Number(k.slice(5, 7));
+      k = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
     }
+    movs.forEach((m) => { const r = months.get(m.date.slice(0, 7)); if (r) r[m.origin] += m.amount; });
+    const mk = Array.from(months.keys());
+    let sal = T.ini;
+    const rows = mk.map((k) => { const r = months.get(k)!; const si = sal; sal += r.cobro + r.pago + r.ajuste + r.estim; return { k, ...r, si, sf: sal }; });
+    const om = baseOpts(); om.scales.x.stacked = true; om.scales.y.stacked = true;
+    om.scales.y2 = { position: 'right', ticks: { color: C.muted, callback: (v: number | string) => compact(Number(v)), font: { family: num, size: 11 } }, grid: { display: false }, border: { display: false } };
+    const mes = { data: { labels: mk.map(fM), datasets: [
+      { type: 'line', label: 'Saldo fin de mes', data: rows.map((r) => r.sf), yAxisID: 'y2', borderColor: C.ink, backgroundColor: C.ink, pointRadius: 3, borderWidth: 2, tension: 0.25, order: 0 },
+      { type: 'bar', label: 'Cobros', data: rows.map((r) => r.cobro), backgroundColor: C.cobro, maxBarThickness: 30, borderRadius: 3, stack: 's', order: 1 },
+      { type: 'bar', label: 'Estimación', data: rows.map((r) => r.estim), backgroundColor: C.estim, maxBarThickness: 30, borderRadius: 3, stack: 's', order: 1 },
+      { type: 'bar', label: 'Pagos', data: rows.map((r) => r.pago), backgroundColor: C.pago, maxBarThickness: 30, borderRadius: 3, stack: 's', order: 1 },
+      { type: 'bar', label: 'Ajustes', data: rows.map((r) => r.ajuste), backgroundColor: C.ajuste, maxBarThickness: 30, borderRadius: 3, stack: 's', order: 1 },
+    ] }, options: om, plugins: [zeroLine] };
 
-    let bal = opening;
-    const dayList = Array.from(days.values());
-    for (const d of dayList) {
-      d.net = d.in + d.out + d.adj + d.est;
-      bal += d.net;
-      d.balance = bal;
-    }
-
-    const months = new Map<string, MonthRow>();
-    for (const d of dayList) {
-      const k = d.date.slice(0, 7);
-      const m = months.get(k) ?? { month: k, in: 0, out: 0, adj: 0, est: 0, net: 0, end: 0 };
-      m.in += d.in; m.out += d.out; m.adj += d.adj; m.est += d.est; m.net += d.net; m.end = d.balance;
-      months.set(k, m);
-    }
-
-    const sum = (c: Cat) => dayList.reduce((s, d) => s + d[c], 0);
-    const minDay = dayList.reduce((a, d) => (d.balance < a.balance ? d : a), dayList[0]);
-    const firstNeg = dayList.find((d) => d.balance < 0);
-    const in30 = toIso(tToday + 30 * DAY);
-    const upcoming = events.filter((e) => e.date <= in30);
+    // Próximos 30 días
+    const lim = toIso(t0 + 30 * DAY);
+    let acc = T.ini;
+    const prox = movs.filter((m) => m.date <= lim && m.origin !== 'estim').map((m) => { acc += m.amount; return { ...m, acc }; });
 
     return {
-      today, end, opening, dayList, months: Array.from(months.values()),
-      totals: { in: sum('in'), out: sum('out'), adj: sum('adj'), est: sum('est') },
-      final: bal, minDay, firstNeg, upcoming,
-      heatDays: dayList.filter((d) => d.date <= addMonths(today, 6)),
+      today, end, title, movs, journals, T, water, nets, mxAbs, weeks, monthLabels, byDay, line, lineLegend, mes, rows, prox,
+      daysToNeg: T.neg ? Math.round((toTime(T.neg) - t0) / DAY) : 0,
     };
-  }, [data, horizon, base, useAdj, useIn, useOut, useEst]);
+  }, [data, horizon, t]);
+
+  const companies = data?.companies ?? [];
+  const tagStyle = (cid: number) => { const col = companyColor(companies.findIndex((c) => c.id === cid)); return { '--tagbg': rgba(col, 0.13), '--tagc': col } as CSSProperties; };
+  const shortOf = (cid: number) => companies.find((c) => c.id === cid)?.short ?? '';
+
+  const heatColor = (v: number | null, mx: number) =>
+    v == null || v === 0 ? undefined : rgba(v > 0 ? C.cobro : C.pago, 0.22 + 0.78 * Math.sqrt(Math.abs(v) / mx));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Previsión de tesorería</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Saldo previsto con cobros y pagos programados, ajustes de periodo de Odoo y estimación de facturas pendientes.
-          </p>
-        </div>
-        {data?.companies && <CompanyFilter companies={data.companies} selected={selected} onChange={changeCompanies} />}
-      </div>
-
-      {error && <div className="rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm px-4 py-3">{error}</div>}
-
-      {loading && !data ? (
-        <div className="py-16 text-center text-gray-400 text-sm">Cargando…</div>
-      ) : calc ? (
-        <div className={`space-y-6 transition-opacity ${loading ? 'opacity-50' : ''}`}>
-          {/* Parámetros */}
-          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-4 grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Horizonte</h2>
-              <div className="flex flex-wrap gap-1.5">
-                {HORIZONS.map((h) => (
-                  <button
-                    key={h} type="button" onClick={() => setHorizon(h)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${horizon === h ? 'bg-brand-600 border-brand-600 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-                  >{h} meses</button>
-                ))}
-              </div>
-              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 mb-2">Saldo de partida</h2>
-              <div className="flex flex-col gap-1.5 text-sm text-gray-700">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" checked={base === 'book'} onChange={() => setBase('book')} className="accent-brand-600" />
-                  Saldo contable <span className="text-gray-400 tabular-nums">{eur(data!.opening!.book)}</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" checked={base === 'statement'} onChange={() => setBase('statement')} className="accent-brand-600" />
-                  Último estado de cuenta <span className="text-gray-400 tabular-nums">{eur(data!.opening!.statement)}</span>
-                </label>
-              </div>
+    <Shell today={data?.today} companies={data?.companies} selected={selected} onCompanies={changeCompanies}
+      horizon={horizon} onHorizon={setHorizon} loading={loading && !!data} error={error}>
+      {loading && !data ? <div className="empty">Cargando…</div> : calc && (
+        <section className="panel">
+          <div className="card" style={{ gap: 10 }}>
+            <div className="toggles">
+              <Toggle checked={t.adj} onChange={() => setT({ adj: !t.adj })} label="Ajustes de periodo" color={C.ajuste} />
+              <Toggle checked={t.cob} onChange={() => setT({ cob: !t.cob })} label="Cobros programados" color={C.cobro} />
+              <Toggle checked={t.pag} onChange={() => setT({ pag: !t.pag })} label="Pagos programados" color={C.pago} />
+              <Toggle checked={t.est} onChange={() => setT({ est: !t.est })} label="Estimar cobro/pago de facturas pendientes no vencidas" color={C.estim} />
+              <Toggle checked={t.cart} onChange={() => setT({ cart: !t.cart })} label="Incluir cuentas de cartera de inversión" color={C.accent} />
             </div>
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 content-start">
-              <Toggle checked={useAdj} onChange={setUseAdj} label="Ajustes de periodo" hint="Asientos recurrentes de Odoo (mensuales, trimestrales…) proyectados hasta su fecha fin" />
-              <Toggle checked={useIn} onChange={setUseIn} label="Cobros programados" hint="Cobros de Odoo con fecha posterior a hoy" />
-              <Toggle checked={useOut} onChange={setUseOut} label="Pagos programados" hint="Pagos de Odoo con fecha posterior a hoy (pagarés, confirming…)" />
-              <Toggle
-                checked={useEst} onChange={setUseEst} label="Estimar facturas pendientes no vencidas"
-                hint={`Cobro ${eur(data!.estimate?.in)} · pago ${eur(data!.estimate?.out)}, repartidos a partes iguales en los días laborables de los próximos ${data!.estimate_days ?? 60} días`}
-              />
+            <div className="toggles">
+              <Toggle radio checked={t.base === 'book'} onChange={() => setT({ base: 'book' })} label="Partir del saldo contable" color={C.ink} />
+              <Toggle radio checked={t.base === 'statement'} onChange={() => setT({ base: 'statement' })} label="Partir del último estado de cuenta" color={C.ink} />
             </div>
-          </section>
+            <div className="note">Cobros y pagos programados: pagos de Odoo con fecha igual o posterior a hoy (pagarés y confirming). Ajustes de periodo: asientos recurrentes de Odoo. La estimación reparte el importe pendiente no vencido de facturas a partes iguales en los días laborables de los próximos 60 días.</div>
+          </div>
 
-          {calc.firstNeg && (
-            <div className="rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm px-4 py-3">
-              El saldo previsto pasa a negativo el <strong>{formatDay(calc.firstNeg.date)}</strong> ({eur(calc.firstNeg.balance)}).
-              El mínimo del periodo es {eur(calc.minDay.balance)} el {formatDay(calc.minDay.date)}.
-            </div>
+          {calc.T.neg ? (
+            <div className="alert bad">{Icon.warn}<span>La tesorería {calc.title} pasa a negativo el <b>{fD(calc.T.neg)}</b>, dentro de {calc.daysToNeg} días. El saldo mínimo es {e0(calc.T.min)} el {fD(calc.T.minD)}.</span></div>
+          ) : (
+            <div className="alert ok">{Icon.ok}<span>La tesorería {calc.title} se mantiene en positivo hasta el {fD(calc.end)}. El saldo mínimo es {e0(calc.T.min)} el {fD(calc.T.minD)}.</span></div>
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Saldo de partida (hoy)" value={eur(calc.opening)} />
-            <Kpi label={`Saldo previsto a ${formatDay(calc.end)}`} value={eur(calc.final)} tone={calc.final >= 0 ? 'good' : 'bad'} hint={`Variación ${eur(calc.final - calc.opening)}`} />
-            <Kpi label="Saldo mínimo previsto" value={eur(calc.minDay.balance)} hint={formatDay(calc.minDay.date)} tone={calc.minDay.balance >= 0 ? 'neutral' : 'bad'} />
-            <Kpi label="Entradas / salidas previstas" value={eur(calc.totals.in + Math.max(calc.totals.est, 0))} hint={`Salidas ${eur(calc.totals.out + calc.totals.adj + Math.min(calc.totals.est, 0))}`} />
+          <div className="grid k4">
+            <div className="card kpi" style={{ borderTop: `4px solid ${C.accent}` }}><div className="lbl">Saldo de partida</div><div className="val">{e0(calc.T.ini)}</div><div className="sub">{calc.journals.length} diarios · {t.base === 'statement' ? 'último estado de cuenta' : 'saldo contable'}</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.fin < 0 ? C.neg : C.pos}` }}><div className="lbl">Saldo previsto al final</div><div className="val"><span className={calc.T.fin < 0 ? 'neg' : ''}>{e0(calc.T.fin)}</span></div><div className="sub">a {fD(calc.end)}</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.min < 0 ? C.neg : C.warn}` }}><div className="lbl">Saldo mínimo</div><div className="val"><span className={calc.T.min < 0 ? 'neg' : ''}>{e0(calc.T.min)}</span></div><div className="sub">el {fD(calc.T.minD)}</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${C.cG}` }}><div className="lbl">Flujo neto del periodo</div><div className="val"><span className={calc.T.fin - calc.T.ini < 0 ? 'neg' : ''}>{e0(calc.T.fin - calc.T.ini)}</span></div><div className="sub">{calc.movs.length} movimientos previstos</div></div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Panel title="De hoy al final del horizonte" subtitle="Cómo pasa el saldo de partida al saldo previsto">
-              <Waterfall steps={[
-                { label: 'Hoy', value: calc.opening, total: true },
-                { label: 'Cobros', value: calc.totals.in },
-                { label: 'Pagos', value: calc.totals.out },
-                { label: 'Ajustes', value: calc.totals.adj },
-                { label: 'Estimación', value: calc.totals.est },
-                { label: 'Final', value: calc.final, total: true },
-              ]} />
-            </Panel>
-            <Panel title="Saldo previsto de tesorería diario" subtitle="Pasa el ratón por el gráfico para ver cada día">
-              <BalanceLine days={calc.dayList} />
-            </Panel>
+          <div className="grid k2">
+            <div className="card"><h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▤</span>De hoy al final del horizonte <small>cascada del saldo</small></h2><ChartCanvas config={calc.water} /></div>
+            <div className="card">
+              <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▦</span>Calendario de movimientos <small>neto diario · próximos 6 meses</small></h2>
+              <div className="heat">
+                <div className="months">{calc.monthLabels.map((m, i) => <span key={i}>{m}</span>)}</div>
+                <div className="body">
+                  <div className="days"><span>L</span><span /><span>X</span><span /><span>V</span><span /><span>D</span></div>
+                  <div className="cells">
+                    {calc.nets.map(({ d, v }) => {
+                      const ms = calc.byDay.get(d) ?? [];
+                      const dow = DOW[new Date(toTime(d)).getUTCDay()];
+                      const title = v == null ? undefined : [`${dow} ${fD(d)} · neto ${e0(v)}`, ...ms.slice(0, 6).map((m) => `${ORIGIN_LABEL[m.origin]} · ${m.concept.split(' · ')[0]} ${compact(m.amount)}`), ...(ms.length > 6 ? [`+${ms.length - 6} más`] : [])].join('\n');
+                      return <i key={d} className={v == null ? 'x' : ''} style={{ background: heatColor(v, calc.mxAbs) }} title={title} />;
+                    })}
+                  </div>
+                </div>
+                <div className="scale">Pagos <i style={{ background: rgba(C.pago, 1) }} /><i style={{ background: rgba(C.pago, 0.45) }} /><i style={{ background: 'var(--surface-2)' }} /><i style={{ background: rgba(C.cobro, 0.45) }} /><i style={{ background: rgba(C.cobro, 1) }} /> Cobros <span style={{ marginLeft: 10 }}>· pasa el ratón para ver el detalle</span></div>
+              </div>
+            </div>
           </div>
 
-          <Panel title="Calendario de movimientos" subtitle="Neto diario de los próximos 6 meses">
-            <Heatmap days={calc.heatDays} />
-          </Panel>
+          <div className="card">
+            <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>⟋</span>Saldo previsto de tesorería <small>diario</small></h2>
+            <div className="legend">{calc.lineLegend.map((l) => <span key={l.label} className="ln" style={{ '--c': l.color } as CSSProperties}>{l.label}</span>)}</div>
+            <ChartCanvas config={calc.line} className="chart tall" />
+          </div>
 
-          <Panel title="Entradas y salidas por mes" subtitle="Movimientos previstos por categoría y saldo a fin de mes">
-            <MonthlyStack months={calc.months} />
-          </Panel>
+          <div className="card">
+            <h2>Entradas y salidas por mes</h2>
+            <div className="legend">
+              <span style={{ '--c': C.cobro } as CSSProperties}>Cobros</span><span style={{ '--c': C.pago } as CSSProperties}>Pagos</span>
+              <span style={{ '--c': C.ajuste } as CSSProperties}>Ajustes de periodo</span><span style={{ '--c': C.estim } as CSSProperties}>Estimación</span>
+              <span className="ln" style={{ '--c': C.ink } as CSSProperties}>Saldo a fin de mes</span>
+            </div>
+            <ChartCanvas config={calc.mes} />
+          </div>
 
-          <Panel title="Resumen mensual">
-            <div className="overflow-x-auto -mx-5">
-              <table className="w-full text-sm whitespace-nowrap">
-                <thead>
-                  <tr className="border-y border-gray-100 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-                    <th className="px-5 py-2.5 text-left font-medium">Mes</th>
-                    <th className="px-3 py-2.5 text-right font-medium">Cobros</th>
-                    <th className="px-3 py-2.5 text-right font-medium">Pagos</th>
-                    <th className="px-3 py-2.5 text-right font-medium">Ajustes</th>
-                    <th className="px-3 py-2.5 text-right font-medium">Estimación</th>
-                    <th className="px-3 py-2.5 text-right font-medium">Neto</th>
-                    <th className="px-5 py-2.5 text-right font-medium">Saldo fin de mes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 tabular-nums">
-                  {calc.months.map((m) => (
-                    <tr key={m.month} className="hover:bg-gray-50">
-                      <td className="px-5 py-2 text-gray-700 capitalize">{monthShort(m.month)}</td>
-                      <td className="px-3 py-2 text-right text-emerald-700">{m.in ? eur(m.in) : '—'}</td>
-                      <td className="px-3 py-2 text-right text-rose-700">{m.out ? eur(m.out) : '—'}</td>
-                      <td className="px-3 py-2 text-right text-amber-700">{m.adj ? eur(m.adj) : '—'}</td>
-                      <td className="px-3 py-2 text-right text-sky-700">{m.est ? eur(m.est) : '—'}</td>
-                      <td className={`px-3 py-2 text-right font-medium ${m.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{eur(m.net)}</td>
-                      <td className={`px-5 py-2 text-right font-semibold ${m.end >= 0 ? 'text-gray-900' : 'text-rose-700'}`}>{eur(m.end)}</td>
+          <div className="grid k2">
+            <div className="card">
+              <h2>Resumen mensual</h2>
+              <div className="tbl scroll">
+                <table>
+                  <thead><tr><th>Mes</th><th className="n">Saldo inicial</th><th className="n">Cobros</th><th className="n">Pagos</th><th className="n">Ajustes</th>{t.est && <th className="n">Estimación</th>}<th className="n">Saldo final</th></tr></thead>
+                  <tbody>
+                    {calc.rows.map((r) => (
+                      <tr key={r.k}>
+                        <td><b>{fM(r.k)}</b></td>
+                        <td className={`n ${r.si < 0 ? 'neg' : ''}`}>{e0(r.si)}</td>
+                        <td className="n pos">{e0(r.cobro)}</td><td className="n">{e0(r.pago)}</td><td className="n">{e0(r.ajuste)}</td>
+                        {t.est && <td className="n">{e0(r.estim)}</td>}
+                        <td className={`n ${r.sf < 0 ? 'neg' : ''}`}><b>{e0(r.sf)}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="card">
+              <h2>Próximos movimientos <small>30 días</small></h2>
+              <div className="tbl scroll">
+                <table>
+                  <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Diario</th><th className="n">Importe</th><th className="n">Saldo</th></tr></thead>
+                  <tbody>
+                    {calc.prox.length === 0 && <tr><td colSpan={6} className="muted">Sin movimientos en los próximos 30 días.</td></tr>}
+                    {calc.prox.map((m, i) => (
+                      <tr key={i}>
+                        <td>{fD(m.date)}</td><td><span className={`chip ${m.origin}`}>{ORIGIN_LABEL[m.origin]}</span></td>
+                        <td>{m.concept}</td><td className="muted">{m.journal}</td>
+                        <td className={`n ${m.amount < 0 ? 'neg' : ''}`}>{e2(m.amount)}</td>
+                        <td className={`n ${m.acc < 0 ? 'neg' : ''}`}>{e0(m.acc)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="card">
+            <h2>Ajustes de periodo <small>tal como están en Odoo (asientos recurrentes)</small></h2>
+            <div className="tbl scroll">
+              <table>
+                <thead><tr><th>Compañía</th><th>Descripción</th><th>Diario</th><th>Inicio</th><th>Fin</th><th className="n">Importe</th><th className="n">Cada</th><th>Próximo cargo</th></tr></thead>
+                <tbody>
+                  {(data?.adjustments ?? []).length === 0 && <tr><td colSpan={8} className="muted">No hay asientos recurrentes que muevan bancos o caja.</td></tr>}
+                  {(data?.adjustments ?? []).slice().sort((a, b) => a.amount - b.amount).map((a) => (
+                    <tr key={a.id}>
+                      <td><span className="ctag" style={tagStyle(a.company_id)}>{shortOf(a.company_id)}</span></td>
+                      <td><b>{a.name}</b></td><td>{a.journal}</td><td>{fD(a.start)}</td><td>{a.until ? fD(a.until) : 'Sin fin'}</td>
+                      <td className={`n ${a.amount < 0 ? 'neg' : 'pos'}`}>{e2(a.amount)}</td>
+                      <td className="n">{a.months ? `${a.months} ${a.months > 1 ? 'meses' : 'mes'}` : 'Una vez'}</td>
+                      <td>{fD(a.next_date)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </Panel>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <Panel title="Próximos movimientos" subtitle="Próximos 30 días (sin la estimación)" right={<span className="text-xs text-gray-500">{calc.upcoming.length}</span>}>
-              {calc.upcoming.length === 0 ? <Empty text="No hay movimientos en los próximos 30 días." /> : (
-                <div className="overflow-x-auto -mx-5 max-h-[26rem] overflow-y-auto">
-                  <table className="w-full text-sm whitespace-nowrap">
-                    <thead className="sticky top-0 bg-gray-50">
-                      <tr className="border-y border-gray-100 text-gray-500 text-xs uppercase tracking-wide">
-                        <th className="px-5 py-2 text-left font-medium">Fecha</th>
-                        <th className="px-3 py-2 text-left font-medium">Concepto</th>
-                        <th className="px-3 py-2 text-left font-medium">Diario</th>
-                        <th className="px-5 py-2 text-right font-medium">Importe</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {calc.upcoming.map((e, i) => (
-                        <tr key={i}>
-                          <td className="px-5 py-2 text-gray-600">{formatDay(e.date)}</td>
-                          <td className="px-3 py-2 max-w-64">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-2 h-2 rounded-full shrink-0 ${CAT_BG[e.kind]}`} title={CAT_LABEL[e.kind]} />
-                              <span className="truncate text-gray-800" title={e.partner || e.ref}>{e.partner || e.ref || '—'}</span>
-                            </div>
-                            {e.partner && e.ref && <div className="text-xs text-gray-400 truncate pl-3.5">{e.ref}</div>}
-                          </td>
-                          <td className="px-3 py-2 text-gray-500 text-xs">{e.journal}</td>
-                          <td className={`px-5 py-2 text-right tabular-nums font-medium ${e.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{eur(e.amount, 2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Panel>
-
-            <Panel title="Ajustes de periodo tal como están en Odoo" subtitle="Asientos recurrentes en borrador con su próxima fecha" right={<span className="text-xs text-gray-500">{data!.adjustments?.length ?? 0}</span>}>
-              {!data!.adjustments?.length ? <Empty text="No hay asientos recurrentes que afecten a bancos o caja." /> : (
-                <div className="overflow-x-auto -mx-5 max-h-[26rem] overflow-y-auto">
-                  <table className="w-full text-sm whitespace-nowrap">
-                    <thead className="sticky top-0 bg-gray-50">
-                      <tr className="border-y border-gray-100 text-gray-500 text-xs uppercase tracking-wide">
-                        <th className="px-5 py-2 text-left font-medium">Concepto</th>
-                        <th className="px-3 py-2 text-left font-medium">Periodo</th>
-                        <th className="px-3 py-2 text-left font-medium">Próxima</th>
-                        <th className="px-3 py-2 text-left font-medium">Hasta</th>
-                        <th className="px-5 py-2 text-right font-medium">Importe</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {data!.adjustments!.map((a) => (
-                        <tr key={a.id}>
-                          <td className="px-5 py-2 max-w-64">
-                            <div className="truncate text-gray-800" title={a.name}>{a.name}</div>
-                            <div className="text-xs text-gray-400 truncate">{a.journal}{(data!.companies?.length ?? 0) > 1 ? ` · ${a.company}` : ''}</div>
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">{a.period}</td>
-                          <td className="px-3 py-2 text-gray-600">{formatDay(a.next_date)}</td>
-                          <td className="px-3 py-2 text-gray-600">{a.until ? formatDay(a.until) : 'Sin fin'}</td>
-                          <td className={`px-5 py-2 text-right tabular-nums font-medium ${a.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{eur(a.amount, 2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Panel>
           </div>
-        </div>
-      ) : null}
-    </div>
+        </section>
+      )}
+    </Shell>
   );
 }

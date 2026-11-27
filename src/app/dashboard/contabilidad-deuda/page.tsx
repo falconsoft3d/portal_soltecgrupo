@@ -1,22 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiAccountingOverview, AccountingAging, AccountingOverviewResponse } from '@/lib/api';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
+import { apiAccountingOverview, AccountingOverviewResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
+import { useCompanySelection } from '../components/AccountingUi';
+import Shell from '../components/cuadro/Shell';
+import ChartCanvas from '../components/cuadro/ChartCanvas';
+import { Icon } from '../components/cuadro/icons';
 import {
-  CompanyFilter, Empty, HBarList, Kpi, MonthlyBars, Panel, StackedBar, eur, useCompanySelection,
-} from '../components/AccountingUi';
+  C, baseOpts, compact, companyColor, donutConfig, e0, entColor, fM, fonts, hbarOpts, pct, rgba, zeroLine,
+} from '../components/cuadro/lib';
 
-const TYPE_LABEL: Record<string, string> = { bank: 'Banco', cash: 'Efectivo' };
+type State = 'ok' | 'warn' | 'bad';
+const PILL: Record<State, string> = { ok: 'Correcto', warn: 'Vigilar', bad: 'Riesgo' };
+const ZONE = { pos: C.pos, warn: C.warn, neg: C.neg };
 
-function agingSegments(a: AccountingAging) {
-  return [
-    { label: 'Al día', value: a.current, color: 'bg-emerald-500' },
-    { label: '1–30 días', value: a.d30, color: 'bg-amber-300' },
-    { label: '31–60 días', value: a.d60, color: 'bg-amber-500' },
-    { label: '61–90 días', value: a.d90, color: 'bg-orange-500' },
-    { label: '+90 días', value: a.d90p, color: 'bg-rose-600' },
-  ];
+/** Indicador de aguja (semicírculo con zonas de color), igual que el artefacto. */
+function Gauge({ v, min, max, zones, name, valTxt, formula, state }: {
+  v: number; min: number; max: number; zones: [number, keyof typeof ZONE][]; name: string; valTxt: string; formula: string; state: State;
+}) {
+  const cx = 85, cy = 88, r = 66, sw = 14;
+  const ang = (x: number) => Math.PI * (1 - (Math.min(max, Math.max(min, Number.isFinite(x) ? x : min)) - min) / (max - min));
+  const pt = (a: number, rr: number) => [cx + rr * Math.cos(a), cy - rr * Math.sin(a)];
+  const arcs = zones.map(([to, col], i) => {
+    const from = i === 0 ? min : zones[i - 1][0];
+    const [x0, y0] = pt(ang(from), r), [x1, y1] = pt(ang(to), r);
+    return <path key={to} d={`M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`} stroke={ZONE[col]} strokeWidth={sw} fill="none" opacity={0.85} />;
+  });
+  const [nx, ny] = pt(ang(v), r - 4);
+  return (
+    <div className="gauge">
+      <svg viewBox="0 0 170 100" aria-hidden="true">
+        {arcs}
+        <line x1={cx} y1={cy} x2={nx.toFixed(1)} y2={ny.toFixed(1)} stroke={C.ink} strokeWidth={3} strokeLinecap="round" />
+        <circle cx={cx} cy={cy} r={6} fill={C.ink} />
+      </svg>
+      <div className="gv">{valTxt}</div>
+      <div className="gn">{name}</div>
+      <span className={`pill ${state}`}>{PILL[state]}</span>
+      <div className="gf">{formula}</div>
+    </div>
+  );
+}
+
+const st = (v: number, a: number, b: number, inv = false): State =>
+  !Number.isFinite(v) ? 'bad' : inv ? (v <= a ? 'ok' : v <= b ? 'warn' : 'bad') : (v >= a ? 'ok' : v >= b ? 'warn' : 'bad');
+const R2 = (n: number) => (Number.isFinite(n) ? n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—');
+
+/** Colores de métodos de pago (como el artefacto) y reserva para el resto. */
+function methodColor(name: string, i: number) {
+  const n = name.toLowerCase();
+  if (n.includes('pagar')) return C.cS;
+  if (n.includes('confirming')) return C.cG;
+  if (n.includes('transfer')) return C.ajuste;
+  if (n.includes('manual')) return C.estim;
+  if (n.includes('giro') || n.includes('recibo') || n.includes('remesa') || n.includes('sepa')) return C.pago;
+  return ['#2f62c4', '#5f9f2a', '#8a46a3', '#1386c6', '#b08a2e'][i % 5];
+}
+
+function Legend({ items }: { items: { label: string; color: string; line?: boolean }[] }) {
+  return (
+    <div className="legend">
+      {items.map((it) => <span key={it.label} className={it.line ? 'ln' : ''} style={{ '--c': it.color } as CSSProperties}>{it.label}</span>)}
+    </div>
+  );
 }
 
 export default function ContabilidadDeudaPage() {
@@ -41,91 +88,192 @@ export default function ContabilidadDeudaPage() {
   }, [selected]);
 
   const changeCompanies = (ids: number[]) => { setLoading(true); setSelected(ids); };
+  const ok = !!(data?.success && data.debt);
+  const companies = useMemo(() => data?.companies ?? [], [data]);
+  const colorOfShort = (short: string) => companyColor(companies.findIndex((c) => (c.short ?? c.name) === short));
 
-  const debt = data?.debt;
-  const treasuryRows = (data?.treasury ?? [])
-    .filter((t) => t.balance !== 0)
-    .map((t) => ({ name: `${t.name} · ${TYPE_LABEL[t.type] ?? t.type}${(data?.companies?.length ?? 0) > 1 ? ` · ${t.company}` : ''}`, amount: t.balance }))
-    .sort((a, b) => b.amount - a.amount);
-  const last12 = (data?.monthly ?? []).slice(-12);
-  const in12 = last12.reduce((s, m) => s + m.in, 0);
-  const out12 = last12.reduce((s, m) => s + m.out, 0);
+  /* ---------------- gráficos ---------------- */
+  const charts = useMemo(() => {
+    if (!data?.success || !data.debt) return null;
+    const dc = data.debt_companies ?? [];
+    const { ui } = fonts();
+
+    // Deuda por compañía (barras horizontales apiladas)
+    const lbl: string[] = [], d1: number[] = [], d2: number[] = [], d3: number[] = [], d4: number[] = [];
+    for (const c of dc) { lbl.push(`Clientes · ${c.short}`); d1.push(c.customers.total - c.customers.overdue); d2.push(c.customers.overdue); d3.push(0); d4.push(0); }
+    for (const c of dc) { lbl.push(`Proveedores · ${c.short}`); d1.push(0); d2.push(0); d3.push(c.suppliers.total - c.suppliers.overdue); d4.push(c.suppliers.overdue); }
+    const o = baseOpts();
+    o.indexAxis = 'y'; o.scales.x.stacked = true; o.scales.y.stacked = true;
+    o.scales.x.ticks.callback = (v: number | string) => compact(Number(v)); o.scales.x.grid = { color: C.line };
+    o.scales.y.ticks.callback = function (this: { getLabelForValue: (v: number) => string }, v: number | string) { return this.getLabelForValue(Number(v)); };
+    o.scales.y.grid = { display: false }; o.scales.y.ticks.font = { family: ui, size: 11.5, weight: 700 };
+    o.plugins.tooltip.callbacks.label = (c: { parsed: { x: number }; dataset: { label: string } }) => (c.parsed.x ? ` ${c.dataset.label}: ${e0(c.parsed.x)}` : null);
+    const deuda = { type: 'bar', data: { labels: lbl, datasets: [
+      { label: 'Clientes al día', data: d1, backgroundColor: C.cobro, borderRadius: 4, barThickness: 26 },
+      { label: 'Clientes atrasado', data: d2, backgroundColor: C.neg, borderRadius: 4, barThickness: 26 },
+      { label: 'Proveedores al día', data: d3, backgroundColor: C.pago, borderRadius: 4, barThickness: 26 },
+      { label: 'Proveedores atrasado', data: d4, backgroundColor: C.warn, borderRadius: 4, barThickness: 26 },
+    ] }, options: o };
+
+    // Dónde está la tesorería (donut, 7 diarios + otros)
+    const bpos = (data.treasury ?? []).filter((b) => b.balance > 0).sort((a, b) => b.balance - a.balance);
+    const top = bpos.slice(0, 7), rest = bpos.slice(7).reduce((s, b) => s + b.balance, 0);
+    const tLabels = top.map((b) => b.name).concat(rest ? ['Otros diarios'] : []);
+    const tColors = top.map((b) => entColor(b.entity)).map((c, i, a) => (a.indexOf(c) < i ? rgba(c, 0.6) : c)).concat(rest ? [C.estim] : []);
+    const tData = top.map((b) => b.balance).concat(rest ? [rest] : []);
+    const teso = donutConfig(tLabels, tData, tColors);
+
+    // Cobros y pagos por mes (barras + neto)
+    const m = data.monthly ?? [];
+    const oh = baseOpts(); oh.scales.x.stacked = true; oh.scales.y.stacked = false;
+    const hist = { data: { labels: m.map((x) => fM(x.month)), datasets: [
+      { type: 'line', label: 'Neto', data: m.map((x) => x.net), borderColor: C.ink, backgroundColor: C.ink, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2, tension: 0.3, order: 0 },
+      { type: 'bar', label: 'Cobros', data: m.map((x) => x.in), backgroundColor: C.cobro, borderRadius: 4, maxBarThickness: 26, order: 1 },
+      { type: 'bar', label: 'Pagos', data: m.map((x) => -x.out), backgroundColor: C.pago, borderRadius: 4, maxBarThickness: 26, order: 1 },
+    ] }, options: oh, plugins: [zeroLine] };
+
+    // Top 10 (barras horizontales con degradado)
+    const hbar = (rows: { name: string; amount: number }[], col: string) => {
+      const ob = hbarOpts(26);
+      ob.scales.x.ticks.callback = (v: number | string) => compact(Number(v));
+      ob.plugins.tooltip.callbacks.label = (c: { parsed: { x: number } }) => ` ${e0(c.parsed.x)}`;
+      return { type: 'bar', data: { labels: rows.map((r) => r.name), datasets: [{ data: rows.map((r) => r.amount), backgroundColor: rows.map((_, i) => rgba(col, 1 - i * 0.065)), borderRadius: 5, barThickness: 18 }] }, options: ob };
+    };
+
+    const mi = data.methods_in ?? [], mo = data.methods_out ?? [];
+    return {
+      deuda, teso, tLegend: tLabels.map((l, i) => ({ label: `${l} · ${compact(tData[i])}`, color: tColors[i] })),
+      hist,
+      topC: hbar(data.top_customers ?? [], C.cobro), topP: hbar(data.top_suppliers ?? [], C.pago),
+      metC: donutConfig(mi.map((r) => r.name), mi.map((r) => r.amount), mi.map((r, i) => methodColor(r.name, i))),
+      metP: donutConfig(mo.map((r) => r.name), mo.map((r) => r.amount), mo.map((r, i) => methodColor(r.name, i))),
+      legC: mi.map((r, i) => ({ label: `${r.name} · ${compact(r.amount)}`, color: methodColor(r.name, i) })),
+      legP: mo.map((r, i) => ({ label: `${r.name} · ${compact(r.amount)}`, color: methodColor(r.name, i) })),
+    };
+  }, [data]);
+
+  /* ---------------- KPIs e indicadores ---------------- */
+  let body = null;
+  if (ok && data && charts) {
+    const debt = data.debt!;
+    const teso = data.treasury_total ?? 0, liq = data.treasury_liquid ?? 0;
+    const cli = debt.customers.total, cliA = debt.customers.overdue, pro = debt.suppliers.total, proA = debt.suppliers.overdue;
+    const cob12 = data.payments_in_12m ?? 0, pag12 = data.payments_out_12m ?? 0, ajMes = data.adjustments_monthly_out ?? 0;
+    const pos = teso + cli - pro;
+    const pmc = (cli / cob12) * 365, pmp = (pro / pag12) * 365, cob = (teso + cli) / pro, disp = liq / pro, mor = (cliA / cli) * 100, meses = liq / (pag12 / 12 + ajMes);
+    const w = (a: number, b: number) => `${b ? Math.max(0, (a / b) * 100) : 0}%`;
+    const projects = data.top_projects ?? [];
+    const pmax = projects.length ? projects[0].amount : 1;
+
+    body = (
+      <section className="panel">
+        <div className="grid k4">
+          <div className="card kpi">
+            <div className="head"><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>{Icon.bank}</span><span className="lbl">Tesorería total</span></div>
+            <div className="val">{e0(teso)}</div>
+            <div className="bar"><i style={{ width: w(liq, teso), background: C.accent }} /><i style={{ width: w(teso - liq, teso), background: C.cG }} /></div>
+            <div className="sub">{e0(liq)} líquido · {e0(teso - liq)} en cartera</div>
+          </div>
+          <div className="card kpi">
+            <div className="head"><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>{Icon.in}</span><span className="lbl">Pendiente de cobro</span></div>
+            <div className="val">{e0(cli)}</div>
+            <div className="bar"><i style={{ width: w(cli - cliA, cli), background: C.cobro }} /><i style={{ width: w(cliA, cli), background: C.neg }} /></div>
+            <div className="sub"><b className="neg">{e0(cliA)}</b> atrasado ({pct((cliA / cli) * 100)}) · {debt.customers.count} facturas</div>
+          </div>
+          <div className="card kpi">
+            <div className="head"><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>{Icon.out}</span><span className="lbl">Pendiente de pago</span></div>
+            <div className="val">{e0(pro)}</div>
+            <div className="bar"><i style={{ width: w(pro - proA, pro), background: C.pago }} /><i style={{ width: w(proA, pro), background: C.warn }} /></div>
+            <div className="sub"><b className="neg">{e0(proA)}</b> atrasado ({pct((proA / pro) * 100)}) · {debt.suppliers.count} facturas</div>
+          </div>
+          <div className="card kpi">
+            <div className="head"><span className="ic" style={{ background: 'var(--cG-soft)', color: C.cG }}>{Icon.scale}</span><span className="lbl">Posición neta</span></div>
+            <div className="val"><span className={pos < 0 ? 'neg' : ''}>{e0(pos)}</span></div>
+            <div className="sub">Tesorería + pendiente de cobro − pendiente de pago</div>
+          </div>
+        </div>
+
+        <div className="gauges">
+          <Gauge v={cob} min={0} max={4} zones={[[1, 'neg'], [1.5, 'warn'], [4, 'pos']]} name="Cobertura de proveedores" valTxt={R2(cob)} formula="(Tesorería + cobros pendientes) / pagos pendientes" state={st(cob, 1.5, 1)} />
+          <Gauge v={disp} min={0} max={1.5} zones={[[0.3, 'neg'], [0.6, 'warn'], [1.5, 'pos']]} name="Disponibilidad" valTxt={R2(disp)} formula="Tesorería líquida / pagos pendientes" state={st(disp, 0.6, 0.3)} />
+          <Gauge v={meses} min={0} max={6} zones={[[1, 'neg'], [2, 'warn'], [6, 'pos']]} name="Meses de cobertura" valTxt={R2(meses)} formula="Tesorería líquida / salida media mensual (pagos + ajustes)" state={st(meses, 2, 1)} />
+          <Gauge v={mor} min={0} max={100} zones={[[10, 'pos'], [25, 'warn'], [100, 'neg']]} name="Morosidad clientes" valTxt={pct(mor)} formula="Atrasado / pendiente de cobro" state={st(mor, 10, 25, true)} />
+          <Gauge v={pmc} min={0} max={180} zones={[[60, 'pos'], [90, 'warn'], [180, 'neg']]} name="Periodo medio de cobro" valTxt={Number.isFinite(pmc) ? `${Math.round(pmc)} d` : '—'} formula="Pendiente de cobro / cobros 12 m × 365" state={st(pmc, 60, 90, true)} />
+          <Gauge v={pmp} min={0} max={180} zones={[[60, 'pos'], [75, 'warn'], [180, 'neg']]} name="Periodo medio de pago" valTxt={Number.isFinite(pmp) ? `${Math.round(pmp)} d` : '—'} formula="Pendiente de pago / pagos 12 m × 365 · límite legal 60 días" state={st(pmp, 60, 75, true)} />
+        </div>
+
+        <div className="grid k2">
+          <div className="card">
+            <h2><span className="ic" style={{ background: 'var(--pos-bg)', color: C.pos }}>⇅</span>Deuda de clientes y con proveedores <small>al día frente a atrasado</small></h2>
+            <Legend items={[{ label: 'Clientes al día', color: C.cobro }, { label: 'Clientes atrasado', color: C.neg }, { label: 'Proveedores al día', color: C.pago }, { label: 'Proveedores atrasado', color: C.warn }]} />
+            <ChartCanvas config={charts.deuda} />
+            <div className="badges">
+              {(data.debt_companies ?? []).map((c) => (
+                <span key={c.id} style={{ display: 'contents' }}>
+                  {c.draft_bills_count > 0 && <span className="bdg w">{c.short}: {c.draft_bills_count} facturas de proveedor a validar ({e0(c.draft_bills_amount)})</span>}
+                  {c.to_check_count > 0 && <span className="bdg">{c.short}: {c.to_check_count} por revisar</span>}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="card">
+            <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>◔</span>Dónde está la tesorería <small>saldo por diario</small></h2>
+            <ChartCanvas config={charts.teso} className="chart donut" />
+            <Legend items={charts.tLegend} />
+          </div>
+        </div>
+
+        <div className="card">
+          <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▥</span>Cobros y pagos registrados por mes <small>últimos 24 meses · pagos publicados en Odoo</small></h2>
+          <Legend items={[{ label: 'Cobros de clientes', color: C.cobro }, { label: 'Pagos a proveedores', color: C.pago }, { label: 'Neto del mes', color: C.ink, line: true }]} />
+          <ChartCanvas config={charts.hist} className="chart tall" />
+        </div>
+
+        <div className="grid k2">
+          <div className="card">
+            <h2><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>↓</span>Top 10 clientes <small>cobrado en 12 meses</small></h2>
+            <ChartCanvas config={charts.topC} className="chart tall" />
+          </div>
+          <div className="card">
+            <h2><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>↑</span>Top 10 proveedores <small>pagado en 12 meses</small></h2>
+            <ChartCanvas config={charts.topP} className="chart tall" />
+          </div>
+        </div>
+
+        <div className="grid k3">
+          <div className="card"><h2>Cómo cobramos <small>12 meses</small></h2><ChartCanvas config={charts.metC} className="chart donut" /><Legend items={charts.legC} /></div>
+          <div className="card"><h2>Cómo pagamos <small>12 meses</small></h2><ChartCanvas config={charts.metP} className="chart donut" /><Legend items={charts.legP} /></div>
+          <div className="card">
+            <h2>Proyectos con más cobros <small>12 meses</small></h2>
+            <div className="tbl scroll" style={{ maxHeight: 300 }}>
+              <table>
+                <thead><tr><th>Proyecto</th><th className="n">Cobrado</th></tr></thead>
+                <tbody>
+                  {projects.length === 0 && <tr><td colSpan={2} className="muted">Sin cobros con proyecto en 12 meses.</td></tr>}
+                  {projects.map((p) => {
+                    const col = colorOfShort(p.company_short);
+                    return (
+                      <tr key={`${p.name}-${p.company_short}`}>
+                        <td className="w">
+                          <span className="ctag" style={{ '--tagbg': rgba(col, 0.13), '--tagc': col } as CSSProperties}>{p.company_short}</span> {p.name}
+                          <div className="bar" style={{ height: 5, marginTop: 5 }}><i style={{ width: `${(p.amount / pmax) * 100}%`, background: col }} /></div>
+                        </td>
+                        <td className="n">{e0(p.amount)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contabilidad y deuda</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Deuda de clientes y proveedores, tesorería y cobros y pagos registrados en Odoo.
-          </p>
-        </div>
-        {data?.companies && (
-          <CompanyFilter companies={data.companies} selected={selected} onChange={changeCompanies} />
-        )}
-      </div>
-
-      {error && <div className="rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm px-4 py-3">{error}</div>}
-
-      {loading && !data ? (
-        <div className="py-16 text-center text-gray-400 text-sm">Cargando…</div>
-      ) : data?.success && debt ? (
-        <div className={`space-y-6 transition-opacity ${loading ? 'opacity-50' : ''}`}>
-          {/* KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Tesorería (bancos y caja)" value={eur(data.treasury_total)} tone={(data.treasury_total ?? 0) >= 0 ? 'good' : 'bad'} />
-            <Kpi label="Clientes pendiente de cobro" value={eur(debt.customers.total)} hint={`Atrasado ${eur(debt.customers.overdue)}`} tone={debt.customers.overdue > 0 ? 'warn' : 'neutral'} />
-            <Kpi label="Proveedores pendiente de pago" value={eur(debt.suppliers.total)} hint={`Atrasado ${eur(debt.suppliers.overdue)}`} tone={debt.suppliers.overdue > 0 ? 'warn' : 'neutral'} />
-            <Kpi label="Neto cobros − pagos (12 meses)" value={eur(in12 - out12)} hint={`Cobros ${eur(in12)} · Pagos ${eur(out12)}`} tone={in12 - out12 >= 0 ? 'good' : 'bad'} />
-          </div>
-
-          {/* Deuda */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Panel title="Deuda de clientes" subtitle="Pendiente de cobro: al día frente a atrasado, por antigüedad del vencimiento">
-              <StackedBar segments={agingSegments(debt.customers)} />
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5 mb-2">Clientes con más deuda vencida</h3>
-              <HBarList rows={data.overdue_customers ?? []} color="bg-amber-500" />
-            </Panel>
-            <Panel title="Deuda con proveedores" subtitle="Pendiente de pago: al día frente a atrasado, por antigüedad del vencimiento">
-              <StackedBar segments={agingSegments(debt.suppliers)} />
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-5 mb-2">Proveedores con más deuda vencida</h3>
-              <HBarList rows={data.overdue_suppliers ?? []} color="bg-amber-500" />
-            </Panel>
-          </div>
-
-          {/* Tesorería + histórico */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <Panel title="Dónde está la tesorería" subtitle="Saldo contable por diario de banco y caja">
-              {treasuryRows.length ? <HBarList rows={treasuryRows} color="bg-brand-500" /> : <Empty />}
-            </Panel>
-            <Panel title="Cobros y pagos registrados por mes" subtitle="Últimos 24 meses · pagos publicados en Odoo" className="xl:col-span-2">
-              <MonthlyBars data={data.monthly ?? []} />
-            </Panel>
-          </div>
-
-          {/* Tops */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Panel title="Top 10 clientes" subtitle="Importe cobrado en los últimos 12 meses">
-              <HBarList rows={data.top_customers ?? []} color="bg-emerald-500" />
-            </Panel>
-            <Panel title="Top 10 proveedores" subtitle="Importe pagado en los últimos 12 meses">
-              <HBarList rows={data.top_suppliers ?? []} color="bg-rose-400" />
-            </Panel>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Panel title="Cómo cobramos" subtitle="Por método de pago · 12 meses">
-              <HBarList rows={data.methods_in ?? []} color="bg-emerald-500" />
-            </Panel>
-            <Panel title="Cómo pagamos" subtitle="Por método de pago · 12 meses">
-              <HBarList rows={data.methods_out ?? []} color="bg-rose-400" />
-            </Panel>
-            <Panel title="Proyectos con más cobros" subtitle="Cobros con proyecto asignado · 12 meses">
-              <HBarList rows={data.top_projects ?? []} color="bg-brand-500" />
-            </Panel>
-          </div>
-        </div>
-      ) : null}
-    </div>
+    <Shell today={data?.today} companies={data?.companies} selected={selected} onCompanies={changeCompanies} loading={loading && !!data} error={error}>
+      {loading && !data ? <div className="empty">Cargando…</div> : body}
+    </Shell>
   );
 }

@@ -1,24 +1,48 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiAccountingBanks, AccountingBanksResponse } from '@/lib/api';
+import { CSSProperties, useEffect, useMemo, useState } from 'react';
+import { apiAccountingForecast, AccountingForecastJournal, AccountingForecastResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { CompanyFilter, Empty, Kpi, Panel, eur, formatDay, useCompanySelection } from '../components/AccountingUi';
+import { useCompanySelection } from '../components/AccountingUi';
+import Shell, { useHorizon } from '../components/cuadro/Shell';
+import ChartCanvas from '../components/cuadro/ChartCanvas';
+import { KIND_ICON } from '../components/cuadro/icons';
+import { ORIGIN_LABEL, Serie, baseBalance, horizonEnd, movimientos, serie, useToggles } from '../components/cuadro/forecast';
+import { C, baseOpts, companyColor, compact, e0, e2, entColor, fD, fonts, gradientFill, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
 
-const TYPE_LABEL: Record<string, string> = { bank: 'Banco', cash: 'Efectivo' };
+/** Minigráfico de la tarjeta (mismo dibujo que el artefacto: línea + área hasta 0). */
+function Spark({ vals, color }: { vals: number[]; color: string }) {
+  const w = 200, h = 38;
+  if (vals.length < 2) return <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: h }} />;
+  const mn = Math.min(0, ...vals), mx = Math.max(0, ...vals);
+  const sy = (v: number) => h - 3 - ((v - mn) / (mx - mn || 1)) * (h - 6);
+  const c = vals[vals.length - 1] < 0 ? C.neg : color;
+  const pts = vals.map((v, i) => `${((i / (vals.length - 1)) * w).toFixed(1)},${sy(v).toFixed(1)}`);
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ width: '100%', height: h, display: 'block' }}>
+      <line x1={0} x2={w} y1={sy(0)} y2={sy(0)} stroke={C.line} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+      <path d={`M${pts.join(' L')} L${w},${sy(0)} L0,${sy(0)} Z`} fill={rgba(c, 0.15)} />
+      <path d={`M${pts.join(' L')}`} fill="none" stroke={c} strokeWidth={1.8} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+const shortName = (n: string) => n.replace(/^TARJETA /i, 'TARJ. ').replace(/^EFECTIVO/i, 'EFECT.');
 
 export default function BancosPage() {
   const [selected, setSelected] = useCompanySelection();
-  const [data, setData] = useState<AccountingBanksResponse | null>(null);
+  const [horizon, setHorizon] = useHorizon();
+  const [t] = useToggles();
+  const [data, setData] = useState<AccountingForecastResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [journalId, setJournalId] = useState<number | null>(null);
+  const [bankId, setBankId] = useState<number | null>(null);
 
   useEffect(() => {
     const token = getToken();
     if (!token) return;
     let cancelled = false;
-    apiAccountingBanks(token, selected)
+    apiAccountingForecast(token, selected)
       .then((res) => {
         if (cancelled) return;
         if (res.success) { setData(res); setError(''); }
@@ -31,131 +55,142 @@ export default function BancosPage() {
 
   const changeCompanies = (ids: number[]) => { setLoading(true); setSelected(ids); };
 
-  const journals = data?.journals ?? [];
-  const multiCompany = (data?.companies?.length ?? 0) > 1;
-  const totBalance = journals.reduce((s, j) => s + j.balance, 0);
-  const totStatement = journals.reduce((s, j) => s + (j.statement_balance ?? 0), 0);
-  const totPendingCount = journals.reduce((s, j) => s + j.pending_count, 0);
-  const totPendingAmount = journals.reduce((s, j) => s + j.pending_amount, 0);
-  const totForecast = journals.reduce((s, j) => s + j.forecast_balance, 0);
-  const current = journals.find((j) => j.id === journalId) ?? journals.find((j) => j.future_moves.length) ?? journals[0];
+  const calc = useMemo(() => {
+    if (!data?.success || !data.today) return null;
+    const today = data.today, end = horizonEnd(today, horizon);
+    // En Bancos se ven todos los diarios (también los de cartera)
+    const tb = { ...t, cart: true };
+    const movs = movimientos(data, tb, end);
+    const banks = data.journals ?? [];
+    const ser = new Map<number, Serie>(banks.map((b) => [b.id, serie(movs.filter((m) => m.journal_id === b.id), [b], tb, today, end)]));
+    const { ui } = fonts();
+
+    const cb = banks.filter((b) => b.has_statement);
+    const oc = baseOpts();
+    oc.scales.x.ticks.maxTicksLimit = 30; oc.scales.x.ticks.autoSkip = false; oc.scales.x.ticks.maxRotation = 60;
+    oc.scales.x.ticks.font = { family: ui, size: 10, weight: 700 };
+    const cmp = { type: 'bar', data: { labels: cb.map((b) => shortName(b.name)), datasets: [
+      { label: 'Saldo contable', data: cb.map((b) => b.balance), backgroundColor: cb.map((b) => entColor(b.entity)), borderRadius: 4, maxBarThickness: 22 },
+      { label: 'Último estado de cuenta', data: cb.map((b) => b.statement_balance), backgroundColor: cb.map((b) => rgba(entColor(b.entity), 0.35)), borderRadius: 4, maxBarThickness: 22 },
+    ] }, options: oc };
+
+    const cc = banks.filter((b) => b.pending_count).sort((a, b) => b.pending_count - a.pending_count);
+    const oq = hbarOpts(40);
+    oq.scales.x.ticks.callback = (v: number | string) => v;
+    oq.scales.y.ticks.font = { family: ui, size: 11, weight: 700 };
+    oq.plugins.tooltip.callbacks.label = (c: { parsed: { x: number } }) => ` ${c.parsed.x} artículos por conciliar`;
+    const conc = { type: 'bar', data: { labels: cc.map((b) => b.name), datasets: [{ data: cc.map((b) => b.pending_count), backgroundColor: cc.map((b) => (b.pending_count >= 10 ? C.neg : b.pending_count >= 5 ? C.warn : C.pos)), borderRadius: 5, barThickness: 16 }] }, options: oq };
+
+    return { today, end, tb, movs, banks, ser, cmp, conc, hasConc: cc.length > 0 };
+  }, [data, horizon, t]);
+
+  const companies = data?.companies ?? [];
+  const current: AccountingForecastJournal | undefined = calc ? (calc.banks.find((b) => b.id === bankId) ?? calc.banks[0]) : undefined;
+
+  const detail = useMemo(() => {
+    if (!calc || !current) return null;
+    const T = calc.ser.get(current.id)!;
+    const col = entColor(current.entity);
+    const line = { type: 'line', data: { labels: T.labels, datasets: [{ label: current.name, data: T.vals, borderColor: col, backgroundColor: gradientFill(col), fill: true, pointRadius: 0, borderWidth: 2.5, stepped: true }] }, options: baseOpts(), plugins: [zeroLine] };
+    let acc = baseBalance(current, calc.tb);
+    const moves = calc.movs.filter((m) => m.journal_id === current.id).map((m) => { acc += m.amount; return { ...m, acc }; });
+    return { T, col, line, moves };
+  }, [calc, current]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Bancos</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Saldo contable frente a extracto, partidas pendientes de conciliar y movimientos previstos por diario.
-          </p>
-        </div>
-        {data?.companies && (
-          <CompanyFilter companies={data.companies} selected={selected} onChange={changeCompanies} />
-        )}
-      </div>
-
-      {error && <div className="rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm px-4 py-3">{error}</div>}
-
-      {loading && !data ? (
-        <div className="py-16 text-center text-gray-400 text-sm">Cargando…</div>
-      ) : data?.success ? (
-        <div className={`space-y-6 transition-opacity ${loading ? 'opacity-50' : ''}`}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi label="Saldo contable" value={eur(totBalance)} tone={totBalance >= 0 ? 'good' : 'bad'} />
-            <Kpi label="Último estado de cuenta" value={eur(totStatement)} hint={`Diferencia ${eur(totBalance - totStatement)}`} />
-            <Kpi label="Pendiente de conciliar" value={`${totPendingCount.toLocaleString('es-ES')} partidas`} hint={eur(totPendingAmount)} tone={totPendingCount > 0 ? 'warn' : 'neutral'} />
-            <Kpi label="Saldo previsto" value={eur(totForecast)} hint="Con los pagos y cobros con fecha futura" tone={totForecast >= 0 ? 'good' : 'bad'} />
+    <Shell today={data?.today} companies={data?.companies} selected={selected} onCompanies={changeCompanies}
+      horizon={horizon} onHorizon={setHorizon} loading={loading && !!data} error={error}>
+      {loading && !data ? <div className="empty">Cargando…</div> : calc && (
+        <section className="panel">
+          <div className="grid k2">
+            <div className="card">
+              <h2>Saldo contable frente a último estado de cuenta <small>la diferencia suele ser lo pendiente de conciliar</small></h2>
+              <div className="legend"><span style={{ '--c': C.accent } as CSSProperties}>Saldo contable</span><span style={{ '--c': C.estim } as CSSProperties}>Último estado de cuenta</span></div>
+              <ChartCanvas config={calc.cmp} className="chart tall" />
+            </div>
+            <div className="card">
+              <h2>Pendiente de conciliar <small>artículos por diario</small></h2>
+              {calc.hasConc ? <ChartCanvas config={calc.conc} className="chart tall" /> : <div className="empty">No hay movimientos de extracto pendientes de conciliar.</div>}
+            </div>
           </div>
 
-          <Panel title="Saldo contable frente a último estado de cuenta" subtitle="La diferencia suele ser lo que está pendiente de conciliar">
-            {journals.length === 0 ? <Empty text="No hay diarios de banco o caja." /> : (
-              <div className="overflow-x-auto -mx-5">
-                <table className="w-full text-sm whitespace-nowrap">
-                  <thead>
-                    <tr className="border-y border-gray-100 bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
-                      <th className="px-5 py-2.5 text-left font-medium">Diario</th>
-                      {multiCompany && <th className="px-3 py-2.5 text-left font-medium">Compañía</th>}
-                      <th className="px-3 py-2.5 text-right font-medium">Saldo contable</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Último extracto</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Diferencia</th>
-                      <th className="px-3 py-2.5 text-right font-medium">Pdte. conciliar</th>
-                      <th className="px-5 py-2.5 text-right font-medium">Saldo previsto</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {journals.map((j) => {
-                      const diff = j.statement_balance === null ? null : j.balance - j.statement_balance;
+          <div className="cgroup" style={{ gap: 20 }}>
+            {companies.filter((c) => calc.banks.some((b) => b.company_id === c.id)).map((c) => {
+              const idx = companies.findIndex((x) => x.id === c.id);
+              const col = companyColor(idx);
+              const bs = calc.banks.filter((b) => b.company_id === c.id).sort((a, b) => b.balance - a.balance);
+              return (
+                <div key={c.id} className="cgroup">
+                  <h3>
+                    <span className="ctag" style={{ '--tagbg': rgba(col, 0.13), '--tagc': col } as CSSProperties}>{c.short}</span>{c.name}
+                    <span className="tot">{e0(bs.reduce((s, b) => s + b.balance, 0))}</span>
+                  </h3>
+                  <div className="banks">
+                    {bs.map((b) => {
+                      const T = calc.ser.get(b.id)!;
+                      const bc = entColor(b.entity);
                       return (
-                        <tr key={j.id} onClick={() => setJournalId(j.id)} className={`cursor-pointer hover:bg-brand-50 ${current?.id === j.id ? 'bg-brand-50/60' : ''}`}>
-                          <td className="px-5 py-2.5">
-                            <div className="font-medium text-gray-800">{j.name}</div>
-                            <div className="text-xs text-gray-400">{TYPE_LABEL[j.type] ?? j.type}{j.bank_account ? ` · ${j.bank_account}` : ''}</div>
-                          </td>
-                          {multiCompany && <td className="px-3 py-2.5 text-gray-600">{j.company}</td>}
-                          <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${j.balance < 0 ? 'text-rose-700' : 'text-gray-900'}`}>{eur(j.balance, 2)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums text-gray-700">
-                            {j.statement_balance === null ? '—' : eur(j.statement_balance, 2)}
-                            {j.statement_date && <div className="text-xs text-gray-400">{formatDay(j.statement_date)}</div>}
-                          </td>
-                          <td className={`px-3 py-2.5 text-right tabular-nums ${diff && Math.abs(diff) >= 0.01 ? 'text-amber-600' : 'text-gray-400'}`}>{diff === null ? '—' : eur(diff, 2)}</td>
-                          <td className="px-3 py-2.5 text-right tabular-nums">
-                            {j.pending_count > 0 ? (
-                              <>
-                                <span className="inline-block bg-amber-50 text-amber-700 rounded-full px-2 py-0.5 text-xs font-semibold">{j.pending_count}</span>
-                                <div className="text-xs text-gray-400">{eur(j.pending_amount, 2)}</div>
-                              </>
-                            ) : <span className="text-gray-300">0</span>}
-                          </td>
-                          <td className={`px-5 py-2.5 text-right tabular-nums ${j.forecast_balance < 0 ? 'text-rose-700' : 'text-gray-700'}`}>{eur(j.forecast_balance, 2)}</td>
-                        </tr>
+                        <button key={b.id} type="button" className="bank" style={{ '--bc': bc } as CSSProperties} aria-pressed={current?.id === b.id} onClick={() => setBankId(b.id)}>
+                          <span className="t">
+                            <span className="bi">{KIND_ICON[b.kind] ?? KIND_ICON.banco}</span>
+                            <span><span className="d">{b.name}</span><br /><span className="c">{c.name}</span></span>
+                          </span>
+                          <span className={`s ${b.balance < 0 ? 'neg' : ''}`}>{e2(b.balance)}</span>
+                          {b.has_statement && <span className="m"><span>Último extracto</span><span>{e2(b.statement_balance)}</span></span>}
+                          <Spark vals={T.vals} color={bc} />
+                          <span className="m"><span>Final {compact(T.fin)}</span><span className={T.min < 0 ? 'neg' : ''}>Mín. {compact(T.min)}</span></span>
+                          <span className="badges">
+                            {b.pending_count > 0 && <span className={`bdg ${b.pending_count >= 10 ? 'w' : ''}`}>{b.pending_count} por conciliar</span>}
+                            {b.statement_date && <span className="bdg">Extracto a {fD(b.statement_date)}</span>}
+                            {b.kind === 'cartera' && <span className="bdg">Cartera de inversión</span>}
+                          </span>
+                        </button>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-          {current && (
-            <Panel
-              title={`Previsión del diario · ${current.name}`}
-              subtitle="Pagos y cobros con fecha posterior a hoy (pagarés, confirming, remesas…) y saldo resultante. Haz clic en un diario de la tabla para cambiar."
-              right={<span className="text-xs text-gray-500 whitespace-nowrap">{current.future_moves.length} movimientos</span>}
-            >
-              {current.future_moves.length === 0 ? <Empty text="No hay movimientos previstos en este diario." /> : (
-                <div className="overflow-x-auto -mx-5 max-h-[28rem] overflow-y-auto">
-                  <table className="w-full text-sm whitespace-nowrap">
-                    <thead className="sticky top-0 bg-gray-50">
-                      <tr className="border-y border-gray-100 text-gray-500 text-xs uppercase tracking-wide">
-                        <th className="px-5 py-2.5 text-left font-medium">Fecha</th>
-                        <th className="px-3 py-2.5 text-left font-medium">Contacto</th>
-                        <th className="px-3 py-2.5 text-left font-medium">Referencia</th>
-                        <th className="px-3 py-2.5 text-right font-medium">Importe</th>
-                        <th className="px-5 py-2.5 text-right font-medium">Saldo</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      <tr className="text-xs text-gray-500">
-                        <td className="px-5 py-2" colSpan={4}>Saldo contable actual</td>
-                        <td className="px-5 py-2 text-right tabular-nums font-medium text-gray-700">{eur(current.balance, 2)}</td>
-                      </tr>
-                      {current.future_moves.map((m, i) => (
+          {current && detail && (
+            <>
+              <div className="card">
+                <h2>
+                  <span className="ic" style={{ background: detail.col, color: '#fff' }}>{KIND_ICON[current.kind] ?? KIND_ICON.banco}</span>
+                  Previsión · {current.name} <small>{companies.find((c) => c.id === current.company_id)?.name}</small>
+                </h2>
+                <div className="grid k4">
+                  <div className="kpi"><div className="lbl">Saldo de partida</div><div className="val" style={{ fontSize: 21 }}>{e2(baseBalance(current, calc.tb))}</div><div className="sub">{calc.tb.base === 'statement' && current.has_statement ? 'último estado de cuenta' : 'saldo contable'}</div></div>
+                  <div className="kpi"><div className="lbl">Saldo previsto final</div><div className="val" style={{ fontSize: 21 }}><span className={detail.T.fin < 0 ? 'neg' : ''}>{e0(detail.T.fin)}</span></div><div className="sub">a {fD(calc.end)}</div></div>
+                  <div className="kpi"><div className="lbl">Saldo mínimo</div><div className="val" style={{ fontSize: 21 }}><span className={detail.T.min < 0 ? 'neg' : ''}>{e0(detail.T.min)}</span></div><div className="sub">el {fD(detail.T.minD)}</div></div>
+                  <div className="kpi"><div className="lbl">Primer descubierto</div><div className="val" style={{ fontSize: 21 }}>{detail.T.neg ? <span className="neg">{fD(detail.T.neg)}</span> : <span className="pos">No</span>}</div><div className="sub">{detail.T.neg ? 'conviene traspasar fondos antes' : 'sin descubierto en el horizonte'}</div></div>
+                </div>
+                <ChartCanvas config={detail.line} />
+              </div>
+              <div className="card">
+                <h2>Movimientos previstos <small>{detail.moves.length} movimientos hasta {fD(calc.end)}</small></h2>
+                <div className="tbl scroll">
+                  <table>
+                    <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th className="n">Importe</th><th className="n">Saldo</th></tr></thead>
+                    <tbody>
+                      {detail.moves.length === 0 && <tr><td colSpan={5} className="muted">Sin movimientos previstos para este diario.</td></tr>}
+                      {detail.moves.map((m, i) => (
                         <tr key={i}>
-                          <td className="px-5 py-2 text-gray-600">{formatDay(m.date)}{m.draft && <span className="ml-1.5 text-[10px] uppercase text-gray-400">borrador</span>}</td>
-                          <td className="px-3 py-2 text-gray-800 max-w-64 truncate" title={m.partner}>{m.partner || '—'}</td>
-                          <td className="px-3 py-2 text-gray-500 max-w-56 truncate" title={m.ref}>{m.ref}</td>
-                          <td className={`px-3 py-2 text-right tabular-nums font-medium ${m.amount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>{eur(m.amount, 2)}</td>
-                          <td className={`px-5 py-2 text-right tabular-nums ${m.balance < 0 ? 'text-rose-700' : 'text-gray-700'}`}>{eur(m.balance, 2)}</td>
+                          <td>{fD(m.date)}</td><td><span className={`chip ${m.origin}`}>{ORIGIN_LABEL[m.origin]}</span></td>
+                          <td>{m.concept}</td>
+                          <td className={`n ${m.amount < 0 ? 'neg' : ''}`}>{e2(m.amount)}</td>
+                          <td className={`n ${m.acc < 0 ? 'neg' : ''}`}>{e2(m.acc)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )}
-            </Panel>
+              </div>
+            </>
           )}
-        </div>
-      ) : null}
-    </div>
+        </section>
+      )}
+    </Shell>
   );
 }
