@@ -1212,3 +1212,63 @@ export const apiBudgetEditorMove = (
 
 export const apiBudgetEditorRecalculate = (token: string, budget_id: number): Promise<BudgetEditorResponse> =>
   post('/api/budget-editor/recalculate', { budget_id }, token) as Promise<BudgetEditorResponse>;
+
+// ------------------------------------------------------------------ //
+//  Contabilidad (portal_accounting)                                   //
+// ------------------------------------------------------------------ //
+
+export interface AccountingCompany { id: number; name: string }
+export interface AccountingAmountRow { name: string; amount: number }
+export interface AccountingAging {
+  current: number; d30: number; d60: number; d90: number; d90p: number; overdue: number; total: number;
+}
+
+export interface AccountingOverviewResponse extends ApiResponse {
+  today?: string;
+  companies?: AccountingCompany[];
+  selected_company_ids?: number[];
+  debt?: { customers: AccountingAging; suppliers: AccountingAging };
+  overdue_customers?: AccountingAmountRow[];
+  overdue_suppliers?: AccountingAmountRow[];
+  treasury?: { id: number; name: string; type: string; company: string; balance: number }[];
+  treasury_total?: number;
+  monthly?: { month: string; in: number; out: number; net: number }[];
+  top_customers?: AccountingAmountRow[];
+  top_suppliers?: AccountingAmountRow[];
+  methods_in?: AccountingAmountRow[];
+  methods_out?: AccountingAmountRow[];
+  top_projects?: AccountingAmountRow[];
+}
+
+export interface AccountingFutureMove {
+  date: string; partner: string; ref: string; amount: number; balance: number; draft: boolean;
+}
+
+export interface AccountingBankJournal {
+  id: number;
+  name: string;
+  type: string;
+  company: string;
+  company_id: number;
+  bank_account: string;
+  balance: number;
+  statement_balance: number | null;
+  statement_date: string | null;
+  pending_count: number;
+  pending_amount: number;
+  forecast_balance: number;
+  future_moves: AccountingFutureMove[];
+}
+
+export interface AccountingBanksResponse extends ApiResponse {
+  today?: string;
+  companies?: AccountingCompany[];
+  selected_company_ids?: number[];
+  journals?: AccountingBankJournal[];
+}
+
+export const apiAccountingOverview = (token: string, company_ids: number[] = []): Promise<AccountingOverviewResponse> =>
+  post('/api/accounting/overview', { company_ids }, token) as Promise<AccountingOverviewResponse>;
+
+export const apiAccountingBanks = (token: string, company_ids: number[] = []): Promise<AccountingBanksResponse> =>
+  post('/api/accounting/banks', { company_ids }, token) as Promise<AccountingBanksResponse>;
