@@ -22,6 +22,7 @@ type TabKey = (typeof TABS)[number][0];
 const TAB_KEY = 'portal_af_tab_v1';
 const EMP_KEY = 'portal_af_employees_v1';
 const DRAFT_KEY = 'portal_af_include_draft_v1';
+const END_YEAR_KEY = 'portal_af_end_year_v1';
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -38,7 +39,15 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 export default function AnalisisFinancieroPage() {
   const [selected, setSelected] = useCompanySelection();
-  const [endYear, setEndYear] = useState<number | undefined>(undefined);
+  // Último ejercicio: por defecto el año en curso; el elegido se mantiene durante la sesión
+  // (por ejemplo, al ir al detalle de apuntes y volver)
+  const [endYear, setEndYear] = useState<number>(() => {
+    const current = new Date().getFullYear();
+    try {
+      const v = Number(typeof window !== 'undefined' ? sessionStorage.getItem(END_YEAR_KEY) : NaN);
+      return Number.isInteger(v) && v >= 2000 && v <= current ? v : current;
+    } catch { return current; }
+  });
   const [data, setData] = useState<AccountingAnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,7 +76,10 @@ export default function AnalisisFinancieroPage() {
   }, [selected, endYear, includeDraft]);
 
   const changeCompanies = (ids: number[]) => { setLoading(true); setSelected(ids); };
-  const changeYear = (y: number) => { setLoading(true); setEndYear(y); };
+  const changeYear = (y: number) => {
+    setLoading(true); setEndYear(y);
+    try { sessionStorage.setItem(END_YEAR_KEY, String(y)); } catch { /* sin almacenamiento */ }
+  };
   const toggleDraft = () => { setLoading(true); setIncludeDraft((v) => { writeJson(DRAFT_KEY, !v); return !v; }); };
 
   // Nº de empleados por compañías + año (no está en la contabilidad)
