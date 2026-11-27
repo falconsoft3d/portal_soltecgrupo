@@ -231,3 +231,15 @@
 .cf .empty{padding:24px;text-align:center;color:var(--muted)}
 .cf .tbl.scroll th{top:0}
 .cf td.neg,.cf b.neg,.cf span.neg{color:var(--neg)}
+
+/* Barra de filtros (sustituye a la banda de cabecera del artefacto) */
+.cf .cf-main .in{padding-block:16px 48px}
+.cf .cf-toolbar{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;justify-content:space-between}
+.cf .cf-title h1{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.cf .cf-title p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+.cf .cf-toolbar .cfdd-btn,.cf .cf-select{font:inherit;font-size:12.5px;font-weight:700;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer}
+.cf .cf-toolbar .cfdd-btn:hover,.cf .cf-select:hover{border-color:var(--muted);background:var(--surface)}
+.cf .cfdd-static{color:var(--ink)}
+/* Ocupar todo el ancho disponible (sin el máximo de 1320px del artefacto) */
+.cf .in{max-width:none}
+.cf .gut{padding-left:20px;padding-right:20px}

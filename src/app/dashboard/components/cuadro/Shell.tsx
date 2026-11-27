@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Manrope, IBM_Plex_Mono } from 'next/font/google';
 import { ReactNode, useEffect, useRef, useState } from 'react';
@@ -103,38 +102,26 @@ export default function Shell({
   error?: string;
 }) {
   const pathname = usePathname();
+  const title = TABS.find((t) => t.href === pathname)?.label ?? 'Contabilidad';
   return (
     <div className={`cf ${manrope.variable} ${plex.variable} -mx-1 -mt-2 min-h-[calc(100vh-3.5rem)]`}>
-      <header className="band gut">
-        <div className="in">
-          <div className="hrow">
-            <div className="brand">
-              <div className="logo">{Icon.logo}</div>
-              <div>
-                <h1>Cuadro financiero · Grupo Soltec</h1>
-                <p>Odoo multicompañía · Datos a <b>{fD(today)}</b> · Diarios, pagos y ajustes de periodo reales</p>
-              </div>
+      <div className="gut cf-main">
+        <div className={`in ${loading ? 'cf-loading' : ''}`}>
+          {/* Solo filtros: la navegación entre páginas la hace el menú lateral */}
+          <div className="cf-toolbar">
+            <div className="cf-title">
+              <h1>{title}</h1>
+              {today && <p>Datos a <b>{fD(today)}</b></p>}
             </div>
             <div className="ctrls">
               {companies && <CompanyDropdown companies={companies} selected={selected} onChange={onCompanies} />}
               {horizon !== undefined && onHorizon && (
-                <select value={horizon} onChange={(e) => onHorizon(Number(e.target.value))} aria-label="Horizonte de previsión">
+                <select className="cf-select" value={horizon} onChange={(e) => onHorizon(Number(e.target.value))} aria-label="Horizonte de previsión">
                   {HORIZONS.map((h) => <option key={h} value={h}>Horizonte {h} meses</option>)}
                 </select>
               )}
             </div>
           </div>
-          <nav className="tabs" role="tablist">
-            {TABS.map((t) => (
-              <Link key={t.href} href={t.href} role="tab" aria-selected={pathname === t.href} className="tab">
-                {t.icon}{t.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
-      <div className="gut cf-main">
-        <div className={`in ${loading ? 'cf-loading' : ''}`}>
           {error && <div className="alert bad">{Icon.warn}<span>{error}</span></div>}
           {children}
         </div>
