@@ -10,6 +10,8 @@ export interface PartnerInfo {
   email: string;
   login: string;
   portal_all_projects?: boolean;
+  portal_production?: boolean;
+  portal_accounting?: boolean;
 }
 
 export interface ApiResponse {
