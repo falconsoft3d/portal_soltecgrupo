@@ -6,6 +6,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { AccountingCompany } from '@/lib/api';
 import { companyColor, fD, setChartFonts } from './lib';
 import { Icon } from './icons';
+import { HELP } from './help';
 import './cuadro.css';
 
 const manrope = Manrope({ subsets: ['latin'], variable: '--font-manrope', weight: ['400', '500', '600', '700', '800'] });
@@ -112,6 +113,36 @@ function CompanyDropdown({ companies, selected, onChange }: {
   );
 }
 
+/** Botón «?» con la explicación de cómo se forma la página. */
+function HelpButton({ path }: { path: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+  const help = HELP[path];
+  if (!help) return null;
+  return (
+    <div className="cfhelp" ref={ref}>
+      <button type="button" className="cfhelp-btn" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label="Ayuda: cómo se forma esta página" title="Ayuda">?</button>
+      {open && (
+        <div className="cfhelp-pop" role="dialog" aria-label={help.title}>
+          <div className="cfhelp-head">
+            <b>{help.title}</b>
+            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar">×</button>
+          </div>
+          <div className="cfhelp-body">{help.body}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Shell({
   today, companies, selected, onCompanies, horizon, onHorizon, children, loading = false, error = '', extraControls,
 }: {
@@ -135,7 +166,7 @@ export default function Shell({
           {/* Solo filtros: la navegación entre páginas la hace el menú lateral */}
           <div className="cf-toolbar">
             <div className="cf-title">
-              <h1>{title}</h1>
+              <div className="cf-title-row"><h1>{title}</h1><HelpButton path={pathname} /></div>
               {today && <p>Datos a <b>{fD(today)}</b></p>}
             </div>
             <div className="ctrls">
