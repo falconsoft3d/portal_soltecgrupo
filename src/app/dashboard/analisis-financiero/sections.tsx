@@ -1,11 +1,12 @@
 'use client';
 
-import { CSSProperties, Fragment, ReactNode, useMemo, useState } from 'react';
+import { CSSProperties, Fragment, ReactNode, createContext, useContext, useMemo, useState } from 'react';
 import type { AccountingUnmapped } from '@/lib/api';
 import {
   AF_BAL_ACT, AF_BAL_PAS, AF_BIG, AF_LBL, AF_PYG, AF_TOT, AfResult, RatioRule, Triple, fin, ratioState,
 } from '@/lib/financialAnalysis';
 import ChartCanvas from '../components/cuadro/ChartCanvas';
+import { Drill } from '../components/cuadro/drill';
 import { AnyOpts, C, baseOpts, compact, e0, fonts, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
 
 /* ------------------------------------------------------------------ */
@@ -23,6 +24,16 @@ const Note = ({ children }: { children: ReactNode }) => <div className="note">{c
 const Legend = ({ items }: { items: [string, string, boolean?][] }) => (
   <div className="legend">{items.map(([l, c, ln]) => <span key={l} className={ln ? 'ln' : ''} style={cvar(c)}>{l}</span>)}</div>
 );
+
+/** Compañías y borradores del análisis, para enlazar cada importe con sus apuntes. */
+export const AfDrillCtx = createContext<{ c: number[]; draft: boolean } | null>(null);
+
+/** Importe de una partida que abre los apuntes que la forman. */
+function AfAmount({ k, i, r, label, children }: { k: string; i: number; r: AfResult; label: string; children: ReactNode }) {
+  const ctx = useContext(AfDrillCtx);
+  if (!ctx) return <>{children}</>;
+  return <Drill spec={{ t: 'acct', key: k, year: r.y[i], draft: ctx.draft, c: ctx.c, l: `${label} · ${r.y[i]}` }}>{children}</Drill>;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Tablas                                                              */
@@ -56,7 +67,7 @@ function AfRows({ view, r, base }: { view: string[]; r: AfResult; base: Triple }
             <td className="lbl">{tot ? <b>{lbl}</b> : lbl}</td>
             {[0, 1, 2].map((i) => (
               <Fragment key={i}>
-                <td className={`n ${cls(vals[i])}`}>{afE(vals[i])}</td>
+                <td className={`n ${cls(vals[i])}`}>{tot || !vals[i] ? afE(vals[i]) : <AfAmount k={key} i={i} r={r} label={lbl}>{afE(vals[i])}</AfAmount>}</td>
                 <td className="n pc">{base[i] ? afN2((100 * vals[i]) / base[i]) : ''}</td>
                 {i > 0 && <td className="n ix">{vals[i - 1] ? afN2(vals[i] / vals[i - 1]) : ''}</td>}
               </Fragment>
@@ -169,7 +180,7 @@ function lineCfg(r: AfResult, sets: [string, number[], string][], fmt: (v: numbe
 export function BalanceTab({ r }: { r: AfResult }) {
   return (
     <>
-      <Note>Importes calculados desde la contabilidad (saldos a 31/12, o a hoy si el ejercicio está en curso). Las filas en gris son totales. <b>%</b> = peso sobre el total del activo o del pasivo · <b>Ind.</b> = año / año anterior.</Note>
+      <Note>Importes calculados desde la contabilidad (saldos a 31/12, o a hoy si el ejercicio está en curso). Pulsa un importe para ver los apuntes que lo forman. Las filas en gris son totales. <b>%</b> = peso sobre el total del activo o del pasivo · <b>Ind.</b> = año / año anterior.</Note>
       <div className="grid k2" style={{ alignItems: 'start' }}>
         <div className="card"><h2>Activo</h2><div className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_ACT} r={r} base={r.D} /></tbody></table></div></div>
         <div className="card"><h2>Pasivo y patrimonio neto</h2><div className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_PAS} r={r} base={r.H} /></tbody></table></div></div>
@@ -185,7 +196,7 @@ export function ExplotacionTab({ r, employees, onEmployees }: { r: AfResult; emp
   ];
   return (
     <>
-      <Note>Importes sin signo, como en la plantilla: la variación de existencias va en negativo si disminuyen, y los excesos de provisiones con signo menos. <b>%</b> = peso sobre la producción.</Note>
+      <Note>Importes sin signo, como en la plantilla: la variación de existencias va en negativo si disminuyen, y los excesos de provisiones con signo menos. <b>%</b> = peso sobre la producción. Pulsa un importe para ver sus apuntes.</Note>
       <div className="card"><h2>Cuenta de explotación · rentabilidad</h2><div className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_PYG} r={r} base={r.prod} /></tbody></table></div></div>
       <div className="card">
         <h2>Plantilla y productividad <small>el nº de empleados no está en la contabilidad: escríbelo aquí</small></h2>
@@ -204,7 +215,7 @@ export function ExplotacionTab({ r, employees, onEmployees }: { r: AfResult; emp
               </tr>
               <tr>
                 <td className="code">{AF_LBL.ss[1]}</td><td className="lbl">{AF_LBL.ss[0]}</td>
-                {[0, 1, 2].map((i) => <Fragment key={i}><td className="n">{afE(r.g('ss')[i])}</td>{i > 0 && <td className="n ix">{r.g('ss')[i - 1] ? afN2(r.g('ss')[i] / r.g('ss')[i - 1]) : ''}</td>}</Fragment>)}
+                {[0, 1, 2].map((i) => <Fragment key={i}><td className="n">{r.g('ss')[i] ? <AfAmount k="ss" i={i} r={r} label="Seguridad Social">{afE(r.g('ss')[i])}</AfAmount> : afE(r.g('ss')[i])}</td>{i > 0 && <td className="n ix">{r.g('ss')[i - 1] ? afN2(r.g('ss')[i] / r.g('ss')[i - 1]) : ''}</td>}</Fragment>)}
               </tr>
               {prodRows.map(([l, a, f]) => (
                 <tr key={l} className="tot">

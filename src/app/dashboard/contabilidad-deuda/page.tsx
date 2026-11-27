@@ -1,12 +1,14 @@
 'use client';
 
 import { CSSProperties, useEffect, useMemo, useState } from 'react';
-import { apiAccountingOverview, AccountingOverviewResponse } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { apiAccountingOverview, AccountingDrillSpec, AccountingOverviewResponse } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 import { useCompanySelection } from '../components/AccountingUi';
 import Shell from '../components/cuadro/Shell';
 import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Icon } from '../components/cuadro/icons';
+import { Drill, chartDrill } from '../components/cuadro/drill';
 import {
   C, baseOpts, compact, companyColor, donutConfig, e0, entColor, fM, fonts, hbarOpts, pct, rgba, zeroLine,
 } from '../components/cuadro/lib';
@@ -67,6 +69,7 @@ function Legend({ items }: { items: { label: string; color: string; line?: boole
 }
 
 export default function ContabilidadDeudaPage() {
+  const router = useRouter();
   const [selected, setSelected] = useCompanySelection();
   const [data, setData] = useState<AccountingOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +100,8 @@ export default function ContabilidadDeudaPage() {
     if (!data?.success || !data.debt) return null;
     const dc = data.debt_companies ?? [];
     const { ui } = fonts();
+    const sel = data.selected_company_ids ?? [];
+    const go = (href: string) => router.push(href);
 
     // Deuda por compañía (barras horizontales apiladas)
     const lbl: string[] = [], d1: number[] = [], d2: number[] = [], d3: number[] = [], d4: number[] = [];
@@ -108,6 +113,15 @@ export default function ContabilidadDeudaPage() {
     o.scales.y.ticks.callback = function (this: { getLabelForValue: (v: number) => string }, v: number | string) { return this.getLabelForValue(Number(v)); };
     o.scales.y.grid = { display: false }; o.scales.y.ticks.font = { family: ui, size: 11.5, weight: 700 };
     o.plugins.tooltip.callbacks.label = (c: { parsed: { x: number }; dataset: { label: string } }) => (c.parsed.x ? ` ${c.dataset.label}: ${e0(c.parsed.x)}` : null);
+    o.interaction = { mode: 'nearest', intersect: true, axis: 'y' };
+    Object.assign(o, chartDrill(go, (ds, i): AccountingDrillSpec | null => {
+      const n = dc.length;
+      const customers = i < n;
+      const comp = dc[customers ? i : i - n];
+      if (!comp || (customers ? ds > 1 : ds < 2)) return null;
+      const overdue = ds === 1 || ds === 3;
+      return { t: 'debt', side: customers ? 'customers' : 'suppliers', overdue, c: [comp.id], l: `${customers ? 'Clientes' : 'Proveedores'} ${overdue ? 'atrasado' : 'al día'} · ${comp.short}` };
+    }));
     const deuda = { type: 'bar', data: { labels: lbl, datasets: [
       { label: 'Clientes al día', data: d1, backgroundColor: C.cobro, borderRadius: 4, barThickness: 26 },
       { label: 'Clientes atrasado', data: d2, backgroundColor: C.neg, borderRadius: 4, barThickness: 26 },
@@ -122,10 +136,19 @@ export default function ContabilidadDeudaPage() {
     const tColors = top.map((b) => entColor(b.entity)).map((c, i, a) => (a.indexOf(c) < i ? rgba(c, 0.6) : c)).concat(rest ? [C.estim] : []);
     const tData = top.map((b) => b.balance).concat(rest ? [rest] : []);
     const teso = donutConfig(tLabels, tData, tColors);
+    Object.assign(teso.options, chartDrill(go, (_ds, i): AccountingDrillSpec => (
+      top[i] ? { t: 'treasury', j: [top[i].id], c: sel, l: `Saldo contable · ${top[i].name}` }
+        : { t: 'treasury', j: bpos.slice(7).map((b) => b.id), c: sel, l: 'Saldo contable · otros diarios' }
+    )));
 
     // Cobros y pagos por mes (barras + neto)
     const m = data.monthly ?? [];
     const oh = baseOpts(); oh.scales.x.stacked = true; oh.scales.y.stacked = false;
+    oh.interaction = { mode: 'nearest', intersect: true };
+    Object.assign(oh, chartDrill(go, (ds, i): AccountingDrillSpec | null => (
+      ds === 1 ? { t: 'pay', dir: 'in', month: m[i].month, c: sel, l: `Cobros de clientes · ${fM(m[i].month)}` }
+        : ds === 2 ? { t: 'pay', dir: 'out', month: m[i].month, c: sel, l: `Pagos a proveedores · ${fM(m[i].month)}` } : null
+    )));
     const hist = { data: { labels: m.map((x) => fM(x.month)), datasets: [
       { type: 'line', label: 'Neto', data: m.map((x) => x.net), borderColor: C.ink, backgroundColor: C.ink, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2, tension: 0.3, order: 0 },
       { type: 'bar', label: 'Cobros', data: m.map((x) => x.in), backgroundColor: C.cobro, borderRadius: 4, maxBarThickness: 26, order: 1 },
@@ -133,8 +156,11 @@ export default function ContabilidadDeudaPage() {
     ] }, options: oh, plugins: [zeroLine] };
 
     // Top 10 (barras horizontales con degradado)
-    const hbar = (rows: { name: string; amount: number }[], col: string) => {
+    const hbar = (rows: { id?: number; name: string; amount: number }[], col: string, dir: 'in' | 'out') => {
       const ob = hbarOpts(26);
+      Object.assign(ob, chartDrill(go, (_ds, i): AccountingDrillSpec | null => (
+        rows[i] ? { t: 'pay', dir, partner: rows[i].id ?? 0, c: sel, l: `${dir === 'in' ? 'Cobros de' : 'Pagos a'} ${rows[i].name} · 12 meses` } : null
+      )));
       ob.scales.x.ticks.callback = (v: number | string) => compact(Number(v));
       ob.plugins.tooltip.callbacks.label = (c: { parsed: { x: number } }) => ` ${e0(c.parsed.x)}`;
       return { type: 'bar', data: { labels: rows.map((r) => r.name), datasets: [{ data: rows.map((r) => r.amount), backgroundColor: rows.map((_, i) => rgba(col, 1 - i * 0.065)), borderRadius: 5, barThickness: 18 }] }, options: ob };
@@ -144,13 +170,13 @@ export default function ContabilidadDeudaPage() {
     return {
       deuda, teso, tLegend: tLabels.map((l, i) => ({ label: `${l} · ${compact(tData[i])}`, color: tColors[i] })),
       hist,
-      topC: hbar(data.top_customers ?? [], C.cobro), topP: hbar(data.top_suppliers ?? [], C.pago),
+      topC: hbar(data.top_customers ?? [], C.cobro, 'in'), topP: hbar(data.top_suppliers ?? [], C.pago, 'out'),
       metC: donutConfig(mi.map((r) => r.name), mi.map((r) => r.amount), mi.map((r, i) => methodColor(r.name, i))),
       metP: donutConfig(mo.map((r) => r.name), mo.map((r) => r.amount), mo.map((r, i) => methodColor(r.name, i))),
       legC: mi.map((r, i) => ({ label: `${r.name} · ${compact(r.amount)}`, color: methodColor(r.name, i) })),
       legP: mo.map((r, i) => ({ label: `${r.name} · ${compact(r.amount)}`, color: methodColor(r.name, i) })),
     };
-  }, [data]);
+  }, [data, router]);
 
   /* ---------------- KPIs e indicadores ---------------- */
   let body = null;
@@ -160,6 +186,7 @@ export default function ContabilidadDeudaPage() {
     const cli = debt.customers.total, cliA = debt.customers.overdue, pro = debt.suppliers.total, proA = debt.suppliers.overdue;
     const cob12 = data.payments_in_12m ?? 0, pag12 = data.payments_out_12m ?? 0, ajMes = data.adjustments_monthly_out ?? 0;
     const pos = teso + cli - pro;
+    const sel = data.selected_company_ids ?? [];
     const pmc = (cli / cob12) * 365, pmp = (pro / pag12) * 365, cob = (teso + cli) / pro, disp = liq / pro, mor = (cliA / cli) * 100, meses = liq / (pag12 / 12 + ajMes);
     const w = (a: number, b: number) => `${b ? Math.max(0, (a / b) * 100) : 0}%`;
     const projects = data.top_projects ?? [];
@@ -170,21 +197,21 @@ export default function ContabilidadDeudaPage() {
         <div className="grid k4">
           <div className="card kpi">
             <div className="head"><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>{Icon.bank}</span><span className="lbl">Tesorería total</span></div>
-            <div className="val">{e0(teso)}</div>
+            <div className="val"><Drill spec={{ t: 'treasury', c: sel, l: 'Tesorería total (bancos y caja)' }}>{e0(teso)}</Drill></div>
             <div className="bar"><i style={{ width: w(liq, teso), background: C.accent }} /><i style={{ width: w(teso - liq, teso), background: C.cG }} /></div>
             <div className="sub">{e0(liq)} líquido · {e0(teso - liq)} en cartera</div>
           </div>
           <div className="card kpi">
             <div className="head"><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>{Icon.in}</span><span className="lbl">Pendiente de cobro</span></div>
-            <div className="val">{e0(cli)}</div>
+            <div className="val"><Drill spec={{ t: 'debt', side: 'customers', c: sel, l: 'Pendiente de cobro (clientes)' }}>{e0(cli)}</Drill></div>
             <div className="bar"><i style={{ width: w(cli - cliA, cli), background: C.cobro }} /><i style={{ width: w(cliA, cli), background: C.neg }} /></div>
-            <div className="sub"><b className="neg">{e0(cliA)}</b> atrasado ({pct((cliA / cli) * 100)}) · {debt.customers.count} facturas</div>
+            <div className="sub"><Drill spec={{ t: 'debt', side: 'customers', overdue: true, c: sel, l: 'Pendiente de cobro atrasado' }}><b className="neg">{e0(cliA)}</b></Drill> atrasado ({pct((cliA / cli) * 100)}) · {debt.customers.count} facturas</div>
           </div>
           <div className="card kpi">
             <div className="head"><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>{Icon.out}</span><span className="lbl">Pendiente de pago</span></div>
-            <div className="val">{e0(pro)}</div>
+            <div className="val"><Drill spec={{ t: 'debt', side: 'suppliers', c: sel, l: 'Pendiente de pago (proveedores)' }}>{e0(pro)}</Drill></div>
             <div className="bar"><i style={{ width: w(pro - proA, pro), background: C.pago }} /><i style={{ width: w(proA, pro), background: C.warn }} /></div>
-            <div className="sub"><b className="neg">{e0(proA)}</b> atrasado ({pct((proA / pro) * 100)}) · {debt.suppliers.count} facturas</div>
+            <div className="sub"><Drill spec={{ t: 'debt', side: 'suppliers', overdue: true, c: sel, l: 'Pendiente de pago atrasado' }}><b className="neg">{e0(proA)}</b></Drill> atrasado ({pct((proA / pro) * 100)}) · {debt.suppliers.count} facturas</div>
           </div>
           <div className="card kpi">
             <div className="head"><span className="ic" style={{ background: 'var(--cG-soft)', color: C.cG }}>{Icon.scale}</span><span className="lbl">Posición neta</span></div>

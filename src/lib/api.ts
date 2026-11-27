@@ -1218,7 +1218,7 @@ export const apiBudgetEditorRecalculate = (token: string, budget_id: number): Pr
 // ------------------------------------------------------------------ //
 
 export interface AccountingCompany { id: number; name: string; short?: string }
-export interface AccountingAmountRow { name: string; amount: number }
+export interface AccountingAmountRow { id?: number; name: string; amount: number }
 export interface AccountingAging {
   current: number; d30: number; d60: number; d90: number; d90p: number; overdue: number; total: number;
 }
@@ -1357,3 +1357,33 @@ export interface AccountingAnalysisResponse extends ApiResponse {
 
 export const apiAccountingAnalysis = (token: string, company_ids: number[] = [], end_year?: number, include_draft = true): Promise<AccountingAnalysisResponse> =>
   post('/api/accounting/analysis', { company_ids, end_year, include_draft }, token) as Promise<AccountingAnalysisResponse>;
+
+/** Descripción de un importe a desglosar en apuntes (la interpreta Odoo). */
+export type AccountingDrillSpec =
+  | { t: 'debt'; side: 'customers' | 'suppliers'; overdue?: boolean; partner?: number; c?: number[]; l?: string }
+  | { t: 'treasury'; j?: number[]; c?: number[]; l?: string }
+  | { t: 'pay'; dir: 'in' | 'out'; month?: string; partner?: number; c?: number[]; l?: string }
+  | { t: 'acct'; key: string; year: number; draft?: boolean; c?: number[]; l?: string }
+  | { t: 'free'; from?: string; to?: string; account?: string; journal?: number; partner?: string; text?: string; draft?: boolean; c?: number[]; l?: string };
+
+export interface AccountingMoveLine {
+  id: number; date: string | null; move_id: number | false; move: string; journal: string; account: string; partner: string;
+  label: string; ref: string; debit: number; credit: number; balance: number; residual: number; date_maturity: string | null;
+  state: string; company_id: number | false;
+}
+
+export interface AccountingMoveLinesResponse extends ApiResponse {
+  today?: string;
+  companies?: AccountingCompany[];
+  selected_company_ids?: number[];
+  count?: number;
+  offset?: number;
+  limit?: number;
+  totals?: { debit: number; credit: number; balance: number; residual: number };
+  lines?: AccountingMoveLine[];
+  journals?: { id: number; name: string; company_id: number }[];
+  odoo_url?: string;
+}
+
+export const apiAccountingMoveLines = (token: string, spec: AccountingDrillSpec, company_ids: number[] = [], offset = 0, limit = 100): Promise<AccountingMoveLinesResponse> =>
+  post('/api/accounting/move-lines', { spec: spec as unknown as Record<string, unknown>, company_ids, offset, limit }, token) as Promise<AccountingMoveLinesResponse>;

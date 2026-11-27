@@ -7,6 +7,8 @@ import { useCompanySelection } from '../components/AccountingUi';
 import Shell, { useHorizon } from '../components/cuadro/Shell';
 import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { KIND_ICON } from '../components/cuadro/icons';
+import { Drill, chartDrill } from '../components/cuadro/drill';
+import { useRouter } from 'next/navigation';
 import { ORIGIN_LABEL, Serie, baseBalance, horizonEnd, movimientos, serie, useToggles } from '../components/cuadro/forecast';
 import { C, baseOpts, companyColor, compact, e0, e2, entColor, fD, fonts, gradientFill, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
 
@@ -37,6 +39,7 @@ export default function BancosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [bankId, setBankId] = useState<number | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const token = getToken();
@@ -69,6 +72,10 @@ export default function BancosPage() {
     const oc = baseOpts();
     oc.scales.x.ticks.maxTicksLimit = 30; oc.scales.x.ticks.autoSkip = false; oc.scales.x.ticks.maxRotation = 60;
     oc.scales.x.ticks.font = { family: ui, size: 10, weight: 700 };
+    oc.interaction = { mode: 'nearest', intersect: true };
+    Object.assign(oc, chartDrill((href) => router.push(href), (ds, i) => (
+      ds === 0 && cb[i] ? { t: 'treasury', j: [cb[i].id], c: [cb[i].company_id], l: `Saldo contable · ${cb[i].name}` } : null
+    )));
     const cmp = { type: 'bar', data: { labels: cb.map((b) => shortName(b.name)), datasets: [
       { label: 'Saldo contable', data: cb.map((b) => b.balance), backgroundColor: cb.map((b) => entColor(b.entity)), borderRadius: 4, maxBarThickness: 22 },
       { label: 'Último estado de cuenta', data: cb.map((b) => b.statement_balance), backgroundColor: cb.map((b) => rgba(entColor(b.entity), 0.35)), borderRadius: 4, maxBarThickness: 22 },
@@ -82,7 +89,7 @@ export default function BancosPage() {
     const conc = { type: 'bar', data: { labels: cc.map((b) => b.name), datasets: [{ data: cc.map((b) => b.pending_count), backgroundColor: cc.map((b) => (b.pending_count >= 10 ? C.neg : b.pending_count >= 5 ? C.warn : C.pos)), borderRadius: 5, barThickness: 16 }] }, options: oq };
 
     return { today, end, tb, movs, banks, ser, cmp, conc, hasConc: cc.length > 0 };
-  }, [data, horizon, t]);
+  }, [data, horizon, t, router]);
 
   const companies = data?.companies ?? [];
   const current: AccountingForecastJournal | undefined = calc ? (calc.banks.find((b) => b.id === bankId) ?? calc.banks[0]) : undefined;
@@ -130,12 +137,15 @@ export default function BancosPage() {
                       const T = calc.ser.get(b.id)!;
                       const bc = entColor(b.entity);
                       return (
-                        <button key={b.id} type="button" className="bank" style={{ '--bc': bc } as CSSProperties} aria-pressed={current?.id === b.id} onClick={() => setBankId(b.id)}>
+                        <div key={b.id} role="button" tabIndex={0} className="bank" style={{ '--bc': bc } as CSSProperties} aria-pressed={current?.id === b.id}
+                          onClick={() => setBankId(b.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setBankId(b.id); } }}>
                           <span className="t">
                             <span className="bi">{KIND_ICON[b.kind] ?? KIND_ICON.banco}</span>
                             <span><span className="d">{b.name}</span><br /><span className="c">{c.name}</span></span>
                           </span>
-                          <span className={`s ${b.balance < 0 ? 'neg' : ''}`}>{e2(b.balance)}</span>
+                          <span className={`s ${b.balance < 0 ? 'neg' : ''}`} onClick={(e) => e.stopPropagation()}>
+                            <Drill spec={{ t: 'treasury', j: [b.id], c: [b.company_id], l: `Saldo contable · ${b.name}` }}>{e2(b.balance)}</Drill>
+                          </span>
                           {b.has_statement && <span className="m"><span>Último extracto</span><span>{e2(b.statement_balance)}</span></span>}
                           <Spark vals={T.vals} color={bc} />
                           <span className="m"><span>Final {compact(T.fin)}</span><span className={T.min < 0 ? 'neg' : ''}>Mín. {compact(T.min)}</span></span>
@@ -144,7 +154,7 @@ export default function BancosPage() {
                             {b.statement_date && <span className="bdg">Extracto a {fD(b.statement_date)}</span>}
                             {b.kind === 'cartera' && <span className="bdg">Cartera de inversión</span>}
                           </span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -161,7 +171,9 @@ export default function BancosPage() {
                   Previsión · {current.name} <small>{companies.find((c) => c.id === current.company_id)?.name}</small>
                 </h2>
                 <div className="grid k4">
-                  <div className="kpi"><div className="lbl">Saldo de partida</div><div className="val" style={{ fontSize: 21 }}>{e2(baseBalance(current, calc.tb))}</div><div className="sub">{calc.tb.base === 'statement' && current.has_statement ? 'último estado de cuenta' : 'saldo contable'}</div></div>
+                  <div className="kpi"><div className="lbl">Saldo de partida</div><div className="val" style={{ fontSize: 21 }}>{calc.tb.base === 'statement' && current.has_statement
+                    ? e2(baseBalance(current, calc.tb))
+                    : <Drill spec={{ t: 'treasury', j: [current.id], c: [current.company_id], l: `Saldo contable · ${current.name}` }}>{e2(baseBalance(current, calc.tb))}</Drill>}</div><div className="sub">{calc.tb.base === 'statement' && current.has_statement ? 'último estado de cuenta' : 'saldo contable'}</div></div>
                   <div className="kpi"><div className="lbl">Saldo previsto final</div><div className="val" style={{ fontSize: 21 }}><span className={detail.T.fin < 0 ? 'neg' : ''}>{e0(detail.T.fin)}</span></div><div className="sub">a {fD(calc.end)}</div></div>
                   <div className="kpi"><div className="lbl">Saldo mínimo</div><div className="val" style={{ fontSize: 21 }}><span className={detail.T.min < 0 ? 'neg' : ''}>{e0(detail.T.min)}</span></div><div className="sub">el {fD(detail.T.minD)}</div></div>
                   <div className="kpi"><div className="lbl">Primer descubierto</div><div className="val" style={{ fontSize: 21 }}>{detail.T.neg ? <span className="neg">{fD(detail.T.neg)}</span> : <span className="pos">No</span>}</div><div className="sub">{detail.T.neg ? 'conviene traspasar fondos antes' : 'sin descubierto en el horizonte'}</div></div>

@@ -8,7 +8,7 @@ import { useCompanySelection } from '../components/AccountingUi';
 import Shell from '../components/cuadro/Shell';
 import { e0 } from '../components/cuadro/lib';
 import {
-  BalanceTab, CuentasTab, ExplotacionTab, GraficosTab, MasasTab, OriAplTab, Ratios1Tab, Ratios2Tab, ResumenTab,
+  AfDrillCtx, BalanceTab, CuentasTab, ExplotacionTab, GraficosTab, MasasTab, OriAplTab, Ratios1Tab, Ratios2Tab, ResumenTab,
   UmbralTab, ValorAnadidoTab,
 } from './sections';
 
@@ -150,6 +150,7 @@ export default function AnalisisFinancieroPage() {
             <div className="afbanner"><span className="sp"><b>Vista de grupo.</b> Suma simple de las compañías seleccionadas, sin eliminar operaciones entre ellas.</span></div>
           )}
 
+          <AfDrillCtx.Provider value={{ c: sel, draft: data.include_draft !== false }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {vacio.every(Boolean) ? (
               <div className="card afempty">No hay apuntes contables en estos ejercicios para las compañías seleccionadas.</div>
@@ -169,6 +170,7 @@ export default function AnalisisFinancieroPage() {
               </>
             )}
           </div>
+          </AfDrillCtx.Provider>
         </section>
       )}
     </Shell>

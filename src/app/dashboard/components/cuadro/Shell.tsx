@@ -18,6 +18,7 @@ const TABS = [
   { href: '/dashboard/prevision-tesoreria', label: 'Previsión de tesorería', icon: Icon.teso },
   { href: '/dashboard/bancos', label: 'Bancos', icon: Icon.bancos },
   { href: '/dashboard/analisis-financiero', label: 'Análisis económico-financiero', icon: Icon.afin },
+  { href: '/dashboard/apuntes', label: 'Apuntes contables', icon: Icon.conta },
 ];
 
 export const HORIZONS = [3, 6, 12, 24];

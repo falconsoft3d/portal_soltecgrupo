@@ -172,6 +172,15 @@ const ACCOUNTING_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: '/dashboard/apuntes',
+    label: 'Apuntes',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h10M4 18h7M17 15l2 2 3-4" />
+      </svg>
+    ),
+  },
 ];
 
 const PRODUCTION_ICON = (

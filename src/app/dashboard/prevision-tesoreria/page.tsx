@@ -7,6 +7,7 @@ import { useCompanySelection } from '../components/AccountingUi';
 import Shell, { MultiSelect, useHorizon } from '../components/cuadro/Shell';
 import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Icon } from '../components/cuadro/icons';
+import { Drill } from '../components/cuadro/drill';
 import { ORIGIN_LABEL, horizonEnd, movimientos, selectedJournals, serie, useJournalSelection, useToggles } from '../components/cuadro/forecast';
 import {
   C, DAY, MES, baseOpts, compact, companyColor, e0, e2, entColor, fD, fM, fonts, gradientFill, rgba, toIso, toTime, zeroLine,
@@ -195,7 +196,9 @@ export default function PrevisionTesoreriaPage() {
           )}
 
           <div className="grid k4">
-            <div className="card kpi" style={{ borderTop: `4px solid ${C.accent}` }}><div className="lbl">Saldo de partida</div><div className="val">{e0(calc.T.ini)}</div><div className="sub">{calc.journals.length} diarios · {t.base === 'statement' ? 'último estado de cuenta' : 'saldo contable'}</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${C.accent}` }}><div className="lbl">Saldo de partida</div><div className="val">{t.base === 'book'
+              ? <Drill spec={{ t: 'treasury', j: calc.journals.map((j) => j.id), c: data?.selected_company_ids ?? [], l: `Saldo contable de partida · ${calc.journals.length} diarios` }}>{e0(calc.T.ini)}</Drill>
+              : e0(calc.T.ini)}</div><div className="sub">{calc.journals.length} diarios · {t.base === 'statement' ? 'último estado de cuenta' : 'saldo contable'}</div></div>
             <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.fin < 0 ? C.neg : C.pos}` }}><div className="lbl">Saldo previsto al final</div><div className="val"><span className={calc.T.fin < 0 ? 'neg' : ''}>{e0(calc.T.fin)}</span></div><div className="sub">a {fD(calc.end)}</div></div>
             <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.min < 0 ? C.neg : C.warn}` }}><div className="lbl">Saldo mínimo</div><div className="val"><span className={calc.T.min < 0 ? 'neg' : ''}>{e0(calc.T.min)}</span></div><div className="sub">el {fD(calc.T.minD)}</div></div>
             <div className="card kpi" style={{ borderTop: `4px solid ${C.cG}` }}><div className="lbl">Flujo neto del periodo</div><div className="val"><span className={calc.T.fin - calc.T.ini < 0 ? 'neg' : ''}>{e0(calc.T.fin - calc.T.ini)}</span></div><div className="sub">{calc.movs.length} movimientos previstos</div></div>
