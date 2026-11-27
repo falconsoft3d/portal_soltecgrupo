@@ -1309,3 +1309,21 @@ export interface AccountingForecastResponse extends ApiResponse {
 
 export const apiAccountingForecast = (token: string, company_ids: number[] = []): Promise<AccountingForecastResponse> =>
   post('/api/accounting/forecast', { company_ids }, token) as Promise<AccountingForecastResponse>;
+
+export interface AccountingUnmapped { year: number; code: string; name: string; amount: number; to: string }
+
+export interface AccountingAnalysisResponse extends ApiResponse {
+  today?: string;
+  companies?: AccountingCompany[];
+  selected_company_ids?: number[];
+  years?: number[];
+  days?: number[];
+  partial_last_year?: boolean;
+  values?: Record<string, [number, number, number]>;
+  unmapped?: AccountingUnmapped[];
+  employees_now?: number;
+  available_years?: number[];
+}
+
+export const apiAccountingAnalysis = (token: string, company_ids: number[] = [], end_year?: number): Promise<AccountingAnalysisResponse> =>
+  post('/api/accounting/analysis', { company_ids, end_year }, token) as Promise<AccountingAnalysisResponse>;

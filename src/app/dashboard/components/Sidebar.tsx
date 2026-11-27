@@ -162,6 +162,16 @@ const ACCOUNTING_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: '/dashboard/analisis-financiero',
+    label: 'Análisis económico-financiero',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v9l6.4 6.4" />
+      </svg>
+    ),
+  },
 ];
 
 const PRODUCTION_ICON = (

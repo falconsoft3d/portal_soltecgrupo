@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { AccountingAmountRow, AccountingCompany } from '@/lib/api';
 
 /* ------------------------------------------------------------------ */
@@ -59,34 +59,69 @@ export function CompanyFilter({ companies, selected, onChange }: {
   selected: number[];
   onChange: (ids: number[]) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', esc); };
+  }, [open]);
+
   if (companies.length <= 1) {
     return companies[0] ? <span className="text-sm text-gray-500">{companies[0].name}</span> : null;
   }
   const valid = selected.filter((id) => companies.some((c) => c.id === id));
   const all = valid.length === 0;
-  const chip = (active: boolean) =>
-    `text-xs px-3 py-1.5 rounded-full border transition-colors ${active
-      ? 'bg-brand-600 border-brand-600 text-white'
-      : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`;
+  const label = all
+    ? 'Todas las compañías'
+    : valid.length === 1
+      ? companies.find((c) => c.id === valid[0])?.name ?? '1 compañía'
+      : `${valid.length} compañías`;
+
+  const toggle = (id: number) => {
+    const current = all ? companies.map((c) => c.id) : valid;
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    // Ninguna o todas marcadas = todas
+    onChange(next.length === 0 || next.length === companies.length ? [] : next);
+  };
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <button type="button" className={chip(all)} onClick={() => onChange([])}>Todas</button>
-      {companies.map((c) => {
-        const active = valid.includes(c.id);
-        return (
-          <button
-            key={c.id}
-            type="button"
-            className={chip(active)}
-            onClick={() => {
-              const next = active ? valid.filter((id) => id !== c.id) : [...valid, c.id];
-              onChange(next.length === companies.length ? [] : next);
-            }}
-          >
-            {c.name}
-          </button>
-        );
-      })}
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 min-w-56 max-w-80 border border-gray-200 bg-white rounded-xl px-3 py-2 text-sm text-gray-700 hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+        </svg>
+        <span className="flex-1 text-left truncate">{label}</span>
+        <svg className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-30 mt-1 w-80 max-w-[calc(100vw-2rem)] bg-white border border-gray-200 rounded-xl shadow-lg py-1" role="listbox" aria-multiselectable="true">
+          <label className="flex items-center gap-2.5 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50 cursor-pointer border-b border-gray-100">
+            <input type="checkbox" checked={all} onChange={() => onChange([])} className="accent-brand-600" />
+            Todas las compañías
+          </label>
+          <div className="max-h-72 overflow-y-auto">
+            {companies.map((c) => (
+              <label key={c.id} className="flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 cursor-pointer">
+                <input type="checkbox" checked={all || valid.includes(c.id)} onChange={() => toggle(c.id)} className="accent-brand-600" />
+                <span className="truncate" title={c.name}>{c.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

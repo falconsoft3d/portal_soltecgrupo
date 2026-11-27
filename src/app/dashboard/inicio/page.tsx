@@ -5,8 +5,10 @@ import { getPartnerInfo } from '@/lib/auth';
 
 export default function InicioPage() {
   const router = useRouter();
-  const partner = getPartnerInfo() as { name?: string } | null;
+  const partner = getPartnerInfo() as { name?: string; portal_production?: boolean } | null;
   const name = partner?.name ?? 'Usuario';
+  // El panel de control (Dashboard) es de Producción: solo lo ven los contactos con ese check
+  const hasProduction = !!partner?.portal_production;
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center">
@@ -24,7 +26,9 @@ export default function InicioPage() {
           ¡Bienvenido, {name}!
         </h1>
         <p className="text-gray-500 text-sm mb-8">
-          Has iniciado sesión en el Portal Soltec. Accede al panel de control para consultar el estado de tus obras, albaranes y resultados.
+          {hasProduction
+            ? 'Has iniciado sesión en el Portal Soltec. Accede al panel de control para consultar el estado de tus obras, albaranes y resultados.'
+            : 'Has iniciado sesión en el Portal Soltec. Usa el menú de la izquierda para acceder a tus opciones.'}
         </p>
 
         {/* Logo Soltec */}
@@ -32,7 +36,8 @@ export default function InicioPage() {
           Portal Soltec
         </div>
 
-        {/* Botón ir al Dashboard */}
+        {/* Botón ir al Dashboard (solo con Producción) */}
+        {hasProduction && (
         <button
           onClick={() => router.push('/dashboard')}
           className="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-semibold px-8 py-3 rounded-xl shadow transition-colors text-sm"
@@ -43,6 +48,7 @@ export default function InicioPage() {
           </svg>
           Ir al Dashboard
         </button>
+        )}
       </div>
     </div>
   );
