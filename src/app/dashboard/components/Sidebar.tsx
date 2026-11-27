@@ -188,7 +188,7 @@ const ACCOUNTING_ICON = (
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
-function NavGroup({ label, icon, items, pathname }: { label: string; icon: React.ReactNode; items: NavItem[]; pathname: string }) {
+function NavGroup({ label, icon, items, pathname, children }: { label: string; icon: React.ReactNode; items: NavItem[]; pathname: string; children?: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   const groupActive = items.some((i) => isActive(pathname, i.href));
   return (
@@ -210,6 +210,7 @@ function NavGroup({ label, icon, items, pathname }: { label: string; icon: React
           {items.map(({ href, label: l, icon: ic }) => (
             <NavLink key={href} href={href} label={l} icon={ic} active={isActive(pathname, href)} nested />
           ))}
+          {children}
         </div>
       )}
     </>
@@ -282,32 +283,34 @@ export default function Sidebar({ open = true, showProduction = false, showAccou
         ))}
 
         {/* Grupos desplegables según los checks del contacto */}
-        {showProduction && <NavGroup label="Producción" icon={PRODUCTION_ICON} items={PRODUCTION_ITEMS} pathname={pathname} />}
+        {showProduction && (
+          <NavGroup label="Producción" icon={PRODUCTION_ICON} items={PRODUCTION_ITEMS} pathname={pathname}>
+            {/* Planner — redirige a app externa via SSO JWT */}
+            <button
+              onClick={() => handleSsoClick('/api/planner/sso', 'Planner', setPlannerLoading, true)}
+              disabled={plannerLoading}
+              className="flex items-center gap-3 pl-6 pr-3 py-2 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
+            >
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+              </svg>
+              {plannerLoading ? 'Abriendo...' : 'Planner'}
+            </button>
+
+            {/* Alta Odoo — redirige via SSO JWT con iss=soltec_portal, aud=soltec_alta */}
+            <button
+              onClick={() => handleSsoClick('/api/alta/sso', 'Alta', setAltaLoading)}
+              disabled={altaLoading}
+              className="flex items-center gap-3 pl-6 pr-3 py-2 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
+            >
+              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {altaLoading ? 'Abriendo...' : 'Alta Odoo'}
+            </button>
+          </NavGroup>
+        )}
         {showAccounting && <NavGroup label="Contabilidad" icon={ACCOUNTING_ICON} items={ACCOUNTING_ITEMS} pathname={pathname} />}
-
-        {/* Planner — redirige a app externa via SSO JWT */}
-        <button
-          onClick={() => handleSsoClick('/api/planner/sso', 'Planner', setPlannerLoading, true)}
-          disabled={plannerLoading}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
-        >
-          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-          </svg>
-          {plannerLoading ? 'Abriendo...' : 'Planner'}
-        </button>
-
-        {/* Alta Odoo — redirige via SSO JWT con iss=soltec_portal, aud=soltec_alta */}
-        <button
-          onClick={() => handleSsoClick('/api/alta/sso', 'Alta', setAltaLoading)}
-          disabled={altaLoading}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-gray-600 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-wait text-left w-full"
-        >
-          <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {altaLoading ? 'Abriendo...' : 'Alta Odoo'}
-        </button>
       </nav>
     </aside>
   );
