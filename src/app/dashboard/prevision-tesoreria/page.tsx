@@ -10,6 +10,7 @@ import { Icon } from '../components/cuadro/icons';
 import { Drill } from '../components/cuadro/drill';
 import { ORIGIN_LABEL, horizonEnd, movimientos, selectedJournals, serie, useJournalSelection, useToggles } from '../components/cuadro/forecast';
 import { Tbl } from '../components/cuadro/xlsx';
+import { SaberMas } from '../components/cuadro/info';
 import {
   C, DAY, MES, baseOpts, compact, companyColor, e0, e2, entColor, fD, fM, fonts, gradientFill, rgba, toIso, toTime, zeroLine,
 } from '../components/cuadro/lib';
@@ -197,18 +198,18 @@ export default function PrevisionTesoreriaPage() {
           )}
 
           <div className="grid k4">
-            <div className="card kpi" style={{ borderTop: `4px solid ${C.accent}` }}><div className="lbl">Saldo de partida</div><div className="val">{t.base === 'book'
+            <div className="card kpi" style={{ borderTop: `4px solid ${C.accent}` }}><div className="lbl">Saldo de partida <SaberMas id="p_partida" /></div><div className="val">{t.base === 'book'
               ? <Drill spec={{ t: 'treasury', j: calc.journals.map((j) => j.id), c: data?.selected_company_ids ?? [], l: `Saldo contable de partida · ${calc.journals.length} diarios` }}>{e0(calc.T.ini)}</Drill>
               : e0(calc.T.ini)}</div><div className="sub">{calc.journals.length} diarios · {t.base === 'statement' ? 'último estado de cuenta' : 'saldo contable'}</div></div>
-            <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.fin < 0 ? C.neg : C.pos}` }}><div className="lbl">Saldo previsto al final</div><div className="val"><span className={calc.T.fin < 0 ? 'neg' : ''}>{e0(calc.T.fin)}</span></div><div className="sub">a {fD(calc.end)}</div></div>
-            <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.min < 0 ? C.neg : C.warn}` }}><div className="lbl">Saldo mínimo</div><div className="val"><span className={calc.T.min < 0 ? 'neg' : ''}>{e0(calc.T.min)}</span></div><div className="sub">el {fD(calc.T.minD)}</div></div>
-            <div className="card kpi" style={{ borderTop: `4px solid ${C.cG}` }}><div className="lbl">Flujo neto del periodo</div><div className="val"><span className={calc.T.fin - calc.T.ini < 0 ? 'neg' : ''}>{e0(calc.T.fin - calc.T.ini)}</span></div><div className="sub">{calc.movs.length} movimientos previstos</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.fin < 0 ? C.neg : C.pos}` }}><div className="lbl">Saldo previsto al final <SaberMas id="p_final" /></div><div className="val"><span className={calc.T.fin < 0 ? 'neg' : ''}>{e0(calc.T.fin)}</span></div><div className="sub">a {fD(calc.end)}</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${calc.T.min < 0 ? C.neg : C.warn}` }}><div className="lbl">Saldo mínimo <SaberMas id="p_minimo" /></div><div className="val"><span className={calc.T.min < 0 ? 'neg' : ''}>{e0(calc.T.min)}</span></div><div className="sub">el {fD(calc.T.minD)}</div></div>
+            <div className="card kpi" style={{ borderTop: `4px solid ${C.cG}` }}><div className="lbl">Flujo neto del periodo <SaberMas id="p_flujo" /></div><div className="val"><span className={calc.T.fin - calc.T.ini < 0 ? 'neg' : ''}>{e0(calc.T.fin - calc.T.ini)}</span></div><div className="sub">{calc.movs.length} movimientos previstos</div></div>
           </div>
 
           <div className="grid k2">
-            <div className="card"><h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▤</span>De hoy al final del horizonte <small>cascada del saldo</small></h2><ChartCanvas config={calc.water} /></div>
+            <div className="card"><h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▤</span>De hoy al final del horizonte <small>cascada del saldo</small><SaberMas id="p_cascada" /></h2><ChartCanvas config={calc.water} /></div>
             <div className="card">
-              <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▦</span>Calendario de movimientos <small>neto diario · próximos 6 meses</small></h2>
+              <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▦</span>Calendario de movimientos <small>neto diario · próximos 6 meses</small><SaberMas id="p_calendario" /></h2>
               <div className="heat">
                 <div className="months">{calc.monthLabels.map((m, i) => <span key={i}>{m}</span>)}</div>
                 <div className="body">
@@ -228,13 +229,13 @@ export default function PrevisionTesoreriaPage() {
           </div>
 
           <div className="card">
-            <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>⟋</span>Saldo previsto de tesorería <small>diario</small></h2>
+            <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>⟋</span>Saldo previsto de tesorería <small>diario</small><SaberMas id="p_saldo_diario" /></h2>
             <div className="legend">{calc.lineLegend.map((l) => <span key={l.label} className="ln" style={{ '--c': l.color } as CSSProperties}>{l.label}</span>)}</div>
             <ChartCanvas config={calc.line} className="chart tall" />
           </div>
 
           <div className="card">
-            <h2>Entradas y salidas por mes</h2>
+            <h2>Entradas y salidas por mes<SaberMas id="p_mes" /></h2>
             <div className="legend">
               <span style={{ '--c': C.cobro } as CSSProperties}>Cobros</span><span style={{ '--c': C.pago } as CSSProperties}>Pagos</span>
               <span style={{ '--c': C.ajuste } as CSSProperties}>Ajustes de periodo</span><span style={{ '--c': C.estim } as CSSProperties}>Estimación</span>
@@ -245,7 +246,7 @@ export default function PrevisionTesoreriaPage() {
 
           <div className="grid k2">
             <div className="card">
-              <h2>Resumen mensual</h2>
+              <h2>Resumen mensual<SaberMas id="p_resumen" /></h2>
               <Tbl name="Resumen mensual" className="tbl scroll">
                 <table>
                   <thead><tr><th>Mes</th><th className="n">Saldo inicial</th><th className="n">Cobros</th><th className="n">Pagos</th><th className="n">Ajustes</th>{t.est && <th className="n">Estimación</th>}<th className="n">Saldo final</th></tr></thead>
@@ -264,7 +265,7 @@ export default function PrevisionTesoreriaPage() {
               </Tbl>
             </div>
             <div className="card">
-              <h2>Próximos movimientos <small>30 días</small></h2>
+              <h2>Próximos movimientos <small>30 días</small><SaberMas id="p_proximos" /></h2>
               <Tbl name="Próximos movimientos" className="tbl scroll">
                 <table>
                   <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Diario</th><th className="n">Importe</th><th className="n">Saldo</th></tr></thead>
@@ -285,7 +286,7 @@ export default function PrevisionTesoreriaPage() {
           </div>
 
           <div className="card">
-            <h2>Ajustes de periodo <small>tal como están en Odoo (asientos recurrentes)</small></h2>
+            <h2>Ajustes de periodo <small>tal como están en Odoo (asientos recurrentes)</small><SaberMas id="p_ajustes" /></h2>
             <Tbl name="Ajustes de periodo" className="tbl scroll">
               <table>
                 <thead><tr><th>Compañía</th><th>Descripción</th><th>Diario</th><th>Inicio</th><th>Fin</th><th className="n">Importe</th><th className="n">Cada</th><th>Próximo cargo</th></tr></thead>

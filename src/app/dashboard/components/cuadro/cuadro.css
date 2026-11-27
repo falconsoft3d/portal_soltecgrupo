@@ -288,3 +288,24 @@
 .cf .xls-btn{font:inherit;font-size:11.5px;font-weight:800;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);color:#1d6f42;cursor:pointer}
 .cf .xls-btn svg{width:13px;height:13px}
 .cf .xls-btn:hover{border-color:#1d6f42;background:#e8f4ec}
+/* «Saber más» */
+.cf .saber{font:inherit;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:4px;padding:1px 7px 1px 2px;border-radius:999px;border:0;background:transparent;color:var(--accent);cursor:pointer;text-transform:none;letter-spacing:0;white-space:nowrap;vertical-align:middle}
+.cf .saber .i{width:15px;height:15px;border-radius:50%;border:1.5px solid currentColor;display:grid;place-items:center;font:800 9.5px/1 var(--font-ui);font-style:italic}
+.cf .saber:hover{background:var(--accent-soft)}
+.cf .saber.compact{padding:1px}
+.cf .card h2 .saber{margin-left:auto}
+.cf .saber-overlay{position:fixed;inset:0;z-index:60;background:rgba(15,46,54,.35);display:grid;place-items:center;padding:16px}
+.cf .saber-modal{width:620px;max-width:100%;max-height:calc(100vh - 32px);overflow:auto;background:var(--surface);color:var(--ink);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.25);text-align:left}
+.cf .saber-head{position:sticky;top:0;background:var(--surface);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px 10px;border-bottom:1px solid var(--line)}
+.cf .saber-head h3{margin:0;font-size:17px;font-weight:800}
+.cf .saber-head button{border:0;background:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer}
+.cf .saber-body{padding:12px 20px 20px;display:flex;flex-direction:column;gap:12px;font-size:13.5px;line-height:1.55;font-weight:400}
+.cf .saber-body h4{margin:0 0 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:800}
+.cf .saber-body p{margin:4px 0}
+.cf .saber-body ul{margin:4px 0;padding-left:20px;list-style:disc}
+.cf .saber-body li{margin:3px 0}
+.cf .saber-body .ojo{background:var(--warn-bg);border-radius:10px;padding:10px 12px}
+.cf .saber-body .ojo h4{color:var(--warn)}
+.cf .gauge .saber{margin-top:2px}
+.cf .rcard .rn .saber{margin-left:4px}
+.cf .kpi .head .saber{margin-left:auto}

@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { ORIGIN_LABEL, Serie, baseBalance, horizonEnd, movimientos, serie, useToggles } from '../components/cuadro/forecast';
 import { C, baseOpts, companyColor, compact, e0, e2, entColor, fD, fonts, gradientFill, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
 import { Tbl } from '../components/cuadro/xlsx';
+import { SaberMas } from '../components/cuadro/info';
 
 /** Minigráfico de la tarjeta (mismo dibujo que el artefacto: línea + área hasta 0). */
 function Spark({ vals, color }: { vals: number[]; color: string }) {
@@ -112,12 +113,12 @@ export default function BancosPage() {
         <section className="panel">
           <div className="grid k2">
             <div className="card">
-              <h2>Saldo contable frente a último estado de cuenta <small>la diferencia suele ser lo pendiente de conciliar</small></h2>
+              <h2>Saldo contable frente a último estado de cuenta <small>la diferencia suele ser lo pendiente de conciliar</small><SaberMas id="b_cmp" /></h2>
               <div className="legend"><span style={{ '--c': C.accent } as CSSProperties}>Saldo contable</span><span style={{ '--c': C.estim } as CSSProperties}>Último estado de cuenta</span></div>
               <ChartCanvas config={calc.cmp} className="chart tall" />
             </div>
             <div className="card">
-              <h2>Pendiente de conciliar <small>artículos por diario</small></h2>
+              <h2>Pendiente de conciliar <small>artículos por diario</small><SaberMas id="b_conc" /></h2>
               {calc.hasConc ? <ChartCanvas config={calc.conc} className="chart tall" /> : <div className="empty">No hay movimientos de extracto pendientes de conciliar.</div>}
             </div>
           </div>
@@ -131,6 +132,7 @@ export default function BancosPage() {
                 <div key={c.id} className="cgroup">
                   <h3>
                     <span className="ctag" style={{ '--tagbg': rgba(col, 0.13), '--tagc': col } as CSSProperties}>{c.short}</span>{c.name}
+                    <SaberMas id="b_tarjetas" />
                     <span className="tot">{e0(bs.reduce((s, b) => s + b.balance, 0))}</span>
                   </h3>
                   <div className="banks">
@@ -169,7 +171,7 @@ export default function BancosPage() {
               <div className="card">
                 <h2>
                   <span className="ic" style={{ background: detail.col, color: '#fff' }}>{KIND_ICON[current.kind] ?? KIND_ICON.banco}</span>
-                  Previsión · {current.name} <small>{companies.find((c) => c.id === current.company_id)?.name}</small>
+                  Previsión · {current.name} <small>{companies.find((c) => c.id === current.company_id)?.name}</small><SaberMas id="b_prevision" />
                 </h2>
                 <div className="grid k4">
                   <div className="kpi"><div className="lbl">Saldo de partida</div><div className="val" style={{ fontSize: 21 }}>{calc.tb.base === 'statement' && current.has_statement
@@ -182,7 +184,7 @@ export default function BancosPage() {
                 <ChartCanvas config={detail.line} />
               </div>
               <div className="card">
-                <h2>Movimientos previstos <small>{detail.moves.length} movimientos hasta {fD(calc.end)}</small></h2>
+                <h2>Movimientos previstos <small>{detail.moves.length} movimientos hasta {fD(calc.end)}</small><SaberMas id="b_mov" /></h2>
                 <Tbl name="Movimientos previstos" className="tbl scroll">
                   <table>
                     <thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th className="n">Importe</th><th className="n">Saldo</th></tr></thead>

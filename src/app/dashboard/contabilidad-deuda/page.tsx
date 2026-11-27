@@ -10,6 +10,7 @@ import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Icon } from '../components/cuadro/icons';
 import { Drill, chartDrill } from '../components/cuadro/drill';
 import { Tbl } from '../components/cuadro/xlsx';
+import { SaberMas } from '../components/cuadro/info';
 import {
   C, baseOpts, compact, companyColor, donutConfig, e0, entColor, fM, fonts, hbarOpts, pct, rgba, zeroLine,
 } from '../components/cuadro/lib';
@@ -19,8 +20,8 @@ const PILL: Record<State, string> = { ok: 'Correcto', warn: 'Vigilar', bad: 'Rie
 const ZONE = { pos: C.pos, warn: C.warn, neg: C.neg };
 
 /** Indicador de aguja (semicírculo con zonas de color), igual que el artefacto. */
-function Gauge({ v, min, max, zones, name, valTxt, formula, state }: {
-  v: number; min: number; max: number; zones: [number, keyof typeof ZONE][]; name: string; valTxt: string; formula: string; state: State;
+function Gauge({ v, min, max, zones, name, valTxt, formula, state, info }: {
+  v: number; min: number; max: number; zones: [number, keyof typeof ZONE][]; name: string; valTxt: string; formula: string; state: State; info: string;
 }) {
   const cx = 85, cy = 88, r = 66, sw = 14;
   const ang = (x: number) => Math.PI * (1 - (Math.min(max, Math.max(min, Number.isFinite(x) ? x : min)) - min) / (max - min));
@@ -42,6 +43,7 @@ function Gauge({ v, min, max, zones, name, valTxt, formula, state }: {
       <div className="gn">{name}</div>
       <span className={`pill ${state}`}>{PILL[state]}</span>
       <div className="gf">{formula}</div>
+      <SaberMas id={info} />
     </div>
   );
 }
@@ -197,42 +199,42 @@ export default function ContabilidadDeudaPage() {
       <section className="panel">
         <div className="grid k4">
           <div className="card kpi">
-            <div className="head"><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>{Icon.bank}</span><span className="lbl">Tesorería total</span></div>
+            <div className="head"><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>{Icon.bank}</span><span className="lbl">Tesorería total</span><SaberMas id="teso_total" /></div>
             <div className="val"><Drill spec={{ t: 'treasury', c: sel, l: 'Tesorería total (bancos y caja)' }}>{e0(teso)}</Drill></div>
             <div className="bar"><i style={{ width: w(liq, teso), background: C.accent }} /><i style={{ width: w(teso - liq, teso), background: C.cG }} /></div>
             <div className="sub">{e0(liq)} líquido · {e0(teso - liq)} en cartera</div>
           </div>
           <div className="card kpi">
-            <div className="head"><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>{Icon.in}</span><span className="lbl">Pendiente de cobro</span></div>
+            <div className="head"><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>{Icon.in}</span><span className="lbl">Pendiente de cobro</span><SaberMas id="pend_cobro" /></div>
             <div className="val"><Drill spec={{ t: 'debt', side: 'customers', c: sel, l: 'Pendiente de cobro (clientes)' }}>{e0(cli)}</Drill></div>
             <div className="bar"><i style={{ width: w(cli - cliA, cli), background: C.cobro }} /><i style={{ width: w(cliA, cli), background: C.neg }} /></div>
             <div className="sub"><Drill spec={{ t: 'debt', side: 'customers', overdue: true, c: sel, l: 'Pendiente de cobro atrasado' }}><b className="neg">{e0(cliA)}</b></Drill> atrasado ({pct((cliA / cli) * 100)}) · {debt.customers.count} facturas</div>
           </div>
           <div className="card kpi">
-            <div className="head"><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>{Icon.out}</span><span className="lbl">Pendiente de pago</span></div>
+            <div className="head"><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>{Icon.out}</span><span className="lbl">Pendiente de pago</span><SaberMas id="pend_pago" /></div>
             <div className="val"><Drill spec={{ t: 'debt', side: 'suppliers', c: sel, l: 'Pendiente de pago (proveedores)' }}>{e0(pro)}</Drill></div>
             <div className="bar"><i style={{ width: w(pro - proA, pro), background: C.pago }} /><i style={{ width: w(proA, pro), background: C.warn }} /></div>
             <div className="sub"><Drill spec={{ t: 'debt', side: 'suppliers', overdue: true, c: sel, l: 'Pendiente de pago atrasado' }}><b className="neg">{e0(proA)}</b></Drill> atrasado ({pct((proA / pro) * 100)}) · {debt.suppliers.count} facturas</div>
           </div>
           <div className="card kpi">
-            <div className="head"><span className="ic" style={{ background: 'var(--cG-soft)', color: C.cG }}>{Icon.scale}</span><span className="lbl">Posición neta</span></div>
+            <div className="head"><span className="ic" style={{ background: 'var(--cG-soft)', color: C.cG }}>{Icon.scale}</span><span className="lbl">Posición neta</span><SaberMas id="pos_neta" /></div>
             <div className="val"><span className={pos < 0 ? 'neg' : ''}>{e0(pos)}</span></div>
             <div className="sub">Tesorería + pendiente de cobro − pendiente de pago</div>
           </div>
         </div>
 
         <div className="gauges">
-          <Gauge v={cob} min={0} max={4} zones={[[1, 'neg'], [1.5, 'warn'], [4, 'pos']]} name="Cobertura de proveedores" valTxt={R2(cob)} formula="(Tesorería + cobros pendientes) / pagos pendientes" state={st(cob, 1.5, 1)} />
-          <Gauge v={disp} min={0} max={1.5} zones={[[0.3, 'neg'], [0.6, 'warn'], [1.5, 'pos']]} name="Disponibilidad" valTxt={R2(disp)} formula="Tesorería líquida / pagos pendientes" state={st(disp, 0.6, 0.3)} />
-          <Gauge v={meses} min={0} max={6} zones={[[1, 'neg'], [2, 'warn'], [6, 'pos']]} name="Meses de cobertura" valTxt={R2(meses)} formula="Tesorería líquida / salida media mensual (pagos + ajustes)" state={st(meses, 2, 1)} />
-          <Gauge v={mor} min={0} max={100} zones={[[10, 'pos'], [25, 'warn'], [100, 'neg']]} name="Morosidad clientes" valTxt={pct(mor)} formula="Atrasado / pendiente de cobro" state={st(mor, 10, 25, true)} />
-          <Gauge v={pmc} min={0} max={180} zones={[[60, 'pos'], [90, 'warn'], [180, 'neg']]} name="Periodo medio de cobro" valTxt={Number.isFinite(pmc) ? `${Math.round(pmc)} d` : '—'} formula="Pendiente de cobro / cobros 12 m × 365" state={st(pmc, 60, 90, true)} />
-          <Gauge v={pmp} min={0} max={180} zones={[[60, 'pos'], [75, 'warn'], [180, 'neg']]} name="Periodo medio de pago" valTxt={Number.isFinite(pmp) ? `${Math.round(pmp)} d` : '—'} formula="Pendiente de pago / pagos 12 m × 365 · límite legal 60 días" state={st(pmp, 60, 75, true)} />
+          <Gauge v={cob} min={0} max={4} zones={[[1, 'neg'], [1.5, 'warn'], [4, 'pos']]} info="g_cobertura" name="Cobertura de proveedores" valTxt={R2(cob)} formula="(Tesorería + cobros pendientes) / pagos pendientes" state={st(cob, 1.5, 1)} />
+          <Gauge v={disp} min={0} max={1.5} zones={[[0.3, 'neg'], [0.6, 'warn'], [1.5, 'pos']]} info="g_disponibilidad" name="Disponibilidad" valTxt={R2(disp)} formula="Tesorería líquida / pagos pendientes" state={st(disp, 0.6, 0.3)} />
+          <Gauge v={meses} min={0} max={6} zones={[[1, 'neg'], [2, 'warn'], [6, 'pos']]} info="g_meses" name="Meses de cobertura" valTxt={R2(meses)} formula="Tesorería líquida / salida media mensual (pagos + ajustes)" state={st(meses, 2, 1)} />
+          <Gauge v={mor} min={0} max={100} zones={[[10, 'pos'], [25, 'warn'], [100, 'neg']]} info="g_morosidad" name="Morosidad clientes" valTxt={pct(mor)} formula="Atrasado / pendiente de cobro" state={st(mor, 10, 25, true)} />
+          <Gauge v={pmc} min={0} max={180} zones={[[60, 'pos'], [90, 'warn'], [180, 'neg']]} info="g_pmc" name="Periodo medio de cobro" valTxt={Number.isFinite(pmc) ? `${Math.round(pmc)} d` : '—'} formula="Pendiente de cobro / cobros 12 m × 365" state={st(pmc, 60, 90, true)} />
+          <Gauge v={pmp} min={0} max={180} zones={[[60, 'pos'], [75, 'warn'], [180, 'neg']]} info="g_pmp" name="Periodo medio de pago" valTxt={Number.isFinite(pmp) ? `${Math.round(pmp)} d` : '—'} formula="Pendiente de pago / pagos 12 m × 365 · límite legal 60 días" state={st(pmp, 60, 75, true)} />
         </div>
 
         <div className="grid k2">
           <div className="card">
-            <h2><span className="ic" style={{ background: 'var(--pos-bg)', color: C.pos }}>⇅</span>Deuda de clientes y con proveedores <small>al día frente a atrasado</small></h2>
+            <h2><span className="ic" style={{ background: 'var(--pos-bg)', color: C.pos }}>⇅</span>Deuda de clientes y con proveedores <small>al día frente a atrasado</small><SaberMas id="c_deuda" /></h2>
             <Legend items={[{ label: 'Clientes al día', color: C.cobro }, { label: 'Clientes atrasado', color: C.neg }, { label: 'Proveedores al día', color: C.pago }, { label: 'Proveedores atrasado', color: C.warn }]} />
             <ChartCanvas config={charts.deuda} />
             <div className="badges">
@@ -245,34 +247,34 @@ export default function ContabilidadDeudaPage() {
             </div>
           </div>
           <div className="card">
-            <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>◔</span>Dónde está la tesorería <small>saldo por diario</small></h2>
+            <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>◔</span>Dónde está la tesorería <small>saldo por diario</small><SaberMas id="c_teso" /></h2>
             <ChartCanvas config={charts.teso} className="chart donut" />
             <Legend items={charts.tLegend} />
           </div>
         </div>
 
         <div className="card">
-          <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▥</span>Cobros y pagos registrados por mes <small>últimos 24 meses · pagos publicados en Odoo</small></h2>
+          <h2><span className="ic" style={{ background: 'var(--accent-soft)', color: C.accent }}>▥</span>Cobros y pagos registrados por mes <small>últimos 24 meses · pagos publicados en Odoo</small><SaberMas id="c_cobpag" /></h2>
           <Legend items={[{ label: 'Cobros de clientes', color: C.cobro }, { label: 'Pagos a proveedores', color: C.pago }, { label: 'Neto del mes', color: C.ink, line: true }]} />
           <ChartCanvas config={charts.hist} className="chart tall" />
         </div>
 
         <div className="grid k2">
           <div className="card">
-            <h2><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>↓</span>Top 10 clientes <small>cobrado en 12 meses</small></h2>
+            <h2><span className="ic" style={{ background: 'var(--pos-bg)', color: C.cobro }}>↓</span>Top 10 clientes <small>cobrado en 12 meses</small><SaberMas id="c_topc" /></h2>
             <ChartCanvas config={charts.topC} className="chart tall" />
           </div>
           <div className="card">
-            <h2><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>↑</span>Top 10 proveedores <small>pagado en 12 meses</small></h2>
+            <h2><span className="ic" style={{ background: 'var(--neg-bg)', color: C.pago }}>↑</span>Top 10 proveedores <small>pagado en 12 meses</small><SaberMas id="c_topp" /></h2>
             <ChartCanvas config={charts.topP} className="chart tall" />
           </div>
         </div>
 
         <div className="grid k3">
-          <div className="card"><h2>Cómo cobramos <small>12 meses</small></h2><ChartCanvas config={charts.metC} className="chart donut" /><Legend items={charts.legC} /></div>
-          <div className="card"><h2>Cómo pagamos <small>12 meses</small></h2><ChartCanvas config={charts.metP} className="chart donut" /><Legend items={charts.legP} /></div>
+          <div className="card"><h2>Cómo cobramos <small>12 meses</small><SaberMas id="c_metc" /></h2><ChartCanvas config={charts.metC} className="chart donut" /><Legend items={charts.legC} /></div>
+          <div className="card"><h2>Cómo pagamos <small>12 meses</small><SaberMas id="c_metp" /></h2><ChartCanvas config={charts.metP} className="chart donut" /><Legend items={charts.legP} /></div>
           <div className="card">
-            <h2>Proyectos con más cobros <small>12 meses</small></h2>
+            <h2>Proyectos con más cobros <small>12 meses</small><SaberMas id="c_proy" /></h2>
             <Tbl name="Proyectos con más cobros" className="tbl scroll" style={{ maxHeight: 300 }}>
               <table>
                 <thead><tr><th>Proyecto</th><th className="n">Cobrado</th></tr></thead>

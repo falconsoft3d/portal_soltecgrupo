@@ -10,6 +10,7 @@ import Shell from '../components/cuadro/Shell';
 import { APUNTES_PATH, parseSpec } from '../components/cuadro/drill';
 import { e2, fD } from '../components/cuadro/lib';
 import { downloadXlsx } from '../components/cuadro/xlsx';
+import { SaberMas } from '../components/cuadro/info';
 
 const PAGE = 100;
 
@@ -257,7 +258,7 @@ function ApuntesInner() {
         {loading && !data ? <div className="empty">Cargando…</div> : data?.success && (
           <>
             <div className="grid k4">
-              <div className="card kpi"><div className="lbl">Apuntes</div><div className="val">{count.toLocaleString('es-ES')}</div><div className="sub">{grouped ? 'despliega compañía → cuenta → contacto' : count > PAGE ? `se muestran de ${PAGE} en ${PAGE}` : 'todos en esta página'}</div></div>
+              <div className="card kpi"><div className="lbl">Apuntes <SaberMas id="m_kpis" /></div><div className="val">{count.toLocaleString('es-ES')}</div><div className="sub">{grouped ? 'despliega compañía → cuenta → contacto' : count > PAGE ? `se muestran de ${PAGE} en ${PAGE}` : 'todos en esta página'}</div></div>
               <div className="card kpi"><div className="lbl">Debe</div><div className="val">{e2(totals?.debit ?? 0)}</div></div>
               <div className="card kpi"><div className="lbl">Haber</div><div className="val">{e2(totals?.credit ?? 0)}</div></div>
               <div className="card kpi">
@@ -269,7 +270,7 @@ function ApuntesInner() {
 
             <div className="card">
               <div className="afhead">
-                <h2>Apuntes contables <small>{!count ? 'sin resultados'
+                <h2>Apuntes contables <SaberMas id="m_tabla" /> <small>{!count ? 'sin resultados'
                   : grouped ? `${groups.length} ${groups.length === 1 ? 'compañía' : 'compañías'} · ${count.toLocaleString('es-ES')} apuntes`
                     : `${offset + 1}–${Math.min(offset + PAGE, count)} de ${count.toLocaleString('es-ES')}`}</small></h2>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

@@ -9,6 +9,7 @@ import ChartCanvas from '../components/cuadro/ChartCanvas';
 import { Drill } from '../components/cuadro/drill';
 import { AnyOpts, C, baseOpts, compact, e0, fonts, hbarOpts, rgba, zeroLine } from '../components/cuadro/lib';
 import { Tbl } from '../components/cuadro/xlsx';
+import { SaberMas } from '../components/cuadro/info';
 
 /* ------------------------------------------------------------------ */
 /*  Formatos (afE, afN2, afP, afD del artefacto)                        */
@@ -137,8 +138,8 @@ function AfMini({ vals, years, thr, states }: { vals: Triple; years: number[]; t
   );
 }
 
-function Ratio({ name, formula, vals, r, fmt, rule = null, note }: {
-  name: string; formula: string; vals: Triple; r: AfResult; fmt: (v: number) => string; rule?: RatioRule; note?: string;
+function Ratio({ name, formula, vals, r, fmt, rule = null, note, info }: {
+  name: string; formula: string; vals: Triple; r: AfResult; fmt: (v: number) => string; rule?: RatioRule; note?: string; info: string;
 }) {
   const st = vals.map((v) => ratioState(v, rule));
   const last = st[2] !== 'na' ? st[2] : null;
@@ -146,7 +147,7 @@ function Ratio({ name, formula, vals, r, fmt, rule = null, note }: {
     <div className="rcard">
       <div className="rt">
         <div>
-          <div className="rn">{name}</div>
+          <div className="rn">{name}<SaberMas id={info} /></div>
           <div className="rf">{formula}{rule ? ` · objetivo ${rule[0]} ${String(rule[1]).replace('.', ',')}` : ''}{note && <><br />{note}</>}</div>
         </div>
         {last && <span className={`pill ${last}`}>{STATE_TXT[last]}</span>}
@@ -183,8 +184,8 @@ export function BalanceTab({ r }: { r: AfResult }) {
     <>
       <Note>Importes calculados desde la contabilidad (saldos a 31/12, o a hoy si el ejercicio está en curso). Pulsa un importe para ver los apuntes que lo forman. Las filas en gris son totales. <b>%</b> = peso sobre el total del activo o del pasivo · <b>Ind.</b> = año / año anterior.</Note>
       <div className="grid k2" style={{ alignItems: 'start' }}>
-        <div className="card"><h2>Activo</h2><Tbl name="Activo" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_ACT} r={r} base={r.D} /></tbody></table></Tbl></div>
-        <div className="card"><h2>Pasivo y patrimonio neto</h2><Tbl name="Pasivo y patrimonio neto" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_PAS} r={r} base={r.H} /></tbody></table></Tbl></div>
+        <div className="card"><h2>Activo<SaberMas id="a_activo" /></h2><Tbl name="Activo" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_ACT} r={r} base={r.D} /></tbody></table></Tbl></div>
+        <div className="card"><h2>Pasivo y patrimonio neto<SaberMas id="a_pasivo" /></h2><Tbl name="Pasivo y patrimonio neto" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_BAL_PAS} r={r} base={r.H} /></tbody></table></Tbl></div>
       </div>
     </>
   );
@@ -198,9 +199,9 @@ export function ExplotacionTab({ r, employees, onEmployees }: { r: AfResult; emp
   return (
     <>
       <Note>Importes sin signo, como en la plantilla: la variación de existencias va en negativo si disminuyen, y los excesos de provisiones con signo menos. <b>%</b> = peso sobre la producción. Pulsa un importe para ver sus apuntes.</Note>
-      <div className="card"><h2>Cuenta de explotación · rentabilidad</h2><Tbl name="Cuenta de explotación · rentabilidad" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_PYG} r={r} base={r.prod} /></tbody></table></Tbl></div>
+      <div className="card"><h2>Cuenta de explotación · rentabilidad<SaberMas id="a_explotacion" /></h2><Tbl name="Cuenta de explotación · rentabilidad" className="tbl"><table className="aft"><thead><tr><th /><th>Concepto</th><YearHead r={r} /></tr></thead><tbody><AfRows view={AF_PYG} r={r} base={r.prod} /></tbody></table></Tbl></div>
       <div className="card">
-        <h2>Plantilla y productividad <small>el nº de empleados no está en la contabilidad: escríbelo aquí</small></h2>
+        <h2>Plantilla y productividad <small>el nº de empleados no está en la contabilidad: escríbelo aquí</small><SaberMas id="a_plantilla" /></h2>
         <Tbl name="Plantilla y productividad" className="tbl">
           <table className="aft">
             <thead><tr><th /><th>Concepto</th><YearHead r={r} pc={false} /></tr></thead>
@@ -238,7 +239,7 @@ export function MasasTab({ r }: { r: AfResult }) {
   return (
     <>
       <div className="card">
-        <h2>Gráfico de masas patrimoniales <small>la altura de cada bloque es su peso en el balance</small></h2>
+        <h2>Gráfico de masas patrimoniales <small>la altura de cada bloque es su peso en el balance</small><SaberMas id="a_masas" /></h2>
         <Legend items={[['Inmovilizado', COL.inm], ['Existencias', COL.exi], ['Realizable + disponible', COL.rea], ['Fondos propios', COL.fp], ['Deuda a largo', COL.dlp], ['Deuda a corto', COL.dcp]]} />
         <div className="masas">
           {r.y.map((y, i) => {
@@ -269,7 +270,7 @@ export function MasasTab({ r }: { r: AfResult }) {
         </div>
       </div>
       <div className="card">
-        <h2>Fondo de maniobra por masas <small>capitales permanentes − inmovilizado</small></h2>
+        <h2>Fondo de maniobra por masas <small>capitales permanentes − inmovilizado</small><SaberMas id="a_fm_masas" /></h2>
         <Synth name="Fondo de maniobra por masas" r={r} rows={[['Fondos propios', r.fp], ['Deudas a largo plazo', r.g('deuda_lp')], ['Capitales permanentes', r.capPerm, true], ['Inmovilizado', r.A.map((v) => -v) as Triple], ['Fondo de maniobra', r.fmMasas, true]]} />
         <Note>Si el fondo de maniobra es positivo, los recursos a largo plazo financian todo el inmovilizado y además una parte del circulante. Es la situación sana.</Note>
       </div>
@@ -287,7 +288,7 @@ export function ResumenTab({ r }: { r: AfResult }) {
     ] }, options: o };
   }, [r]);
   const tile = (l: string, v: number, s: string, c: string) => (
-    <div className="card kpi" style={{ borderTop: `4px solid ${c}` }}><div className="lbl">{l} · {r.y[L]}</div><div className={`val ${cls(v)}`}>{afE(v)}</div><div className="sub">{s}</div></div>
+    <div className="card kpi" style={{ borderTop: `4px solid ${c}` }}><div className="lbl">{l} · {r.y[L]} <SaberMas id="a_fm" compact /></div><div className={`val ${cls(v)}`}>{afE(v)}</div><div className="sub">{s}</div></div>
   );
   return (
     <>
@@ -295,22 +296,22 @@ export function ResumenTab({ r }: { r: AfResult }) {
         {tile('Fondo de maniobra aparente', r.fm[L], 'Activo circulante − pasivo circulante', C.accent)}
         {tile('Fondo de maniobra necesario', r.fmNec[L], 'Gastos diarios × maduración − financiación de proveedores', C.cG)}
         {tile(r.fmExc[L] >= 0 ? 'Exceso de fondo de maniobra' : 'Déficit de fondo de maniobra', r.fmExc[L], 'Aparente − necesario', r.fmExc[L] >= 0 ? C.pos : C.neg)}
-        <div className="card kpi" style={{ borderTop: `4px solid ${C.ajuste}` }}><div className="lbl">Días de autonomía · {r.y[L]}</div><div className="val">{afD(r.diasAut[L])}</div><div className="sub">Días de gastos que cubre el fondo de maniobra</div></div>
+        <div className="card kpi" style={{ borderTop: `4px solid ${C.ajuste}` }}><div className="lbl">Días de autonomía · {r.y[L]} <SaberMas id="a_fm" compact /></div><div className="val">{afD(r.diasAut[L])}</div><div className="sub">Días de gastos que cubre el fondo de maniobra</div></div>
       </div>
       <div className="card">
-        <h2>Fondos de maniobra</h2>
+        <h2>Fondos de maniobra<SaberMas id="a_fm" /></h2>
         <Synth name="Fondos de maniobra" r={r} rows={[['+ Activo circulante', r.ac], ['− Pasivo circulante', r.pc], ['Fondo de maniobra aparente', r.fm, true], ['Fondo de maniobra necesario', r.fmNec, true], ['Exceso (+) o déficit (−)', r.fmExc, true]]} />
         <div className="legend" style={{ marginTop: 4 }}>Días de autonomía: {r.y.map((y, i) => <Fragment key={y}><b>{y}</b> {afD(r.diasAut[i])}{i < 2 ? ' · ' : ''}</Fragment>)}</div>
       </div>
       <div className="grid k2">
         <div className="card">
-          <h2>Composición de la deuda total</h2>
+          <h2>Composición de la deuda total<SaberMas id="a_deuda" /></h2>
           <ChartCanvas config={deuda} className="chart short" />
           <Legend items={[['Deuda a largo plazo', C.estim], ['Deuda a corto plazo', C.pago]]} />
           <Synth name="Composición de la deuda total" r={r} rows={[['Deudas a largo plazo', r.g('deuda_lp')], ['Deudas a corto plazo', r.G], ['Deuda total', r.deudaTot, true], ['Total balance', r.H]]} />
         </div>
         <div className="card">
-          <h2>Capacidad de endeudamiento</h2>
+          <h2>Capacidad de endeudamiento<SaberMas id="a_endeud" /></h2>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))' }}>
             {r.y.map((y, i) => (
               <div key={y} className="kpi"><div className="lbl">Endeudamiento posible {y}</div><div className={`val ${cls(r.endPos[i])}`} style={{ fontSize: 20 }}>{afE(r.endPos[i])}</div><div className="sub">Devolución de préstamos {afP(r.devol[i])}</div></div>
@@ -320,7 +321,7 @@ export function ResumenTab({ r }: { r: AfResult }) {
         </div>
       </div>
       <div className="card">
-        <h2>Cuadro de síntesis</h2>
+        <h2>Cuadro de síntesis<SaberMas id="a_sintesis" /></h2>
         <Synth name="Cuadro de síntesis" r={r} rows={[['Clientes', r.g('clientes')], ['Proveedores y acreedores', r.provAcr], ['Activo real', r.activoReal], ['Existencias', r.B], ['Deuda con bancos a c/p y l/p', r.deudaBanc], ['Cifra de negocio', r.g('cn'), true], ['Total de gastos generales', r.gtosGen], ['Resultado neto', r.rn, true], ['Gastos de explotación diarios', r.gtosDia]]} />
         <Note>Fondo de maniobra necesario = (gastos diarios × periodo de maduración) − (compras / días × plazo de pago). Activo real = total − intangible − inversiones financieras.</Note>
       </div>
@@ -335,22 +336,22 @@ export function Ratios1Tab({ r }: { r: AfResult }) {
     <>
       <div className="rsec">Plazos</div>
       <div className="rgrid">
-        <Ratio r={r} name="Plazo medio de almacenamiento" formula="Existencias medias × días / compras consumidas" vals={r.pAlm} fmt={afD} note="El primer año usa las existencias finales; los siguientes, la media con el año anterior." />
-        <Ratio r={r} name="Plazo de cobro" formula="Clientes × días / ventas con IVA (×1,21)" vals={r.pCob} fmt={afD} rule={['<', 60]} />
-        <Ratio r={r} name="Plazo de pago" formula="Proveedores × días / compras con IVA (×1,21)" vals={r.pPag} fmt={afD} rule={['<', 60]} note="Límite legal 60 días (Ley 15/2010)." />
-        <Ratio r={r} name="Período de maduración" formula="Plazo de almacenamiento + plazo de cobro" vals={r.mad} fmt={afD} />
+        <Ratio r={r} info="r_palm" name="Plazo medio de almacenamiento" formula="Existencias medias × días / compras consumidas" vals={r.pAlm} fmt={afD} note="El primer año usa las existencias finales; los siguientes, la media con el año anterior." />
+        <Ratio r={r} info="r_pcob" name="Plazo de cobro" formula="Clientes × días / ventas con IVA (×1,21)" vals={r.pCob} fmt={afD} rule={['<', 60]} />
+        <Ratio r={r} info="r_ppag" name="Plazo de pago" formula="Proveedores × días / compras con IVA (×1,21)" vals={r.pPag} fmt={afD} rule={['<', 60]} note="Límite legal 60 días (Ley 15/2010)." />
+        <Ratio r={r} info="r_mad" name="Período de maduración" formula="Plazo de almacenamiento + plazo de cobro" vals={r.mad} fmt={afD} />
       </div>
       <div className="rsec">Liquidez y solvencia</div>
       <div className="rgrid">
-        <Ratio r={r} name="Liquidez general" formula="Activo circulante / pasivo circulante" vals={r.liq} fmt={afN2} rule={['>', 1.5]} />
-        <Ratio r={r} name="Liquidez inmediata" formula="Realizable + disponible / pasivo circulante" vals={r.liqInm} fmt={afN2} rule={['>', 0.9]} />
-        <Ratio r={r} name="Tesorería" formula="Disponible / pasivo circulante" vals={r.tes} fmt={afN2} rule={['>', 0.1]} />
-        <Ratio r={r} name="Garantía" formula="Activo real / deuda total" vals={r.gar} fmt={afN2} rule={['>', 1.5]} />
-        <Ratio r={r} name="Coste de la deuda" formula="Gastos financieros / deuda con coste × 100" vals={r.coste} fmt={afP} />
-        <Ratio r={r} name="Cobertura de intereses" formula="Beneficio antes de financieros / gastos financieros" vals={r.cobInt} fmt={afN2} rule={['>', 3]} />
+        <Ratio r={r} info="r_liq" name="Liquidez general" formula="Activo circulante / pasivo circulante" vals={r.liq} fmt={afN2} rule={['>', 1.5]} />
+        <Ratio r={r} info="r_liqinm" name="Liquidez inmediata" formula="Realizable + disponible / pasivo circulante" vals={r.liqInm} fmt={afN2} rule={['>', 0.9]} />
+        <Ratio r={r} info="r_tes" name="Tesorería" formula="Disponible / pasivo circulante" vals={r.tes} fmt={afN2} rule={['>', 0.1]} />
+        <Ratio r={r} info="r_gar" name="Garantía" formula="Activo real / deuda total" vals={r.gar} fmt={afN2} rule={['>', 1.5]} />
+        <Ratio r={r} info="r_coste" name="Coste de la deuda" formula="Gastos financieros / deuda con coste × 100" vals={r.coste} fmt={afP} />
+        <Ratio r={r} info="r_cobint" name="Cobertura de intereses" formula="Beneficio antes de financieros / gastos financieros" vals={r.cobInt} fmt={afN2} rule={['>', 3]} />
       </div>
       <div className="card">
-        <h2>Incidencias en tesorería <small>cuánto dinero liberan (+) o consumen (−) los cambios de plazos</small></h2>
+        <h2>Incidencias en tesorería <small>cuánto dinero liberan (+) o consumen (−) los cambios de plazos</small><SaberMas id="r_incid" /></h2>
         <Tbl name="Incidencias en tesorería" className="tbl">
           <table className="aft">
             <thead><tr><th>Por</th><th className="n">{Y[0]}</th><th className="n">{Y[1]}</th><th className="n">Pérd./gan. tesorería</th><th className="n">{Y[2]}</th><th className="n">Pérd./gan. tesorería</th></tr></thead>
@@ -373,22 +374,22 @@ export function Ratios2Tab({ r }: { r: AfResult }) {
     <>
       <div className="rsec">Rotaciones</div>
       <div className="rgrid">
-        <Ratio r={r} name="Rotación del activo circulante" formula="Ventas / activo circulante" vals={r.rotAC} fmt={afN2} />
-        <Ratio r={r} name="Rotación del activo fijo" formula="Ventas / activo fijo" vals={r.rotAF} fmt={afN2} />
-        <Ratio r={r} name="Rotación del capital propio" formula="Ventas / capital propio" vals={r.rotCP} fmt={afN2} />
-        <Ratio r={r} name="Rotación de clientes" formula="Ventas / clientes" vals={r.rotCli} fmt={afN2} />
+        <Ratio r={r} info="r_rotac" name="Rotación del activo circulante" formula="Ventas / activo circulante" vals={r.rotAC} fmt={afN2} />
+        <Ratio r={r} info="r_rotaf" name="Rotación del activo fijo" formula="Ventas / activo fijo" vals={r.rotAF} fmt={afN2} />
+        <Ratio r={r} info="r_rotcp" name="Rotación del capital propio" formula="Ventas / capital propio" vals={r.rotCP} fmt={afN2} />
+        <Ratio r={r} info="r_rotcli" name="Rotación de clientes" formula="Ventas / clientes" vals={r.rotCli} fmt={afN2} />
       </div>
       <div className="rsec">Rentabilidad y autonomía</div>
       <div className="rgrid">
-        <Ratio r={r} name="Rentabilidad económica" formula="Beneficio / activo × 100" vals={r.rentEc} fmt={afP} rule={['>', 3.5]} />
-        <Ratio r={r} name="Rentabilidad financiera" formula="Beneficio / capital propio × 100" vals={r.rentFin} fmt={afP} rule={['>', 6]} />
-        <Ratio r={r} name="Autonomía financiera" formula="Capital propio / pasivo" vals={r.aut} fmt={afN2} rule={['>', 0.4]} />
+        <Ratio r={r} info="r_renteco" name="Rentabilidad económica" formula="Beneficio / activo × 100" vals={r.rentEc} fmt={afP} rule={['>', 3.5]} />
+        <Ratio r={r} info="r_rentfin" name="Rentabilidad financiera" formula="Beneficio / capital propio × 100" vals={r.rentFin} fmt={afP} rule={['>', 6]} />
+        <Ratio r={r} info="r_aut" name="Autonomía financiera" formula="Capital propio / pasivo" vals={r.aut} fmt={afN2} rule={['>', 0.4]} />
       </div>
       <div className="rsec">Probabilidad de suspensión de pagos</div>
       <div className="rgrid">
-        <Ratio r={r} name="Cash-flow / deudas totales" formula="Cash-flow / deuda total" vals={r.cfDeuda} fmt={afN2} rule={['>', 0.4]} />
-        <Ratio r={r} name="Factor Z" formula="−4,2 + 1,35·liquidez + 6,5·autonomía + 7·rent. económica + 5·rent. financiera" vals={r.z} fmt={afN2} rule={['>', 0]} note="Por debajo de 0 indica riesgo de insolvencia." />
-        <Ratio r={r} name="Fondo de maniobra / activo" formula="Fondo de maniobra / activo total" vals={r.fmAct} fmt={afN2} rule={['>', 0.3]} />
+        <Ratio r={r} info="r_cfdeuda" name="Cash-flow / deudas totales" formula="Cash-flow / deuda total" vals={r.cfDeuda} fmt={afN2} rule={['>', 0.4]} />
+        <Ratio r={r} info="r_z" name="Factor Z" formula="−4,2 + 1,35·liquidez + 6,5·autonomía + 7·rent. económica + 5·rent. financiera" vals={r.z} fmt={afN2} rule={['>', 0]} note="Por debajo de 0 indica riesgo de insolvencia." />
+        <Ratio r={r} info="r_fmact" name="Fondo de maniobra / activo" formula="Fondo de maniobra / activo total" vals={r.fmAct} fmt={afN2} rule={['>', 0.3]} />
       </div>
     </>
   );
@@ -437,7 +438,7 @@ export function OriAplTab({ r }: { r: AfResult }) {
   return (
     <>
       <div className="card">
-        <div className="afhead"><h2>Estado de origen y aplicación de fondos</h2><div className="yrsel" style={{ alignItems: 'center' }}>Comparar {sel(f, setF)} con {sel(to, setTo)}</div></div>
+        <div className="afhead"><h2>Estado de origen y aplicación de fondos<SaberMas id="a_oa" /></h2><div className="yrsel" style={{ alignItems: 'center' }}>Comparar {sel(f, setF)} con {sel(to, setTo)}</div></div>
         <div className="grid k2">
           <Tbl name="Origen y aplicación · Activo" className="tbl"><table className="aft"><thead><tr><th>Activo</th><th className="n">{r.y[f]}</th><th className="n">{r.y[to]}</th><th className="n">Diferencia</th></tr></thead><tbody>{tb(act)}{totRow('Total activo', act)}</tbody></table></Tbl>
           <Tbl name="Origen y aplicación · Pasivo" className="tbl"><table className="aft"><thead><tr><th>Pasivo</th><th className="n">{r.y[f]}</th><th className="n">{r.y[to]}</th><th className="n">Diferencia</th></tr></thead><tbody>{tb(pas)}{totRow('Total pasivo', pas)}</tbody></table></Tbl>
@@ -473,7 +474,7 @@ export function ValorAnadidoTab({ r }: { r: AfResult }) {
   return (
     <>
       <div className="card">
-        <h2>Reparto del valor añadido <small>quién se lleva cada euro que genera la empresa</small></h2>
+        <h2>Reparto del valor añadido <small>quién se lleva cada euro que genera la empresa</small><SaberMas id="a_va" /></h2>
         <Legend items={parts.map(([l, , c]) => [l, c])} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {r.y.map((y, i) => {
@@ -551,7 +552,7 @@ export function UmbralTab({ r }: { r: AfResult }) {
   return (
     <div className="card">
       <div className="afhead">
-        <h2>Umbral de rentabilidad <small>punto en el que los ingresos cubren todos los gastos</small></h2>
+        <h2>Umbral de rentabilidad <small>punto en el que los ingresos cubren todos los gastos</small><SaberMas id="a_umbral" /></h2>
         <div className="subtabs">{r.y.map((y, j) => <button key={y} type="button" aria-pressed={j === i} onClick={() => setI(j)}>{y}</button>)}</div>
       </div>
       <div className="grid k4">
@@ -588,12 +589,12 @@ export function GraficosTab({ r }: { r: AfResult }) {
   }, [r]);
   return (
     <div className="grid k2">
-      <div className="card"><h2>Activo y deuda <small>miles de euros</small></h2><Legend items={[['Activo', C.accent], ['Deuda a largo', C.estim], ['Deuda a corto', C.pago]]} /><ChartCanvas config={cfgs.g1} /></div>
-      <div className="card"><h2>Realizable + disponible frente a deuda a corto <small>miles de euros</small></h2><Legend items={[['Realizable + disponible', C.cobro], ['Deuda a corto', C.pago]]} /><ChartCanvas config={cfgs.g2} /></div>
-      <div className="card"><h2>Cifra de negocio, clientes y deuda a corto <small>miles de euros</small></h2><Legend items={[['Cifra de negocio', C.cS], ['Clientes', C.cobro], ['Deuda a corto', C.pago]]} /><ChartCanvas config={cfgs.g3} /></div>
-      <div className="card"><h2>Índices de evolución <small>primer año = 1</small></h2><Legend items={[['Cifra de negocio', C.cS, true], ['Clientes', C.cobro, true], ['Deuda a corto', C.pago, true]]} /><ChartCanvas config={cfgs.g4} /></div>
-      <div className="card"><h2>Producción y gastos <small>miles de euros</small></h2><Legend items={[['Producción', C.cS], ['Compras', C.ajuste], ['Gastos de estructura', C.cG], ['Gastos de funcionamiento', C.estim], ['Resultado act. ordinarias', C.cobro]]} /><ChartCanvas config={cfgs.g5} /></div>
-      <div className="card"><h2>Peso sobre la producción <small>%</small></h2><Legend items={[['Compras', C.ajuste, true], ['Gastos de estructura', C.cG, true], ['Gastos de funcionamiento', C.estim, true], ['Resultado act. ordinarias', C.cobro, true]]} /><ChartCanvas config={cfgs.g6} /></div>
+      <div className="card"><h2>Activo y deuda <small>miles de euros</small><SaberMas id="a_graficos" compact /></h2><Legend items={[['Activo', C.accent], ['Deuda a largo', C.estim], ['Deuda a corto', C.pago]]} /><ChartCanvas config={cfgs.g1} /></div>
+      <div className="card"><h2>Realizable + disponible frente a deuda a corto <small>miles de euros</small><SaberMas id="a_graficos" compact /></h2><Legend items={[['Realizable + disponible', C.cobro], ['Deuda a corto', C.pago]]} /><ChartCanvas config={cfgs.g2} /></div>
+      <div className="card"><h2>Cifra de negocio, clientes y deuda a corto <small>miles de euros</small><SaberMas id="a_graficos" compact /></h2><Legend items={[['Cifra de negocio', C.cS], ['Clientes', C.cobro], ['Deuda a corto', C.pago]]} /><ChartCanvas config={cfgs.g3} /></div>
+      <div className="card"><h2>Índices de evolución <small>primer año = 1</small><SaberMas id="a_graficos" compact /></h2><Legend items={[['Cifra de negocio', C.cS, true], ['Clientes', C.cobro, true], ['Deuda a corto', C.pago, true]]} /><ChartCanvas config={cfgs.g4} /></div>
+      <div className="card"><h2>Producción y gastos <small>miles de euros</small><SaberMas id="a_graficos" compact /></h2><Legend items={[['Producción', C.cS], ['Compras', C.ajuste], ['Gastos de estructura', C.cG], ['Gastos de funcionamiento', C.estim], ['Resultado act. ordinarias', C.cobro]]} /><ChartCanvas config={cfgs.g5} /></div>
+      <div className="card"><h2>Peso sobre la producción <small>%</small><SaberMas id="a_graficos" compact /></h2><Legend items={[['Compras', C.ajuste, true], ['Gastos de estructura', C.cG, true], ['Gastos de funcionamiento', C.estim, true], ['Resultado act. ordinarias', C.cobro, true]]} /><ChartCanvas config={cfgs.g6} /></div>
     </div>
   );
 }
@@ -602,7 +603,7 @@ export function CuentasTab({ r, unmapped }: { r: AfResult; unmapped: AccountingU
   return (
     <>
       <div className="card">
-        <h2>Comprobaciones <small>como en la portada de la plantilla: deben salir a 0</small></h2>
+        <h2>Comprobaciones <small>como en la portada de la plantilla: deben salir a 0</small><SaberMas id="a_comprob" /></h2>
         <Tbl name="Comprobaciones" className="tbl">
           <table className="aft">
             <thead><tr><th>Comprobación</th>{r.y.map((y) => <th key={y} className="n">{y}</th>)}</tr></thead>
@@ -615,7 +616,7 @@ export function CuentasTab({ r, unmapped }: { r: AfResult; unmapped: AccountingU
         </Tbl>
       </div>
       <div className="card">
-        <h2>Cuentas sin clasificar <small>su código no encaja en ninguna partida; se han sumado a la indicada para que el balance cuadre</small></h2>
+        <h2>Cuentas sin clasificar <small>su código no encaja en ninguna partida; se han sumado a la indicada para que el balance cuadre</small><SaberMas id="a_sinclas" /></h2>
         {unmapped.length === 0 ? <div className="afempty">Todas las cuentas con saldo están clasificadas.</div> : (
           <Tbl name="Cuentas sin clasificar" className="tbl scroll">
             <table className="aft">
